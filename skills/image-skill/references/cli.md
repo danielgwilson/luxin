@@ -244,9 +244,11 @@ step.
   it includes the recommendation reason, preferred browserless x402 method, and
   `quote_command` plus copy-runnable quote/buy/status command templates from
   `usage quota`. On quota/payment recovery errors, the same browserless
-  handoff is exposed at `error.recovery.top_up.quote_command`; prefer it when
-  delegated live-money quoting is allowed, and use
-  `error.recovery.suggested_command` for no-spend payment-method inspection.
+  handoff is exposed at `error.recovery.top_up.quote_command`, and
+  `error.recovery.suggested_command` points at that direct quote when delegated
+  live-money quoting is allowed. Use `error.recovery.top_up.first_command` for
+  no-spend payment-method inspection when delegated spend authority is absent or
+  unclear.
 - `ready_to_create`: `data.next_command` is a live media create. Its
   `data.self_fund_preparation` is the pre-wall top-up affordance; when
   `available` is true, it mirrors top-up `urgency`, `urgency_score`, and

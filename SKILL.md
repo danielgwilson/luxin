@@ -193,8 +193,10 @@ At any guide stage, read `data.checks.quota.top_up`: when `recommended` is
 true it includes the recommendation reason, preferred browserless x402 method,
 `quote_command`, and copy-runnable quote/buy/status command templates. When
 quota/payment errors return `error.recovery.top_up`, prefer its
-`quote_command` when delegated live-money quoting is allowed; use
-`error.recovery.suggested_command` for no-spend payment-method inspection. When
+`quote_command` when delegated live-money quoting is allowed; on quota recovery
+errors, `error.recovery.suggested_command` points at that direct quote. Use
+`error.recovery.top_up.first_command` for no-spend payment-method inspection
+when delegated spend authority is absent or unclear. When
 `create --guide`
 reaches `quota_required`, read
 `data.checks.payments.preferred_method_summary.top_up_path` before quoting:
