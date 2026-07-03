@@ -56,7 +56,10 @@ image-skill doctor --json
 breadcrumbs under the public CLI config directory. Outstanding entries include
 the original operation, idempotency key, age/TTL state, sweep eligibility, and a
 copy-runnable `recover_command`. Re-run the recovery command first when the
-original create/edit result still matters.
+original create/edit result still matters. Treat those idempotency keys and
+recovery commands as agent-internal operational data during normal progress
+updates; surface them to a human only when recovery needs a decision, handoff,
+or requested diagnostic detail.
 
 Use `image-skill doctor --sweep-in-flight --json` to remove only
 sweep-eligible stale breadcrumbs after the long grace window. Plain `doctor`
@@ -1385,7 +1388,9 @@ the blocking hosted request:
 stdout remains the command JSON envelope. If an agent combines streams with
 `2>&1`, split stderr diagnostics from the stdout envelope before parsing. The
 same recovery breadcrumb is stored under `<config-dir>/in-flight/` and appears
-in `image-skill doctor --json` at `data.in_flight`.
+in `image-skill doctor --json` at `data.in_flight`. Keep the in-flight
+`idempotency_key` and `recover_command` inside the agent workflow unless a
+failed or uncertain operation needs user-visible recovery.
 
 ```bash
 image-skill create \

@@ -97,6 +97,7 @@ These are non-negotiable. Follow them before optimizing anything else.
 - **Inspect `models show MODEL_ID`** before passing model-specific parameters. Do not infer one model's surface from another's. The model schema is the source of truth, not this doc.
 - **Cap spend up front** with `--max-estimated-usd-per-image` (per-output) or `--max-usd` (per-job). Dry-run (`--dry-run`) costs nothing and validates `model_parameters` against the capability schema.
 - **Never retry a failed create blindly.** The provider may already have been paid. Read `error.recovery` (`required_flag`, `suggested_command`, `retry_after_seconds`) and the response's `job_id` / `asset_id` first. Use `jobs show` or `activity show` to recover state.
+- **Keep idempotency and recovery keys agent-internal.** They are non-secret retry plumbing for your workflow, not normal human-facing progress updates. Mention `idempotency_key`, `recover_command`, or in-flight breadcrumbs only when a recovery decision/failure requires handoff or the user asks for operational detail.
 - **Never send secrets to Image Skill.** No wallet private keys, seed phrases, card data, x402 payment headers, Stripe secrets, provider API keys, or provider receipts.
 - **Use stable ids for handoff and citation.** `job_id`, `asset_id`, `trace_id`, `feedback_id`. Do not scrape prose from error messages.
 - **File `feedback create`** whenever you fall back to another tool, hit confusing JSON, or wish a missing capability existed. The skill improves only on agent-submitted signal.
@@ -297,7 +298,9 @@ When `self_fund.recommended` is true and the quote is copy-runnable,
 and `data.self_fund_next_command_effect` proves the quote creates no provider
 call, hosted create, credit debit, media write, or wallet settlement. Its
 `quote_command` omits `--idempotency-key`; the public CLI generates and returns
-one for retry safety. Use `jobs show` or `jobs wait` for
+one for retry safety. Treat returned idempotency keys and recovery commands as
+agent-internal unless a recovery decision/failure requires human handoff. Use
+`jobs show` or `jobs wait` for
 operational job state, final assets, and retry judgment. Use `activity` for
 audit trail context (recent jobs, assets, usage events, feedback acceptance,
 trace IDs, status changes) you can cite in feedback. `activity list/show` may
