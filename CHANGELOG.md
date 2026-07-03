@@ -6,6 +6,14 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.1.71 - 2026-07-03
+
+- Release (agent UX/trust): publish the public contract guidance from #2057
+  clarifying that idempotency keys, recovery commands, and in-flight
+  reservation breadcrumbs are agent-internal details during normal progress
+  updates. No payment caps, wallet action, provider spend, hosted deploy,
+  production write, or media generation behavior changed in this release bump.
+
 ## 0.1.70 - 2026-06-25
 
 - Release (activation/self-fund): publish the post-success self-fund handoff
