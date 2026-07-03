@@ -6,6 +6,15 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.1.72 - 2026-07-03
+
+- Release (activation/self-fund): publish the quota-wall recovery contract from
+  #2064 so `error.recovery.suggested_command` points directly at the
+  browserless x402 top-up quote while `error.recovery.top_up.first_command`
+  remains the no-spend payment-method inspection path. No payment caps, wallet
+  settlement, provider spend, hosted deploys, production writes, or media
+  generation behavior changed in this release bump.
+
 ## 0.1.71 - 2026-07-03
 
 - Release (agent UX/trust): publish the public contract guidance from #2057

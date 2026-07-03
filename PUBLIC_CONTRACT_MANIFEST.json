@@ -5,7 +5,7 @@
   "source_root": "docs/public-contract",
   "public_repo": "danielgwilson/image-skill-cli",
   "package_name": "image-skill",
-  "package_version": "0.1.71",
+  "package_version": "0.1.72",
   "note": "Generated from private upstream public contracts. Do not edit by hand.",
   "files": [
     {
