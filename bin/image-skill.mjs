@@ -686,6 +686,12 @@ async function doctor(argv) {
   });
 }
 
+function unsupportedFlagsMessage(command, flags) {
+  return `unsupported flags for ${command}: ${flags
+    .map((flag) => `--${flag}`)
+    .join(", ")}`;
+}
+
 async function trust(argv) {
   const args = parseArgs(argv);
   const unsupportedFlags = [...args.flags.keys()].filter(
@@ -695,7 +701,7 @@ async function trust(argv) {
     return invalid(
       "image-skill trust",
       unsupportedFlags.length > 0
-        ? `unsupported flags for trust: ${unsupportedFlags.map((flag) => `--${flag}`).join(", ")}`
+        ? unsupportedFlagsMessage("trust", unsupportedFlags)
         : "trust does not accept positional arguments",
     );
   }
@@ -1157,7 +1163,7 @@ async function credits(argv) {
       return invalid(
         "image-skill credits methods",
         unknownFlags.length > 0
-          ? `unsupported flags for credits methods: ${unknownFlags.map((flag) => `--${flag}`).join(", ")}`
+          ? unsupportedFlagsMessage("credits methods", unknownFlags)
           : "credits methods does not accept positional arguments",
       );
     }
@@ -1195,7 +1201,7 @@ async function credits(argv) {
       return invalid(
         "image-skill credits packs list",
         unknownFlags.length > 0
-          ? `unsupported flags for credits packs list: ${unknownFlags.map((flag) => `--${flag}`).join(", ")}`
+          ? unsupportedFlagsMessage("credits packs list", unknownFlags)
           : "credits packs list does not accept positional arguments",
       );
     }
@@ -2039,11 +2045,7 @@ async function createGuide(args, options = {}) {
                     requestedIntent,
                     guideOperation,
                   )
-                : createGuideSelectedModelRequiresInputImage(selected)
-                  ? selected.modality === "3d"
-                    ? "requested executable image-to-3D model"
-                    : "requested executable input-image edit model"
-                  : "requested executable create model",
+                : createGuideRequestedSelectionReason(selected),
           },
     cost: {
       estimated_credits: estimatedCredits,
@@ -2480,8 +2482,10 @@ function createGuideXaiImageCostEstimate(model, modelParameters, context) {
       : 0;
   const sourceImageCount = edit ? 1 + referenceAssetCount : 0;
   const inputUsdPerImage = quality ? 0.01 : 0.002;
-  const outputUsdPerImage =
-    quality && resolution === "2k" ? 0.07 : quality ? 0.05 : 0.02;
+  let outputUsdPerImage = 0.02;
+  if (quality) {
+    outputUsdPerImage = resolution === "2k" ? 0.07 : 0.05;
+  }
   const defaultResolution =
     modelParameters?.resolution === undefined ||
     modelParameters?.resolution === null ||
@@ -2668,6 +2672,16 @@ function createGuideSelectedModelRequiresInputImage(model) {
     Array.isArray(model?.supports) &&
     (model.supports.includes("edit") || model.supports.includes("variation"))
   );
+}
+
+function createGuideRequestedSelectionReason(model) {
+  if (createGuideSelectedModelRequiresInputImage(model)) {
+    if (model.modality === "3d") {
+      return "requested executable image-to-3D model";
+    }
+    return "requested executable input-image edit model";
+  }
+  return "requested executable create model";
 }
 
 function createGuideSelectionReason(
@@ -3952,6 +3966,10 @@ function createGuideWarning(stage, input) {
   if (stage === "quota_required") {
     const paymentTopUpPath =
       input.paymentSummary.preferred_method_summary?.top_up_path ?? null;
+    const warning = createGuideQuotaWarning({
+      copyRunnable: input.nextCommandCopyRunnable,
+      paymentTopUpPath,
+    });
     return {
       ...base,
       next_command_safety: "live_money_payment_action",
@@ -3960,17 +3978,7 @@ function createGuideWarning(stage, input) {
       spend_required: true,
       recommended_command_field: "escape_hatches",
       payment_top_up_path: paymentTopUpPath,
-      warning: input.nextCommandCopyRunnable
-        ? paymentTopUpPath === "browserless_agent_self_fund"
-          ? "data.next_command starts the browserless live-money top-up path; stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only payment inspection."
-          : paymentTopUpPath === "human_payment_handoff"
-            ? "data.next_command starts a live-money payment handoff that needs human or browser completion; stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only inspection."
-            : "data.next_command starts payment or quota recovery; inspect data.checks.payments before attempting live money, or use data.escape_hatches.payment_methods for read-only inspection."
-        : paymentTopUpPath === "browserless_agent_self_fund"
-          ? "data.next_command is a browserless live-money top-up template; fill data.next_command_missing_inputs before running it, stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only payment inspection."
-          : paymentTopUpPath === "human_payment_handoff"
-            ? "data.next_command is a live-money payment handoff template; fill data.next_command_missing_inputs before running it, stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only inspection."
-            : "data.next_command is a live-money payment template; fill data.next_command_missing_inputs before running it, stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only inspection.",
+      warning,
     };
   }
   return {
@@ -3982,6 +3990,25 @@ function createGuideWarning(stage, input) {
     warning:
       "data.next_command is a live media create that can call a provider, debit credits, and create media. Run it only when media spend is allowed; otherwise run data.recommended_no_spend_command.",
   };
+}
+
+function createGuideQuotaWarning(input) {
+  if (input.copyRunnable) {
+    if (input.paymentTopUpPath === "browserless_agent_self_fund") {
+      return "data.next_command starts the browserless live-money top-up path; stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only payment inspection.";
+    }
+    if (input.paymentTopUpPath === "human_payment_handoff") {
+      return "data.next_command starts a live-money payment handoff that needs human or browser completion; stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only inspection.";
+    }
+    return "data.next_command starts payment or quota recovery; inspect data.checks.payments before attempting live money, or use data.escape_hatches.payment_methods for read-only inspection.";
+  }
+  if (input.paymentTopUpPath === "browserless_agent_self_fund") {
+    return "data.next_command is a browserless live-money top-up template; fill data.next_command_missing_inputs before running it, stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only payment inspection.";
+  }
+  if (input.paymentTopUpPath === "human_payment_handoff") {
+    return "data.next_command is a live-money payment handoff template; fill data.next_command_missing_inputs before running it, stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only inspection.";
+  }
+  return "data.next_command is a live-money payment template; fill data.next_command_missing_inputs before running it, stay within the delegated cap, or use data.escape_hatches.payment_methods for read-only inspection.";
 }
 
 function createGuideNextCommandMissingInputs(command) {
