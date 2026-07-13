@@ -135,7 +135,7 @@ luxin usage quota
 
 If the runtime supports stdin secret handoff, prefer `--token-stdin` over `--token` for `whoami`, `usage quota`, `create`, and `feedback create`. The guide returns `data.auth_handoff` with copy-safe env and stdin command templates so the token never lands in prompts, logs, or feedback.
 
-If the default config home is read-only, set `IMAGE_SKILL_CONFIG_PATH` to a writable path before `signup`. Do not fall back to another tool because the install or default config directory is blocked. `create --guide` detects this and makes `data.next_command` a saved-config signup template prefixed with `IMAGE_SKILL_CONFIG_PATH="$PWD/.luxin/config.json"`; fill `data.next_command_missing_inputs` before running it. The `--show-token --no-save` plus `--token-stdin` route stays available only as structured fallback recovery.
+If the default config home is read-only, set `LUXIN_CONFIG_PATH` to a writable path before `signup`. Do not fall back to another tool because the install or default config directory is blocked. `create --guide` detects this and makes `data.next_command` a saved-config signup template prefixed with `LUXIN_CONFIG_PATH="$PWD/.luxin/config.json"`; fill `data.next_command_missing_inputs` before running it. The `--show-token --no-save` plus `--token-stdin` route stays available only as structured fallback recovery.
 
 Install paths, in order of preference:
 

@@ -108,7 +108,7 @@ luxin signup --agent \
 Hosted signup saves the restricted `isk_r_` token to the public CLI config by
 default with `0600` permissions, so later hosted commands can authenticate from
 config without repeating signup or carrying a raw token through prompts. Set
-`IMAGE_SKILL_CONFIG_PATH` first when the default config home may be read-only.
+`LUXIN_CONFIG_PATH` first when the default config home may be read-only.
 Successful default signup reports `data.auth_handoff.status` as
 `saved_config_ready`, keeps `data.token` null, and should not require any
 token-copy step.
@@ -348,10 +348,11 @@ npx skills add danielgwilson/luxin --full-depth --skill luxin -g -a codex -y
 
 Hosted signup saves auth state to the public CLI config by default. If the
 runtime needs a writable compatibility config path, set
-`IMAGE_SKILL_CONFIG_PATH` before `signup`:
+`LUXIN_CONFIG_PATH` before `signup`:
 
 ```bash
-export IMAGE_SKILL_CONFIG_PATH="$PWD/.luxin/config.json"
+export LUXIN_CONFIG_PATH="$PWD/.luxin/config.json"
+# legacy name IMAGE_SKILL_CONFIG_PATH remains honored
 npm_config_update_notifier=false npx -y luxin-cli@latest signup --agent \
   --agent-name creative-agent \
   --runtime codex \
@@ -364,7 +365,7 @@ then rerun `create --guide` for the requested creative flow.
 When `create --guide` reaches `auth_required`, it probes the configured auth
 path first. If local config cannot be written, `data.next_command` prefixes the
 normal saved-config signup with
-`IMAGE_SKILL_CONFIG_PATH="$PWD/.luxin/config.json"`, so the first recovery
+`LUXIN_CONFIG_PATH="$PWD/.luxin/config.json"`, so the first recovery
 step still saves auth locally without exposing the one-time token.
 `--show-token --no-save` and `data.auth_handoff.rerun_guide.with_stdin` remain
 structured fallback paths for runtimes that intentionally use a separate secret

@@ -76,6 +76,10 @@ luxin create --guide --prompt "A tiny studio robot painting a postcard"
 
 The public CLI supports Node.js 20 and newer.
 
+Naming note: Luxin is a creative-media runtime for agents. It is unrelated to
+`luxon`, the datetime library; the npm package here is `luxin-cli` and the
+installed binary is `luxin`.
+
 Agent-facing contracts:
 
 - [Hosted skill contract](https://luxin.sh/skill.md)
@@ -120,14 +124,14 @@ runtime intentionally wants to store the token somewhere else.
 `create --guide` checks whether the configured auth path is writable before it
 suggests a signup command. If the configured path is blocked, the guide keeps
 saved config as the primary recovery by returning a signup command prefixed
-with `IMAGE_SKILL_CONFIG_PATH="$PWD/.luxin/config.json"`. The
+with `LUXIN_CONFIG_PATH="$PWD/.luxin/config.json"`. The
 `--show-token --no-save` plus `--token-stdin` route remains structured fallback
 recovery for runtimes that intentionally avoid local config.
 
 Fresh sandboxes should prefer:
 
 ```bash
-export IMAGE_SKILL_CONFIG_PATH="$PWD/.luxin/config.json"
+export LUXIN_CONFIG_PATH="$PWD/.luxin/config.json"
 npm_config_update_notifier=false npx -y luxin-cli@latest signup --agent --agent-name creative-agent --runtime openclaw --json
 ```
 

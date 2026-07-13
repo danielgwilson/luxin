@@ -3379,7 +3379,7 @@ function createGuideAuthHandoff(stage, input) {
         public_cli_saves_config: true,
         store_token_in: authConfigWritable
           ? "public_cli_config_by_default"
-          : "public_cli_config_after_setting_IMAGE_SKILL_CONFIG_PATH",
+          : "public_cli_config_after_setting_LUXIN_CONFIG_PATH",
         config_path: configPath(),
         config_writable: authConfigWritable,
         preferred_save_config:
@@ -4307,7 +4307,12 @@ function createGuideCommandPrefix(input = {}) {
   return renderShellEnvPrefixedCommand(
     {
       npm_config_update_notifier: "false",
-      ...(configPath === null ? {} : { IMAGE_SKILL_CONFIG_PATH: configPath }),
+      ...(configPath === null
+        ? {}
+        : {
+            LUXIN_CONFIG_PATH: configPath,
+            IMAGE_SKILL_CONFIG_PATH: configPath,
+          }),
       ...(discoverySource === null
         ? {}
         : { IMAGE_SKILL_DISCOVERY_SOURCE: discoverySource }),
@@ -4324,7 +4329,8 @@ function configuredDiscoverySource() {
 }
 
 function configuredImageSkillConfigPath() {
-  const configPath = process.env.IMAGE_SKILL_CONFIG_PATH;
+  const configPath =
+    process.env.LUXIN_CONFIG_PATH ?? process.env.IMAGE_SKILL_CONFIG_PATH;
   return typeof configPath === "string" && configPath.length > 0
     ? configPath
     : null;
@@ -4347,7 +4353,7 @@ function shellEnvAssignmentValue(name, value) {
 }
 
 function renderWritableConfigCommand(command) {
-  return `IMAGE_SKILL_CONFIG_PATH="${LOCAL_WRITABLE_CONFIG_PATH}" ${command}`;
+  return `LUXIN_CONFIG_PATH="${LOCAL_WRITABLE_CONFIG_PATH}" ${command}`;
 }
 
 function stripImageSkillCommandPrefix(command) {
@@ -6497,14 +6503,14 @@ function configWriteRecovery(command) {
   );
   if (command === "luxin auth save") {
     return {
-      config_path_env: "IMAGE_SKILL_CONFIG_PATH",
+      config_path_env: "LUXIN_CONFIG_PATH",
       suggested_config_path: LOCAL_WRITABLE_CONFIG_PATH,
       suggested_command: renderWritableConfigCommand("luxin auth save --json"),
       docs_url: "https://luxin.sh/cli.md#local-config-and-install",
     };
   }
   return {
-    config_path_env: "IMAGE_SKILL_CONFIG_PATH",
+    config_path_env: "LUXIN_CONFIG_PATH",
     suggested_config_path: LOCAL_WRITABLE_CONFIG_PATH,
     suggested_command: baseSignupCommand,
     fallback_command: `${SIGNUP_SUGGESTED_COMMAND} --show-token --no-save`,
@@ -6735,7 +6741,11 @@ function apiBase(args) {
 }
 
 function configPath() {
-  return process.env.IMAGE_SKILL_CONFIG_PATH ?? DEFAULT_CONFIG_PATH;
+  return (
+    process.env.LUXIN_CONFIG_PATH ??
+    process.env.IMAGE_SKILL_CONFIG_PATH ??
+    DEFAULT_CONFIG_PATH
+  );
 }
 
 function hasEnvToken() {
