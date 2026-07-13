@@ -1,16 +1,16 @@
 {
-  "name": "image-skill",
-  "version": "0.1.72",
+  "name": "luxin-cli",
+  "version": "0.2.0",
   "description": "Zero-setup durable creative-media CLI for agents (image + video + audio + 3D): guide-first creation, model and cost inspection, owned URLs, JSON recovery, payments, reusable assets, and feedback.",
   "type": "module",
   "private": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danielgwilson/image-skill-cli.git"
+    "url": "git+https://github.com/danielgwilson/luxin.git"
   },
-  "homepage": "https://image-skill.com",
+  "homepage": "https://luxin.sh",
   "bin": {
-    "image-skill": "bin/image-skill.mjs"
+    "luxin": "bin/luxin.mjs"
   },
   "files": [
     "bin",

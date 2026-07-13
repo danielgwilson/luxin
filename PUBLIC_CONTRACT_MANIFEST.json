@@ -1,39 +1,39 @@
 {
   "schema": "image-skill.public-contract-manifest.v1",
   "generated_by": "scripts/public/export-public-cli.mjs",
-  "source_repo": "danielgwilson/image-skill",
+  "source_repo": "danielgwilson/luxin-labs",
   "source_root": "docs/public-contract",
-  "public_repo": "danielgwilson/image-skill-cli",
-  "package_name": "image-skill",
-  "package_version": "0.1.72",
+  "public_repo": "danielgwilson/luxin",
+  "package_name": "luxin-cli",
+  "package_version": "0.2.0",
   "note": "Generated from private upstream public contracts. Do not edit by hand.",
   "files": [
     {
       "source_path": "docs/public-contract/skill.md",
-      "public_paths": ["SKILL.md", "skill.md", "skills/image-skill/SKILL.md"],
-      "bytes": 30027,
-      "sha256": "2ffcd8a88d0747053059f6f8ae7369dfa285b385de3395795ff3e854a65c9268"
+      "public_paths": ["SKILL.md", "skill.md", "skills/luxin/SKILL.md"],
+      "bytes": 29676,
+      "sha256": "b45e6bd7a1f951383fe43b1b3576f0bd91e214ea7f66b0f9ea9c781aeb3e4e1b"
     },
     {
       "source_path": "docs/public-contract/cli.md",
-      "public_paths": ["cli.md", "skills/image-skill/references/cli.md"],
-      "bytes": 84965,
-      "sha256": "c13d495ae0ae8327dd59a495c951f39c2de2e2c4cfe53eff3df8b4f652fba0a3"
+      "public_paths": ["cli.md", "skills/luxin/references/cli.md"],
+      "bytes": 83757,
+      "sha256": "1e112e2088b21317fc3ee46bf4c6affb6b962582893f93c096c5a9e33731ac8e"
     },
     {
       "source_path": "docs/public-contract/llms.txt",
-      "public_paths": ["llms.txt", "skills/image-skill/references/llms.txt"],
-      "bytes": 40655,
-      "sha256": "3709dca8f9ec9e7b34c6c644ae03a927324b05e716296fdf2b5aed468cf89567"
+      "public_paths": ["llms.txt", "skills/luxin/references/llms.txt"],
+      "bytes": 39779,
+      "sha256": "984cf41adac994cb5355a1497bdbad4094a0a191c52218f8d2e430fe913bb93d"
     },
     {
       "source_path": "docs/public-contract/commands.json",
       "public_paths": [
         "commands.json",
-        "skills/image-skill/references/commands.json"
+        "skills/luxin/references/commands.json"
       ],
-      "bytes": 17352,
-      "sha256": "fb933d6e056b3b3f4d5021ef01a872d13e627a9e29fb4cf1c0caff1c65eee5c1"
+      "bytes": 16283,
+      "sha256": "c96ad2afe12df848015453533484ce125ca8be750c69ad9c1bd55c1a12d90c02"
     }
   ]
 }

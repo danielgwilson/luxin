@@ -1,8 +1,8 @@
-# image-skill@VERSION
+# luxin@VERSION
 
 ## Package
 
-- npm package: `image-skill@VERSION`
+- npm package: `luxin-cli@VERSION`
 - public repo commit: `PUBLIC_REPO_COMMIT`
 - publish workflow run: `PUBLISH_WORKFLOW_URL`
 - npm tarball: `NPM_TARBALL_URL`
@@ -11,11 +11,11 @@
 
 ## Public Contracts
 
-- Skill: `https://image-skill.com/skill.md`
-- LLM contract: `https://image-skill.com/llms.txt`
-- CLI contract: `https://image-skill.com/cli.md`
-- Command manifest: `https://image-skill.com/commands.json`
-- Hosted API health: `https://api.image-skill.com/healthz`
+- Skill: `https://luxin.sh/skill.md`
+- LLM contract: `https://luxin.sh/llms.txt`
+- CLI contract: `https://luxin.sh/cli.md`
+- Command manifest: `https://luxin.sh/commands.json`
+- Hosted API health: `https://api.luxin.sh/healthz`
 
 ## What Changed
 
@@ -26,10 +26,10 @@
 Agents can verify this release with:
 
 ```bash
-npm view image-skill@VERSION version gitHead dist.integrity dist.tarball dist.attestations.url repository.url --json
-git ls-remote https://github.com/danielgwilson/image-skill-cli.git
-npm exec --yes --package image-skill@VERSION -- image-skill version --json
-npm exec --yes --package image-skill@VERSION -- image-skill doctor --json
+npm view luxin-cli@VERSION version gitHead dist.integrity dist.tarball dist.attestations.url repository.url --json
+git ls-remote https://github.com/danielgwilson/luxin.git
+npm exec --yes --package luxin@VERSION -- luxin version --json
+npm exec --yes --package luxin@VERSION -- luxin doctor --json
 ```
 
 `gitHead` from npm metadata is the source commit for the published package.

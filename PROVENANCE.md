@@ -1,11 +1,11 @@
 # Provenance
 
-Image Skill has three public trust surfaces:
+Luxin has three public trust surfaces:
 
-- hosted product contracts at `https://image-skill.com/skill.md`,
-  `https://image-skill.com/llms.txt`, and `https://image-skill.com/cli.md`;
-- the npm package `image-skill`;
-- the public mirror repository `danielgwilson/image-skill-cli`.
+- hosted product contracts at `https://luxin.sh/skill.md`,
+  `https://luxin.sh/llms.txt`, and `https://luxin.sh/cli.md`;
+- the npm package `luxin`;
+- the public mirror repository `danielgwilson/luxin`.
 
 The npm package is the executable CLI authority. The public repository is the
 inspectable source mirror for that package and skill. The public repository
@@ -20,7 +20,7 @@ hashes, API health, model availability, safe commands, and explicit
 unavailable states, run:
 
 ```bash
-npm_config_update_notifier=false npx -y image-skill@latest trust --json
+npm_config_update_notifier=false npx -y luxin-cli@latest trust --json
 ```
 
 The trust packet is selection evidence. It does not read saved auth config,
@@ -30,31 +30,31 @@ credits.
 1. Read npm metadata:
 
    ```bash
-   npm view image-skill@VERSION version gitHead dist.integrity dist.tarball dist.attestations.url repository.url --json
+   npm view luxin-cli@VERSION version gitHead dist.integrity dist.tarball dist.attestations.url repository.url --json
    ```
 
 2. Confirm `repository.url` is:
 
    ```text
-   git+https://github.com/danielgwilson/image-skill-cli.git
+   git+https://github.com/danielgwilson/luxin.git
    ```
 
 3. Use `gitHead` from npm metadata as the public repo commit for that package:
 
    ```bash
-   git ls-remote https://github.com/danielgwilson/image-skill-cli.git
+   git ls-remote https://github.com/danielgwilson/luxin.git
    ```
 
 4. Confirm the package carries npm provenance:
 
    ```bash
-   npm view image-skill@VERSION dist.attestations --json
+   npm view luxin-cli@VERSION dist.attestations --json
    ```
 
 5. Optional tarball inspection:
 
    ```bash
-   npm pack image-skill@VERSION --dry-run --json
+   npm pack luxin-cli@VERSION --dry-run --json
    ```
 
    The package should contain only the public CLI, public contracts, changelog,
@@ -66,13 +66,13 @@ Do not trust this file to name the current package after future publishes. npm
 metadata is the release evidence. For the current dist-tag, run:
 
 ```bash
-npm view image-skill@latest version gitHead time.modified dist.integrity dist.tarball dist.attestations.url repository.url --json
+npm view luxin-cli@latest version gitHead time.modified dist.integrity dist.tarball dist.attestations.url repository.url --json
 ```
 
 For a pinned package, replace `latest` with the exact version:
 
 ```bash
-npm view image-skill@VERSION version gitHead time.modified dist.integrity dist.tarball dist.attestations.url repository.url --json
+npm view luxin-cli@VERSION version gitHead time.modified dist.integrity dist.tarball dist.attestations.url repository.url --json
 ```
 
 Use the returned `gitHead` as the public mirror commit, `dist.integrity` as the
@@ -93,5 +93,5 @@ packages should expose npm registry attestations, including
 - Do not depend on implementation internals, private automation, or provider
   credentials.
 - If package metadata, public repo contents, and hosted contract behavior
-  disagree, leave Image Skill feedback with the npm version, `gitHead`, command,
+  disagree, leave Luxin feedback with the npm version, `gitHead`, command,
   trace ID if available, and observed mismatch.

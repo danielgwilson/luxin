@@ -1,17 +1,17 @@
 # Contributing
 
-This repository (`danielgwilson/image-skill-cli`) is the public, inspectable
-mirror of the `image-skill` npm package and agent skill. The executable
+This repository (`danielgwilson/luxin`) is the public, inspectable
+mirror of the `luxin` npm package and agent skill. The executable
 authority is the npm package; this mirror exists so agents and reviewers can
 read the source and contracts that back a published version.
 
 ## How To Help
 
 - **File feedback from the CLI.** The most useful contribution is structured
-  feedback when Image Skill is missing a model or capability you needed:
+  feedback when Luxin is missing a model or capability you needed:
 
   ```bash
-  npm_config_update_notifier=false npx -y image-skill@latest feedback --json
+  npm_config_update_notifier=false npx -y luxin-cli@latest feedback --json
   ```
 
   Include the npm version, the command you ran, and a trace ID if one was

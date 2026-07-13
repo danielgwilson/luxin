@@ -1,4 +1,4 @@
-name: Publish image-skill to ClawHub
+name: Publish luxin to ClawHub
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ on:
         description: Skill folder for publish-single.
         type: string
         required: false
-        default: "skills/image-skill"
+        default: "skills/luxin"
       tags:
         description: Optional comma-separated ClawHub tags for publish-single.
         type: string
@@ -49,7 +49,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - skill_path: skills/image-skill
+          - skill_path: skills/luxin
             tags: latest,image-generation,text-to-image,image-to-image,image-editing,video-generation,audio-generation,image-to-3d,creative-media,zero-setup
           - skill_path: skills/agent-image-generation
             tags: latest,agent-image-generation,image-generation,ai-image-generation,text-to-image,prompt-to-image,creative-media,zero-setup,x402

@@ -10,22 +10,19 @@ const manifestSchema = "image-skill.public-contract-manifest.v1";
 const requiredContracts = [
   {
     source_path: "docs/public-contract/skill.md",
-    public_paths: ["SKILL.md", "skill.md", "skills/image-skill/SKILL.md"],
+    public_paths: ["SKILL.md", "skill.md", "skills/luxin/SKILL.md"],
   },
   {
     source_path: "docs/public-contract/cli.md",
-    public_paths: ["cli.md", "skills/image-skill/references/cli.md"],
+    public_paths: ["cli.md", "skills/luxin/references/cli.md"],
   },
   {
     source_path: "docs/public-contract/llms.txt",
-    public_paths: ["llms.txt", "skills/image-skill/references/llms.txt"],
+    public_paths: ["llms.txt", "skills/luxin/references/llms.txt"],
   },
   {
     source_path: "docs/public-contract/commands.json",
-    public_paths: [
-      "commands.json",
-      "skills/image-skill/references/commands.json",
-    ],
+    public_paths: ["commands.json", "skills/luxin/references/commands.json"],
   },
 ];
 
@@ -37,14 +34,14 @@ const packageManifest = await readJson("package.json");
 if (manifest.schema !== manifestSchema) {
   problems.push(`manifest schema must be ${manifestSchema}`);
 }
-if (manifest.source_repo !== "danielgwilson/image-skill") {
-  problems.push("manifest source_repo must be danielgwilson/image-skill");
+if (manifest.source_repo !== "danielgwilson/luxin-labs") {
+  problems.push("manifest source_repo must be danielgwilson/luxin-labs");
 }
 if (manifest.source_root !== "docs/public-contract") {
   problems.push("manifest source_root must be docs/public-contract");
 }
-if (manifest.public_repo !== "danielgwilson/image-skill-cli") {
-  problems.push("manifest public_repo must be danielgwilson/image-skill-cli");
+if (manifest.public_repo !== "danielgwilson/luxin") {
+  problems.push("manifest public_repo must be danielgwilson/luxin");
 }
 if (manifest.package_name !== packageManifest.name) {
   problems.push("manifest package_name must match package.json");
@@ -53,11 +50,11 @@ if (manifest.package_version !== packageManifest.version) {
   problems.push("manifest package_version must match package.json");
 }
 
-const cliSource = await readText("bin/image-skill.mjs");
+const cliSource = await readText("bin/luxin.mjs");
 const cliVersion = cliSource.match(/const VERSION = "([^"]+)";/)?.[1];
 if (cliVersion !== packageManifest.version) {
   problems.push(
-    `bin/image-skill.mjs VERSION must match package.json version ${packageManifest.version}; saw ${cliVersion ?? "<missing>"}`,
+    `bin/luxin.mjs VERSION must match package.json version ${packageManifest.version}; saw ${cliVersion ?? "<missing>"}`,
   );
 }
 
@@ -101,7 +98,7 @@ if (problems.length > 0) {
       "",
       ...problems.map((problem) => `- ${problem}`),
       "",
-      "Regenerate this repository from the private image-skill public export instead of editing mirrored contract files by hand.",
+      "Regenerate this repository from the private luxin public export instead of editing mirrored contract files by hand.",
     ].join("\n"),
   );
   process.exit(1);

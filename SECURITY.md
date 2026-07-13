@@ -1,6 +1,6 @@
 # Security
 
-`image-skill` is a single-file Node.js CLI with a deliberately small attack
+`luxin` is a single-file Node.js CLI with a deliberately small attack
 surface. This document states the package's supply-chain posture so reviewers
 and automated scanners can verify it directly.
 
@@ -13,7 +13,7 @@ and automated scanners can verify it directly.
 - **No install/postinstall scripts.** `package.json` declares no `scripts`
   field, so nothing executes on `npm install` / `npx`.
 - **Node built-ins only.** The entire runtime is one file,
-  `bin/image-skill.mjs`, and it imports only Node.js built-in modules
+  `bin/luxin.mjs`, and it imports only Node.js built-in modules
   (`node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:stream`,
   `node:stream/promises`, `node:os`). It bundles no native bindings.
 - **MIT licensed**, published from GitHub Actions via npm OIDC trusted
@@ -25,7 +25,7 @@ The published package carries npm registry attestations, including SLSA
 provenance. For any version `VERSION`:
 
 ```bash
-npm view image-skill@VERSION dist.attestations --json
+npm view luxin-cli@VERSION dist.attestations --json
 ```
 
 Attestations are also served directly by the registry:
@@ -37,14 +37,14 @@ https://registry.npmjs.org/-/npm/v1/attestations/image-skill@VERSION
 For the current dist-tag, read the live attestation URL from npm metadata:
 
 ```bash
-npm view image-skill@latest dist.attestations.url --json
+npm view luxin-cli@latest dist.attestations.url --json
 ```
 
 For an agent-readable trust packet that combines npm metadata, hosted contract
 hashes, API health, model availability, and safe commands, run:
 
 ```bash
-npm_config_update_notifier=false npx -y image-skill@latest trust --json
+npm_config_update_notifier=false npx -y luxin-cli@latest trust --json
 ```
 
 The `trust` command is read-only selection evidence: it does not read saved

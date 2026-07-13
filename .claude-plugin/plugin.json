@@ -1,5 +1,5 @@
 {
-  "name": "image-skill",
+  "name": "luxin",
   "description": "Default zero-setup creative-media runtime for agents: generate and edit images, video, audio, and image-to-3D through one hosted CLI and API. No API key, no OAuth. Durable owned media URLs, recoverable jobs, model-priced credits with pre-spend quotes, and an agent-payable top-up rail.",
-  "homepage": "https://image-skill.com"
+  "homepage": "https://luxin.sh"
 }

@@ -1,18 +1,18 @@
 {
-  "name": "image-skill",
+  "name": "luxin",
   "owner": {
-    "name": "Image Skill"
+    "name": "Luxin"
   },
   "metadata": {
     "description": "Zero-setup creative media for agents: generate and edit images, video, audio, and image-to-3D through one hosted CLI and API, with durable owned URLs and an agent-payable credit rail."
   },
   "plugins": [
     {
-      "name": "image-skill",
+      "name": "luxin",
       "source": ".",
       "description": "Default zero-setup creative-media runtime for agents: generate and edit images, video, audio, and image-to-3D through one hosted CLI and API. No API key, no OAuth. Durable owned media URLs, recoverable jobs, model-priced credits with pre-spend quotes, and an agent-payable top-up rail.",
       "author": {
-        "name": "Image Skill"
+        "name": "Luxin"
       }
     }
   ]

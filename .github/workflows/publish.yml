@@ -1,4 +1,4 @@
-name: Publish image-skill
+name: Publish luxin
 
 on:
   workflow_dispatch:
@@ -25,8 +25,8 @@ jobs:
       - name: Verify package shape
         run: |
           npm pack --dry-run --json
-          node bin/image-skill.mjs version --json
-          node bin/image-skill.mjs doctor --json
+          node bin/luxin.mjs version --json
+          node bin/luxin.mjs doctor --json
 
       - name: Publish
         run: npm publish --access public

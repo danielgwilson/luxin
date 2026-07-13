@@ -15,42 +15,42 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import os from "node:os";
 
-const VERSION = "0.1.72";
-const PACKAGE_NAME = "image-skill";
-const DEFAULT_API_BASE_URL = "https://api.image-skill.com";
-const DEFAULT_DOCS_BASE_URL = "https://image-skill.com";
+const VERSION = "0.2.0";
+const PACKAGE_NAME = "luxin";
+const DEFAULT_API_BASE_URL = "https://api.luxin.sh";
+const DEFAULT_DOCS_BASE_URL = "https://luxin.sh";
 const DEFAULT_NPM_REGISTRY_BASE_URL = "https://registry.npmjs.org";
-const PUBLIC_REPO_URL = "https://github.com/danielgwilson/image-skill-cli";
+const PUBLIC_REPO_URL = "https://github.com/danielgwilson/luxin";
 const IN_FLIGHT_RESERVATION_TTL_MS = 15 * 60 * 1000;
 const IN_FLIGHT_SWEEP_AFTER_MS = 24 * 60 * 60 * 1000;
 const PROMPTLESS_EDIT_MODEL_IDS = new Set([
   "fal.flux-dev-redux",
   "fal.flux-krea-redux",
   "fal.flux-schnell-redux",
-  // Promptless image-to-3D variation: the documented `image-skill edit --input
+  // Promptless image-to-3D variation: the documented `luxin edit --input
   // image_... --model fal.trellis-image-to-3d` (no --prompt) must succeed; the
   // provider rejects any prompt, so the public CLI must not require/send one.
   "fal.trellis-image-to-3d",
 ]);
 const DEFAULT_CONFIG_PATH = join(
   process.env.XDG_CONFIG_HOME ?? join(os.homedir(), ".config"),
-  "image-skill",
+  "luxin",
   "config.json",
 );
-const LOCAL_WRITABLE_CONFIG_PATH = "$PWD/.image-skill/config.json";
+const LOCAL_WRITABLE_CONFIG_PATH = "$PWD/.luxin/config.json";
 const SIGNUP_SUGGESTED_COMMAND =
-  "image-skill signup --agent --agent-name NAME --runtime RUNTIME --json";
+  "luxin signup --agent --agent-name NAME --runtime RUNTIME --json";
 const SIGNUP_CONTACT_GUIDANCE =
-  "Signup is anonymous by default: no contact inbox is required to get a restricted token. --agent-contact stays optional for attaching an email-shaped durable contact inbox at signup; otherwise attach one later with `image-skill claim request --contact INBOX --json` when funding or durability makes it worth having. Never invent an inbox or borrow an unrelated human email just to fill the flag. --human-email remains a compatibility alias.";
+  "Signup is anonymous by default: no contact inbox is required to get a restricted token. --agent-contact stays optional for attaching an email-shaped durable contact inbox at signup; otherwise attach one later with `luxin claim request --contact INBOX --json` when funding or durability makes it worth having. Never invent an inbox or borrow an unrelated human email just to fill the flag. --human-email remains a compatibility alias.";
 const CLAIM_REQUEST_SUGGESTED_COMMAND =
-  "image-skill claim request --contact AGENT_OR_OPERATOR_INBOX --json";
+  "luxin claim request --contact AGENT_OR_OPERATOR_INBOX --json";
 const HOSTED_SIGNUP_TOKEN_RETURNED_WARNING =
   "hosted restricted token is returned once; store it in the agent runtime secret store and never paste it into prompts, logs, issues, or product feedback";
 const PUBLIC_NPX_COMMAND_PREFIX =
-  "npm_config_update_notifier=false npx -y image-skill@latest";
-const AGENT_SKILL_URL = "https://image-skill.com/skill.md";
-const AGENT_LLMS_URL = "https://image-skill.com/llms.txt";
-const AGENT_CLI_DOCS_URL = "https://image-skill.com/cli.md";
+  "npm_config_update_notifier=false npx -y luxin-cli@latest";
+const AGENT_SKILL_URL = "https://luxin.sh/skill.md";
+const AGENT_LLMS_URL = "https://luxin.sh/llms.txt";
+const AGENT_CLI_DOCS_URL = "https://luxin.sh/cli.md";
 const CREDIT_UNIT_USD = 0.01;
 const TARGET_GROSS_MARGIN = 0.4;
 const PAYMENT_BACKED_CREDIT_PAYMENT_FEE_RATE = 0.015;
@@ -104,7 +104,7 @@ const GUIDE_NEXT_COMMAND_PLACEHOLDERS = [
     placeholder: "RUNTIME_NAME",
     flag: "--runtime",
     value_description:
-      "Stable name for the agent runtime or substrate using Image Skill.",
+      "Stable name for the agent runtime or substrate using Luxin.",
     effect_description: "agent/runtime substrate name",
     example: "codex-cli",
   },
@@ -142,18 +142,18 @@ const GUIDE_NEXT_COMMAND_PLACEHOLDERS = [
     placeholder: "image_...",
     flag: "--input",
     value_description:
-      "Image Skill input asset id, usually from upload, assets, jobs, or a previous create.",
-    effect_description: "Image Skill input asset id",
+      "Luxin input asset id, usually from upload, assets, jobs, or a previous create.",
+    effect_description: "Luxin input asset id",
     example: null,
   },
 ];
 
-function agentSkillHint(commandPrefix = "image-skill") {
+function agentSkillHint(commandPrefix = "luxin") {
   return {
     url: AGENT_SKILL_URL,
     llms_url: AGENT_LLMS_URL,
     cli_docs_url: AGENT_CLI_DOCS_URL,
-    read_command: "curl -fsSL https://image-skill.com/skill.md",
+    read_command: "curl -fsSL https://luxin.sh/skill.md",
     recommended_start_command: renderGuidePrefixedCommand(
       commandPrefix,
       "create --guide --prompt PROMPT --json",
@@ -193,9 +193,9 @@ async function main(rawArgv) {
   }
 
   if (command === "version" || command === "--version" || command === "-v") {
-    return success("image-skill version", {
+    return success("luxin version", {
       version: VERSION,
-      package: "image-skill",
+      package: "luxin",
       mode: "public_hosted_cli",
     });
   }
@@ -240,14 +240,14 @@ async function main(rawArgv) {
         return await feedback(rest);
       default:
         return failure(
-          `image-skill ${command}`,
+          `luxin ${command}`,
           2,
           "PUBLIC_CLI_COMMAND_NOT_AVAILABLE",
           `public CLI command is not available: ${command}`,
           false,
           {
-            suggested_command: "image-skill help --json",
-            docs_url: "https://image-skill.com/cli.md",
+            suggested_command: "luxin help --json",
+            docs_url: "https://luxin.sh/cli.md",
           },
         );
     }
@@ -322,8 +322,8 @@ function commandHelpByKey(key) {
     "": {
       command: "help",
       usage:
-        "image-skill <doctor|trust|signup|claim|whoami|usage|quota|credits|capabilities|models|create|upload|edit|assets|jobs|activity|feedback> --json",
-      docs_url: "https://image-skill.com/cli.md",
+        "luxin <doctor|trust|signup|claim|whoami|usage|quota|credits|capabilities|models|create|upload|edit|assets|jobs|activity|feedback> --json",
+      docs_url: "https://luxin.sh/cli.md",
       agent_skill: agentSkillHint(),
       commands: [
         "doctor",
@@ -364,25 +364,24 @@ function commandHelpByKey(key) {
       ],
     },
     doctor: {
-      command: "image-skill doctor help",
-      usage: "image-skill doctor --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-doctor",
+      command: "luxin doctor help",
+      usage: "luxin doctor --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-doctor",
       description:
         "Check hosted API reachability, CLI version, auth state, health, and live-spend recovery breadcrumbs.",
       optional_flags: ["--sweep-in-flight"],
     },
     trust: {
-      command: "image-skill trust help",
-      usage: "image-skill trust --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-trust",
+      command: "luxin trust help",
+      usage: "luxin trust --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-trust",
       description:
         "Return npm provenance, hosted contract hashes, API health, and model availability evidence.",
     },
     signup: {
-      command: "image-skill signup help",
-      usage:
-        "image-skill signup --agent --agent-name NAME --runtime RUNTIME --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-signup-agent",
+      command: "luxin signup help",
+      usage: "luxin signup --agent --agent-name NAME --runtime RUNTIME --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-signup-agent",
       required_flags: ["--agent", "--agent-name", "--runtime"],
       optional_flags: [
         "--agent-contact",
@@ -392,113 +391,110 @@ function commandHelpByKey(key) {
       ],
     },
     claim: {
-      command: "image-skill claim help",
-      usage:
-        "image-skill claim request --contact AGENT_OR_OPERATOR_INBOX --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-claim-request",
+      command: "luxin claim help",
+      usage: "luxin claim request --contact AGENT_OR_OPERATOR_INBOX --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-claim-request",
       subcommands: ["request"],
     },
     "claim request": {
-      command: "image-skill claim request help",
-      usage:
-        "image-skill claim request --contact AGENT_OR_OPERATOR_INBOX --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-claim-request",
+      command: "luxin claim request help",
+      usage: "luxin claim request --contact AGENT_OR_OPERATOR_INBOX --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-claim-request",
       required_flags: ["--contact"],
       optional_flags: ["--token-stdin"],
     },
     auth: {
-      command: "image-skill auth help",
-      usage: "image-skill auth <status|save|logout> --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-auth",
+      command: "luxin auth help",
+      usage: "luxin auth <status|save|logout> --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-auth",
       subcommands: ["status", "save", "logout"],
     },
     "auth status": {
-      command: "image-skill auth status help",
-      usage: "image-skill auth status --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-auth",
+      command: "luxin auth status help",
+      usage: "luxin auth status --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-auth",
     },
     "auth save": {
-      command: "image-skill auth save help",
-      usage: "image-skill auth save --token-stdin --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-auth",
+      command: "luxin auth save help",
+      usage: "luxin auth save --token-stdin --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-auth",
     },
     "auth logout": {
-      command: "image-skill auth logout help",
-      usage: "image-skill auth logout --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-auth",
+      command: "luxin auth logout help",
+      usage: "luxin auth logout --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-auth",
     },
     whoami: {
-      command: "image-skill whoami help",
-      usage: "image-skill whoami --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-whoami",
+      command: "luxin whoami help",
+      usage: "luxin whoami --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-whoami",
     },
     usage: {
-      command: "image-skill usage help",
-      usage: "image-skill usage quota --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-usage",
+      command: "luxin usage help",
+      usage: "luxin usage quota --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-usage",
       subcommands: ["quota"],
     },
     "usage quota": {
-      command: "image-skill usage quota help",
-      usage: "image-skill usage quota --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-usage",
+      command: "luxin usage quota help",
+      usage: "luxin usage quota --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-usage",
     },
     quota: {
-      command: "image-skill quota help",
-      usage: "image-skill quota --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-quota",
+      command: "luxin quota help",
+      usage: "luxin quota --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-quota",
     },
     credits: {
-      command: "image-skill credits help",
-      usage: "image-skill credits <methods|packs list|quote|buy|status> --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-credits",
+      command: "luxin credits help",
+      usage: "luxin credits <methods|packs list|quote|buy|status> --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-credits",
       subcommands: ["methods", "packs list", "quote", "buy", "status"],
     },
     "credits methods": {
-      command: "image-skill credits methods help",
-      usage: "image-skill credits methods",
-      docs_url: "https://image-skill.com/cli.md#image-skill-credits",
+      command: "luxin credits methods help",
+      usage: "luxin credits methods",
+      docs_url: "https://luxin.sh/cli.md#luxin-credits",
     },
     "credits packs": {
-      command: "image-skill credits packs help",
-      usage: "image-skill credits packs list --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-credits",
+      command: "luxin credits packs help",
+      usage: "luxin credits packs list --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-credits",
       subcommands: ["list"],
     },
     "credits quote": {
-      command: "image-skill credits quote help",
+      command: "luxin credits quote help",
       usage:
-        "image-skill credits quote --pack PACK_ID --payment-method stripe_x402.exact.usdc --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-credits",
+        "luxin credits quote --pack PACK_ID --payment-method stripe_x402.exact.usdc --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-credits",
       required_flags: ["--pack or --credits", "--payment-method"],
       optional_flags: ["--idempotency-key"],
     },
     "credits buy": {
-      command: "image-skill credits buy help",
+      command: "luxin credits buy help",
       usage:
-        "image-skill credits buy --provider stripe_x402 --quote-id QUOTE_ID --idempotency-key KEY --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-credits",
+        "luxin credits buy --provider stripe_x402 --quote-id QUOTE_ID --idempotency-key KEY --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-credits",
       required_flags: ["--provider", "--quote-id", "--idempotency-key"],
       supported_providers: ["stripe", "stripe_x402"],
     },
     "credits status": {
-      command: "image-skill credits status help",
+      command: "luxin credits status help",
       usage:
-        "image-skill credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-credits",
+        "luxin credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-credits",
       required_flags: ["--payment-attempt-id"],
     },
     models: {
-      command: "image-skill models help",
-      usage: "image-skill models <list|show> --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-models",
+      command: "luxin models help",
+      usage: "luxin models <list|show> --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-models",
       subcommands: ["list", "show"],
     },
     "models list": {
-      command: "image-skill models list help",
-      usage:
-        "image-skill models list --available --operation image.generate --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-models",
+      command: "luxin models list help",
+      usage: "luxin models list --available --operation image.generate --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-models",
       optional_flags: [
         "--available",
         "--executable",
@@ -512,31 +508,31 @@ function commandHelpByKey(key) {
       ],
     },
     "models show": {
-      command: "image-skill models show help",
-      usage: "image-skill models show MODEL_ID --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-models",
+      command: "luxin models show help",
+      usage: "luxin models show MODEL_ID --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-models",
     },
     capabilities: {
-      command: "image-skill capabilities help",
-      usage: "image-skill capabilities <list|show> --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-capabilities",
+      command: "luxin capabilities help",
+      usage: "luxin capabilities <list|show> --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-capabilities",
       subcommands: ["list", "show"],
     },
     "capabilities list": {
-      command: "image-skill capabilities list help",
-      usage: "image-skill capabilities list --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-capabilities",
+      command: "luxin capabilities list help",
+      usage: "luxin capabilities list --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-capabilities",
     },
     "capabilities show": {
-      command: "image-skill capabilities show help",
-      usage: "image-skill capabilities show CAPABILITY_ID --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-capabilities",
+      command: "luxin capabilities show help",
+      usage: "luxin capabilities show CAPABILITY_ID --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-capabilities",
     },
     create: {
-      command: "image-skill create help",
+      command: "luxin create help",
       usage:
-        'image-skill create --prompt "..." --intent explore --max-estimated-usd-per-image 0.07 --json',
-      docs_url: "https://image-skill.com/cli.md#image-skill-create",
+        'luxin create --prompt "..." --intent explore --max-estimated-usd-per-image 0.07 --json',
+      docs_url: "https://luxin.sh/cli.md#luxin-create",
       optional_flags: [
         "--guide",
         "--dry-run",
@@ -551,14 +547,14 @@ function commandHelpByKey(key) {
       ],
     },
     upload: {
-      command: "image-skill upload help",
-      usage: "image-skill upload PATH_OR_URL --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-upload",
+      command: "luxin upload help",
+      usage: "luxin upload PATH_OR_URL --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-upload",
     },
     edit: {
-      command: "image-skill edit help",
-      usage: 'image-skill edit --input image_... --prompt "..." --json',
-      docs_url: "https://image-skill.com/cli.md#image-skill-edit",
+      command: "luxin edit help",
+      usage: 'luxin edit --input image_... --prompt "..." --json',
+      docs_url: "https://luxin.sh/cli.md#luxin-edit",
       required_flags: ["--input"],
       optional_flags: [
         "--guide",
@@ -574,64 +570,64 @@ function commandHelpByKey(key) {
       ],
     },
     assets: {
-      command: "image-skill assets help",
-      usage: "image-skill assets <show|get> ASSET_ID_OR_URL --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-assets",
+      command: "luxin assets help",
+      usage: "luxin assets <show|get> ASSET_ID_OR_URL --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-assets",
       subcommands: ["show", "get"],
     },
     "assets show": {
-      command: "image-skill assets show help",
-      usage: "image-skill assets show ASSET_ID_OR_URL --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-assets",
+      command: "luxin assets show help",
+      usage: "luxin assets show ASSET_ID_OR_URL --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-assets",
     },
     "assets get": {
-      command: "image-skill assets get help",
-      usage: "image-skill assets get ASSET_ID_OR_URL --output PATH --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-assets",
+      command: "luxin assets get help",
+      usage: "luxin assets get ASSET_ID_OR_URL --output PATH --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-assets",
     },
     jobs: {
-      command: "image-skill jobs help",
-      usage: "image-skill jobs <show|wait> JOB_ID --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-jobs",
+      command: "luxin jobs help",
+      usage: "luxin jobs <show|wait> JOB_ID --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-jobs",
       subcommands: ["show", "wait"],
     },
     "jobs show": {
-      command: "image-skill jobs show help",
-      usage: "image-skill jobs show JOB_ID --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-jobs",
+      command: "luxin jobs show help",
+      usage: "luxin jobs show JOB_ID --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-jobs",
     },
     "jobs wait": {
-      command: "image-skill jobs wait help",
-      usage: "image-skill jobs wait JOB_ID --timeout-ms 30000 --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-jobs",
+      command: "luxin jobs wait help",
+      usage: "luxin jobs wait JOB_ID --timeout-ms 30000 --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-jobs",
     },
     activity: {
-      command: "image-skill activity help",
-      usage: "image-skill activity <list|show> --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-activity",
+      command: "luxin activity help",
+      usage: "luxin activity <list|show> --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-activity",
       subcommands: ["list", "show"],
     },
     "activity list": {
-      command: "image-skill activity list help",
-      usage: "image-skill activity list --subject JOB_ID --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-activity",
+      command: "luxin activity list help",
+      usage: "luxin activity list --subject JOB_ID --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-activity",
     },
     "activity show": {
-      command: "image-skill activity show help",
-      usage: "image-skill activity show REFERENCE --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-activity",
+      command: "luxin activity show help",
+      usage: "luxin activity show REFERENCE --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-activity",
     },
     feedback: {
-      command: "image-skill feedback help",
-      usage: "image-skill feedback create --title TITLE --body BODY --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-feedback",
+      command: "luxin feedback help",
+      usage: "luxin feedback create --title TITLE --body BODY --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-feedback",
       subcommands: ["create"],
     },
     "feedback create": {
-      command: "image-skill feedback create help",
+      command: "luxin feedback create help",
       usage:
-        "image-skill feedback create --title TITLE --body BODY --type user_feedback --json",
-      docs_url: "https://image-skill.com/cli.md#image-skill-feedback",
+        "luxin feedback create --title TITLE --body BODY --type user_feedback --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-feedback",
       optional_flags: [
         "--title",
         "--body",
@@ -655,14 +651,14 @@ async function doctor(argv) {
     now: new Date(),
   });
   const health = await apiRequest({
-    command: "image-skill doctor",
+    command: "luxin doctor",
     method: "GET",
     apiBaseUrl,
     path: "/healthz",
   });
-  return success("image-skill doctor", {
+  return success("luxin doctor", {
     cli_version: VERSION,
-    package: "image-skill",
+    package: "luxin",
     mode: "public_hosted_cli",
     api_base_url: apiBaseUrl,
     hosted_api: {
@@ -699,16 +695,13 @@ async function trust(argv) {
   );
   if (args.positionals.length > 0 || unsupportedFlags.length > 0) {
     return invalid(
-      "image-skill trust",
+      "luxin trust",
       unsupportedFlags.length > 0
         ? unsupportedFlagsMessage("trust", unsupportedFlags)
         : "trust does not accept positional arguments",
     );
   }
-  const tokenHandoff = await acceptNoAuthTokenHandoff(
-    args,
-    "image-skill trust",
-  );
+  const tokenHandoff = await acceptNoAuthTokenHandoff(args, "luxin trust");
   if (tokenHandoff !== null) {
     return tokenHandoff;
   }
@@ -728,13 +721,13 @@ async function trust(argv) {
       docsBaseUrl,
     }),
     apiRequest({
-      command: "image-skill trust",
+      command: "luxin trust",
       method: "GET",
       apiBaseUrl,
       path: "/healthz",
     }),
     apiRequest({
-      command: "image-skill trust",
+      command: "luxin trust",
       method: "GET",
       apiBaseUrl,
       path: "/v1/models",
@@ -765,7 +758,7 @@ async function trust(argv) {
   });
 
   return success(
-    "image-skill trust",
+    "luxin trust",
     {
       schema: "image-skill.trust-packet.v0",
       checked_at: checkedAt,
@@ -802,14 +795,14 @@ async function trust(argv) {
 async function signup(argv) {
   const args = parseArgs(argv);
   if (!flagBool(args, "agent")) {
-    return invalid("image-skill signup", "signup currently requires --agent");
+    return invalid("luxin signup", "signup currently requires --agent");
   }
   const contact = signupContact(args);
   const agentName = flagString(args, "agent-name");
   const runtime = flagString(args, "runtime");
   if (!contact.ok) {
     return failure(
-      "image-skill signup",
+      "luxin signup",
       2,
       "INVALID_ARGUMENTS",
       contact.message,
@@ -818,7 +811,7 @@ async function signup(argv) {
         required_flags: ["--agent-name", "--runtime"],
         optional_flags: ["--agent-contact", "--discovery-source"],
         suggested_command: SIGNUP_SUGGESTED_COMMAND,
-        docs_url: "https://image-skill.com/cli.md#image-skill-signup-agent",
+        docs_url: "https://luxin.sh/cli.md#luxin-signup-agent",
       },
     );
   }
@@ -827,7 +820,7 @@ async function signup(argv) {
   // `claim request --contact INBOX`.
   if (agentName === null || runtime === null) {
     return failure(
-      "image-skill signup",
+      "luxin signup",
       2,
       "INVALID_ARGUMENTS",
       `signup requires --agent-name and --runtime. ${SIGNUP_CONTACT_GUIDANCE}`,
@@ -839,7 +832,7 @@ async function signup(argv) {
           "--human-email": "--agent-contact",
         },
         suggested_command: SIGNUP_SUGGESTED_COMMAND,
-        docs_url: "https://image-skill.com/cli.md#image-skill-signup-agent",
+        docs_url: "https://luxin.sh/cli.md#luxin-signup-agent",
       },
     );
   }
@@ -847,14 +840,11 @@ async function signup(argv) {
   const noSave = flagBool(args, "no-save");
   const saveRequested = flagBool(args, "save");
   if (saveRequested && noSave) {
-    return invalid(
-      "image-skill signup",
-      "use either --save or --no-save, not both",
-    );
+    return invalid("luxin signup", "use either --save or --no-save, not both");
   }
   const shouldSave = !noSave;
   if (shouldSave) {
-    const configReady = await assertConfigWritable("image-skill signup");
+    const configReady = await assertConfigWritable("luxin signup");
     if (!configReady.ok) {
       return configReady.result;
     }
@@ -867,7 +857,7 @@ async function signup(argv) {
     process.env.IMAGE_SKILL_DISCOVERY_SOURCE?.trim() ||
     null;
   const result = await apiRequest({
-    command: "image-skill signup",
+    command: "luxin signup",
     method: "POST",
     apiBaseUrl: apiBase(args),
     path: "/v1/agent-signups",
@@ -881,7 +871,7 @@ async function signup(argv) {
         : { discovery_source: discoverySource }),
     },
   });
-  result.envelope.command = "image-skill signup";
+  result.envelope.command = "luxin signup";
   rewriteSignupContactFailure(result);
 
   const token = result.envelope.data?.token;
@@ -891,14 +881,14 @@ async function signup(argv) {
   if (result.envelope.ok && shouldSave) {
     if (typeof token !== "string" || token.trim().length === 0) {
       return failure(
-        "image-skill signup",
+        "luxin signup",
         3,
         "AUTH_REQUIRED",
         "hosted signup did not return the restricted token needed for local auth save",
         false,
         {
           suggested_command: `${SIGNUP_SUGGESTED_COMMAND} --show-token --no-save`,
-          docs_url: "https://image-skill.com/cli.md#image-skill-signup-agent",
+          docs_url: "https://luxin.sh/cli.md#luxin-signup-agent",
         },
       );
     }
@@ -910,7 +900,7 @@ async function signup(argv) {
         actor: null,
       });
     } catch (error) {
-      return configWriteFailure("image-skill signup", error);
+      return configWriteFailure("luxin signup", error);
     }
   }
   if (result.envelope.ok && showToken) {
@@ -969,14 +959,14 @@ async function claim(argv) {
   const [subcommand, ...rest] = argv;
   if (subcommand !== "request") {
     return failure(
-      "image-skill claim",
+      "luxin claim",
       2,
       "INVALID_ARGUMENTS",
       "claim requires the request subcommand",
       false,
       {
         suggested_command: CLAIM_REQUEST_SUGGESTED_COMMAND,
-        docs_url: "https://image-skill.com/cli.md#image-skill-claim-request",
+        docs_url: "https://luxin.sh/cli.md#luxin-claim-request",
       },
     );
   }
@@ -984,7 +974,7 @@ async function claim(argv) {
   const contact = flagString(args, "contact");
   if (contact === null || contact.trim().length === 0) {
     return failure(
-      "image-skill claim request",
+      "luxin claim request",
       2,
       "INVALID_ARGUMENTS",
       "claim request requires --contact, an email-shaped durable contact inbox (agent-owned when available, otherwise an operator, team, or sponsor inbox)",
@@ -992,7 +982,7 @@ async function claim(argv) {
       {
         required_flags: ["--contact"],
         suggested_command: CLAIM_REQUEST_SUGGESTED_COMMAND,
-        docs_url: "https://image-skill.com/cli.md#image-skill-claim-request",
+        docs_url: "https://luxin.sh/cli.md#luxin-claim-request",
       },
     );
   }
@@ -1001,7 +991,7 @@ async function claim(argv) {
     return token.result;
   }
   return apiRequest({
-    command: "image-skill claim request",
+    command: "luxin claim request",
     method: "POST",
     apiBaseUrl: apiBase(args),
     path: "/v1/agent-claims",
@@ -1026,7 +1016,7 @@ function rewriteSignupContactFailure(result) {
     error.recovery = {
       ...(error.recovery ?? {}),
       suggested_command: SIGNUP_SUGGESTED_COMMAND,
-      docs_url: "https://image-skill.com/cli.md#image-skill-signup-agent",
+      docs_url: "https://luxin.sh/cli.md#luxin-signup-agent",
     };
   }
 }
@@ -1049,14 +1039,14 @@ async function auth(argv) {
   if (subcommand === "status") {
     const token = await resolveToken(args);
     if (!token.ok) {
-      return success("image-skill auth status", {
+      return success("luxin auth status", {
         authenticated: false,
         source: null,
         config_path: configPath(),
       });
     }
     const result = await apiRequest({
-      command: "image-skill auth status",
+      command: "luxin auth status",
       method: "GET",
       apiBaseUrl: apiBase(args),
       path: "/v1/whoami",
@@ -1075,7 +1065,7 @@ async function auth(argv) {
     if (!token.ok) {
       return token.result;
     }
-    const configReady = await assertConfigWritable("image-skill auth save");
+    const configReady = await assertConfigWritable("luxin auth save");
     if (!configReady.ok) {
       return configReady.result;
     }
@@ -1087,9 +1077,9 @@ async function auth(argv) {
         actor: null,
       });
     } catch (error) {
-      return configWriteFailure("image-skill auth save", error);
+      return configWriteFailure("luxin auth save", error);
     }
-    return success("image-skill auth save", {
+    return success("luxin auth save", {
       saved: true,
       config_path: configPath(),
       token_source: token.source,
@@ -1097,12 +1087,12 @@ async function auth(argv) {
   }
   if (subcommand === "logout") {
     await rm(configPath(), { force: true });
-    return success("image-skill auth logout", {
+    return success("luxin auth logout", {
       saved: false,
       config_path: configPath(),
     });
   }
-  return invalid("image-skill auth", "auth requires status, save, or logout");
+  return invalid("luxin auth", "auth requires status, save, or logout");
 }
 
 async function whoami(argv) {
@@ -1112,7 +1102,7 @@ async function whoami(argv) {
     return token.result;
   }
   return apiRequest({
-    command: "image-skill whoami",
+    command: "luxin whoami",
     method: "GET",
     apiBaseUrl: apiBase(args),
     path: "/v1/whoami",
@@ -1123,15 +1113,15 @@ async function whoami(argv) {
 async function usage(argv) {
   const [subcommand, ...rest] = argv;
   if (subcommand === undefined || subcommand.startsWith("-")) {
-    return await quota(argv, "image-skill usage quota");
+    return await quota(argv, "luxin usage quota");
   }
   if (subcommand !== "quota") {
-    return invalid("image-skill usage", "usage requires the quota subcommand");
+    return invalid("luxin usage", "usage requires the quota subcommand");
   }
-  return quota(rest, "image-skill usage quota");
+  return quota(rest, "luxin usage quota");
 }
 
-async function quota(argv, command = "image-skill quota") {
+async function quota(argv, command = "luxin quota") {
   const args = parseArgs(argv);
   const token = await resolveToken(args);
   if (!token.ok) {
@@ -1161,7 +1151,7 @@ async function credits(argv) {
     );
     if (args.positionals.length > 0 || unknownFlags.length > 0) {
       return invalid(
-        "image-skill credits methods",
+        "luxin credits methods",
         unknownFlags.length > 0
           ? unsupportedFlagsMessage("credits methods", unknownFlags)
           : "credits methods does not accept positional arguments",
@@ -1169,14 +1159,14 @@ async function credits(argv) {
     }
     const tokenHandoff = await acceptNoAuthTokenHandoff(
       args,
-      "image-skill credits methods",
+      "luxin credits methods",
     );
     if (tokenHandoff !== null) {
       return tokenHandoff;
     }
     return withCopyRunnablePaymentMethodCommands(
       await apiRequest({
-        command: "image-skill credits methods",
+        command: "luxin credits methods",
         method: "GET",
         apiBaseUrl: apiBase(args),
         path: "/v1/payment-methods",
@@ -1188,7 +1178,7 @@ async function credits(argv) {
     const [packsSubcommand, ...packsRest] = rest;
     if (packsSubcommand !== "list") {
       return invalid(
-        "image-skill credits packs",
+        "luxin credits packs",
         "credits packs requires the list subcommand",
       );
     }
@@ -1199,7 +1189,7 @@ async function credits(argv) {
     );
     if (args.positionals.length > 0 || unknownFlags.length > 0) {
       return invalid(
-        "image-skill credits packs list",
+        "luxin credits packs list",
         unknownFlags.length > 0
           ? unsupportedFlagsMessage("credits packs list", unknownFlags)
           : "credits packs list does not accept positional arguments",
@@ -1207,13 +1197,13 @@ async function credits(argv) {
     }
     const tokenHandoff = await acceptNoAuthTokenHandoff(
       args,
-      "image-skill credits packs list",
+      "luxin credits packs list",
     );
     if (tokenHandoff !== null) {
       return tokenHandoff;
     }
     return apiRequest({
-      command: "image-skill credits packs list",
+      command: "luxin credits packs list",
       method: "GET",
       apiBaseUrl: apiBase(args),
       path: "/v1/credit-packs",
@@ -1223,7 +1213,7 @@ async function credits(argv) {
     const args = parseArgs(rest);
     const credentialFlag = rejectPaymentCredentialFlags(
       args,
-      "image-skill credits quote",
+      "luxin credits quote",
     );
     if (credentialFlag !== null) {
       return credentialFlag;
@@ -1232,7 +1222,7 @@ async function credits(argv) {
     const pack = flagString(args, "pack");
     if (creditsValue === null && pack === null) {
       return invalid(
-        "image-skill credits quote",
+        "luxin credits quote",
         "credits quote requires --pack PACK_ID or --credits N",
       );
     }
@@ -1244,13 +1234,13 @@ async function credits(argv) {
     ];
     if (paymentMethod === null) {
       return invalid(
-        "image-skill credits quote",
+        "luxin credits quote",
         "credits quote requires --payment-method from credits methods; use stripe_x402.exact.usdc for an agent-settleable browserless rail or stripe_checkout for a human Checkout handoff",
       );
     }
     if (!PUBLIC_QUOTE_PAYMENT_METHODS.includes(paymentMethod)) {
       return invalid(
-        "image-skill credits quote",
+        "luxin credits quote",
         `public credits quote supports --payment-method ${PUBLIC_QUOTE_PAYMENT_METHODS.join(" or ")}`,
       );
     }
@@ -1273,7 +1263,7 @@ async function credits(argv) {
     const commandPrefix = createGuideCommandPrefix();
     const result = withCopyRunnableQuotaRecoveryCommands(
       await apiRequest({
-        command: "image-skill credits quote",
+        command: "luxin credits quote",
         method: "POST",
         apiBaseUrl: apiBase(args),
         path: "/v1/credit-quotes",
@@ -1293,7 +1283,7 @@ async function credits(argv) {
     const args = parseArgs(rest);
     const credentialFlag = rejectPaymentCredentialFlags(
       args,
-      "image-skill credits buy",
+      "luxin credits buy",
     );
     if (credentialFlag !== null) {
       return credentialFlag;
@@ -1301,16 +1291,13 @@ async function credits(argv) {
     const provider = flagString(args, "provider");
     if (provider !== "stripe" && provider !== "stripe_x402") {
       return invalid(
-        "image-skill credits buy",
+        "luxin credits buy",
         "credits buy supports --provider stripe (hosted checkout) or --provider stripe_x402 (agent-native USDC deposit)",
       );
     }
     const quoteId = flagString(args, "quote-id");
     if (quoteId === null) {
-      return invalid(
-        "image-skill credits buy",
-        "credits buy requires --quote-id",
-      );
+      return invalid("luxin credits buy", "credits buy requires --quote-id");
     }
     const token = await resolveToken(args);
     if (!token.ok) {
@@ -1318,7 +1305,7 @@ async function credits(argv) {
     }
     const idempotency = requiredIdempotencyKey(
       args,
-      "image-skill credits buy",
+      "luxin credits buy",
       "credits buy creates or replays a payment purchase and requires --idempotency-key for retry-safe payment mutation",
     );
     if (!idempotency.ok) {
@@ -1331,7 +1318,7 @@ async function credits(argv) {
     const commandPrefix = createGuideCommandPrefix();
     const result = withCopyRunnableQuotaRecoveryCommands(
       await apiRequest({
-        command: "image-skill credits buy",
+        command: "luxin credits buy",
         method: "POST",
         apiBaseUrl: apiBase(args),
         path: purchasePath,
@@ -1362,7 +1349,7 @@ async function credits(argv) {
     const commandPrefix = createGuideCommandPrefix();
     const result = withCopyRunnableQuotaRecoveryCommands(
       await apiRequest({
-        command: "image-skill credits status",
+        command: "luxin credits status",
         method: "GET",
         apiBaseUrl: apiBase(args),
         path: `/v1/credit-purchases/status?${query.toString()}`,
@@ -1376,7 +1363,7 @@ async function credits(argv) {
     );
   }
   return invalid(
-    "image-skill credits",
+    "luxin credits",
     "credits requires methods, packs, quote, buy, or status",
   );
 }
@@ -1416,13 +1403,13 @@ async function models(argv) {
   if (subcommand === "show") {
     if (args.positionals.length !== 1) {
       return invalid(
-        "image-skill models show",
+        "luxin models show",
         "models show requires exactly one MODEL_ID",
       );
     }
     const modelId = args.positionals[0];
     return apiRequest({
-      command: "image-skill models show",
+      command: "luxin models show",
       method: "GET",
       apiBaseUrl: apiBase(args),
       path: `/v1/models/${encodeURIComponent(modelId)}`,
@@ -1433,18 +1420,17 @@ async function models(argv) {
     subcommand !== "list" &&
     !subcommand.startsWith("--")
   ) {
-    return invalid("image-skill models", "models supports list or show");
+    return invalid("luxin models", "models supports list or show");
   }
   const query = modelListQuery(args);
   if (!query.ok) {
     return invalid(
-      subcommand === "list" ? "image-skill models list" : "image-skill models",
+      subcommand === "list" ? "luxin models list" : "luxin models",
       query.message,
     );
   }
   const result = await apiRequest({
-    command:
-      subcommand === "list" ? "image-skill models list" : "image-skill models",
+    command: subcommand === "list" ? "luxin models list" : "luxin models",
     method: "GET",
     apiBaseUrl: apiBase(args),
     path: query.path,
@@ -1512,7 +1498,7 @@ function withModelSummary(result) {
         summary: {
           ...(isRecord(data.summary) ? data.summary : {}),
           result_shape: "compact_model_summary",
-          full_list_command: "image-skill models list --details --json",
+          full_list_command: "luxin models list --details --json",
         },
         models: data.models.map(modelSummaryRow),
       },
@@ -1550,8 +1536,8 @@ function modelSummaryRow(model) {
       : [],
     show_command:
       typeof model.id === "string"
-        ? `image-skill models show ${model.id} --json`
-        : "image-skill models show MODEL_ID --json",
+        ? `luxin models show ${model.id} --json`
+        : "luxin models show MODEL_ID --json",
   };
 }
 
@@ -1642,12 +1628,12 @@ async function capabilities(argv) {
     const capabilityId = args.positionals[0];
     if (capabilityId === undefined) {
       return invalid(
-        "image-skill capabilities show",
+        "luxin capabilities show",
         "capabilities show requires CAPABILITY_ID",
       );
     }
     return apiRequest({
-      command: "image-skill capabilities show",
+      command: "luxin capabilities show",
       method: "GET",
       apiBaseUrl: apiBase(args),
       path: `/v1/capabilities/${encodeURIComponent(capabilityId)}`,
@@ -1658,16 +1644,11 @@ async function capabilities(argv) {
     subcommand !== "list" &&
     !subcommand.startsWith("--")
   ) {
-    return invalid(
-      "image-skill capabilities",
-      "capabilities supports list or show",
-    );
+    return invalid("luxin capabilities", "capabilities supports list or show");
   }
   return apiRequest({
     command:
-      subcommand === "list"
-        ? "image-skill capabilities list"
-        : "image-skill capabilities",
+      subcommand === "list" ? "luxin capabilities list" : "luxin capabilities",
     method: "GET",
     apiBaseUrl: apiBase(args),
     path: "/v1/capabilities",
@@ -1676,7 +1657,7 @@ async function capabilities(argv) {
 
 async function createGuide(args, options = {}) {
   const guideOperation = options.guideOperation ?? "create";
-  const command = `image-skill ${guideOperation} --guide`;
+  const command = `luxin ${guideOperation} --guide`;
   if (flagBool(args, "dry-run")) {
     return invalid(
       command,
@@ -1710,19 +1691,19 @@ async function createGuide(args, options = {}) {
     "max-estimated-usd-per-image",
   );
   const health = await apiRequest({
-    command: "image-skill create --guide",
+    command: "luxin create --guide",
     method: "GET",
     apiBaseUrl,
     path: "/healthz",
   });
   const models = await apiRequest({
-    command: "image-skill create --guide",
+    command: "luxin create --guide",
     method: "GET",
     apiBaseUrl,
     path: "/v1/models",
   });
   const payments = await apiRequest({
-    command: "image-skill create --guide",
+    command: "luxin create --guide",
     method: "GET",
     apiBaseUrl,
     path: "/v1/payment-methods",
@@ -1806,7 +1787,7 @@ async function createGuide(args, options = {}) {
       ? null
       : withQuotaNextActions(
           await apiRequest({
-            command: "image-skill create --guide",
+            command: "luxin create --guide",
             method: "GET",
             apiBaseUrl,
             path: "/v1/quota",
@@ -1996,10 +1977,7 @@ async function createGuide(args, options = {}) {
         config_write:
           authConfigWrite === null
             ? null
-            : publicConfigWriteStatus(
-                authConfigWrite,
-                "image-skill create --guide",
-              ),
+            : publicConfigWriteStatus(authConfigWrite, "luxin create --guide"),
       },
       models: {
         reachable: models.envelope.ok,
@@ -2694,7 +2672,7 @@ function createGuideSelectionReason(
     createGuideSelectedModelRequiresInputImage(model) &&
     createGuideImplies3d({ prompt, intent })
   ) {
-    return "3D intent matched executable image-to-3D model; provide one Image Skill-owned image_... input asset";
+    return "3D intent matched executable image-to-3D model; provide one Luxin-owned image_... input asset";
   }
   if (
     model?.modality === "audio" &&
@@ -2849,14 +2827,14 @@ function createGuidePaymentCommands(
   commandPrefix,
 ) {
   const commands = [
-    "image-skill credits methods --json",
-    "image-skill credits packs list --json",
+    "luxin credits methods --json",
+    "luxin credits packs list --json",
     preferredMethod?.recovery?.quote_command ??
-      "image-skill credits quote --pack starter-500 --payment-method stripe_x402.exact.usdc --json",
+      "luxin credits quote --pack starter-500 --payment-method stripe_x402.exact.usdc --json",
     preferredMethod?.recovery?.purchase_command ??
-      "image-skill credits buy --provider stripe_x402 --quote-id QUOTE_ID --idempotency-key KEY --json",
+      "luxin credits buy --provider stripe_x402 --quote-id QUOTE_ID --idempotency-key KEY --json",
     preferredMethod?.recovery?.status_command ??
-      "image-skill credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
+      "luxin credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
   ];
   for (const method of fallbackMethods) {
     for (const command of [
@@ -3245,7 +3223,7 @@ function creditQuoteWithCopyRunnableCommands(quote, commandPrefix) {
 }
 
 function renderCopyRunnablePaymentCommand(commandPrefix, command) {
-  if (/\bnpx\s+(?:-y|--yes)\s+image-skill@latest\b/.test(command)) {
+  if (/\bnpx\s+(?:-y|--yes)\s+luxin-cli@latest\b/.test(command)) {
     return command;
   }
   return renderGuidePrefixedCommand(commandPrefix, command);
@@ -3290,7 +3268,7 @@ function withCreditQuoteAuthRecovery(result, input) {
 
 function renderCreditQuoteRetryCommand(input) {
   return [
-    "image-skill credits quote",
+    "luxin credits quote",
     ...(input.pack === null
       ? ["--credits", String(input.creditsValue)]
       : ["--pack", input.pack]),
@@ -3389,7 +3367,7 @@ function createGuideAuthHandoff(stage, input) {
     const authConfigWritable = input.authConfigWrite?.ok ?? true;
     const recovery =
       input.authConfigWrite?.ok === false
-        ? configWriteRecovery("image-skill create --guide")
+        ? configWriteRecovery("luxin create --guide")
         : null;
     return {
       required: true,
@@ -3726,7 +3704,7 @@ function createGuideWalletSettlementHandoff({
     next_step:
       "Run payment_commands.buy, pay payable_instructions.token_amount_atomic USDC atomic units to payable_instructions.deposit_address on Base from a delegated wallet, then run status_command_after_payment until credits are granted before rerunning after_next.",
     credential_boundary:
-      "Never send wallet private keys, seed phrases, x402 authorization payloads, Stripe secrets, client secrets, card data, provider receipts, or raw wallet credentials to Image Skill.",
+      "Never send wallet private keys, seed phrases, x402 authorization payloads, Stripe secrets, client secrets, card data, provider receipts, or raw wallet credentials to Luxin.",
     warning:
       "This is live money. Pay exactly the returned Base/USDC amount to the returned deposit address and stay within the delegated cap.",
   };
@@ -3758,7 +3736,7 @@ function createGuideNextCommandEffect(stage, input) {
       label: "hosted_signup_restricted_agent_identity",
       hosted_signup: true,
       warning:
-        "This signs up a restricted Image Skill agent identity but does not create media, call a provider, open payment, or debit credits.",
+        "This signs up a restricted Luxin agent identity but does not create media, call a provider, open payment, or debit credits.",
     };
   }
   if (stage === "quota_required") {
@@ -4160,7 +4138,7 @@ function createGuideEscapeHatches(input) {
 function renderGuideCommand(
   prompt,
   apiBaseUrl,
-  commandPrefix = "image-skill",
+  commandPrefix = "luxin",
   options = {},
 ) {
   const operation = options.operation ?? "create";
@@ -4228,7 +4206,7 @@ function firstPaymentActionCommand(commands) {
     commands.find((command) => /\bcredits\s+buy\b/.test(command)) ??
     commands.find((command) => /\bcredits\s+methods\b/.test(command)) ??
     commands[0] ??
-    "image-skill credits methods --json"
+    "luxin credits methods --json"
   );
 }
 
@@ -4334,7 +4312,7 @@ function createGuideCommandPrefix(input = {}) {
         ? {}
         : { IMAGE_SKILL_DISCOVERY_SOURCE: discoverySource }),
     },
-    "npx -y image-skill@latest",
+    "npx -y luxin-cli@latest",
   );
 }
 
@@ -4373,7 +4351,7 @@ function renderWritableConfigCommand(command) {
 }
 
 function stripImageSkillCommandPrefix(command) {
-  return String(command ?? "").replace(/^image-skill\s+/, "");
+  return String(command ?? "").replace(/^luxin\s+/, "");
 }
 
 function explicitApiBaseUrl(args) {
@@ -4418,7 +4396,7 @@ async function create(argv) {
       return referenceToken.result;
     }
   }
-  const referencePlan = parseReferencePlan(args, "image-skill create");
+  const referencePlan = parseReferencePlan(args, "luxin create");
   if (!referencePlan.ok) {
     return referencePlan.result;
   }
@@ -4435,7 +4413,7 @@ async function create(argv) {
     return modelParameters.result;
   }
   const outputCount = positiveIntegerFlag(args, "output-count", {
-    command: "image-skill create",
+    command: "luxin create",
   });
   if (!outputCount.ok) {
     return outputCount.result;
@@ -4459,7 +4437,7 @@ async function create(argv) {
     : flagString(args, "idempotency-key");
   const inFlight = isLiveSpend
     ? await recordInFlightSpend({
-        command: "image-skill create",
+        command: "luxin create",
         operation: "create",
         idempotencyKey,
         argv,
@@ -4469,7 +4447,7 @@ async function create(argv) {
   const result = withCopyRunnablePaymentNextActionCommands(
     withCopyRunnableQuotaRecoveryCommands(
       await apiRequest({
-        command: "image-skill create",
+        command: "luxin create",
         method: "POST",
         apiBaseUrl: apiBase(args),
         path: "/v1/create",
@@ -4524,7 +4502,7 @@ async function upload(argv) {
   const args = parseArgs(argv);
   const input = flagString(args, "input") ?? args.positionals[0];
   if (input === undefined) {
-    return invalid("image-skill upload", "upload requires PATH_OR_URL");
+    return invalid("luxin upload", "upload requires PATH_OR_URL");
   }
   const token = await resolveToken(args);
   if (!token.ok) {
@@ -4535,7 +4513,7 @@ async function upload(argv) {
     return uploadBody.result;
   }
   return apiRequest({
-    command: "image-skill upload",
+    command: "luxin upload",
     method: "POST",
     apiBaseUrl: apiBase(args),
     path: "/v1/upload",
@@ -4556,7 +4534,7 @@ async function edit(argv) {
   }
   if (input === undefined) {
     return invalid(
-      "image-skill edit",
+      "luxin edit",
       "edit requires --input ASSET_ID_OR_PATH_OR_URL",
     );
   }
@@ -4568,7 +4546,7 @@ async function edit(argv) {
   if (!token.ok) {
     return token.result;
   }
-  const referencePlan = parseReferencePlan(args, "image-skill edit");
+  const referencePlan = parseReferencePlan(args, "luxin edit");
   if (!referencePlan.ok) {
     return referencePlan.result;
   }
@@ -4602,7 +4580,7 @@ async function edit(argv) {
     : flagString(args, "idempotency-key");
   const inFlight = isLiveSpend
     ? await recordInFlightSpend({
-        command: "image-skill edit",
+        command: "luxin edit",
         operation: "edit",
         idempotencyKey,
         argv,
@@ -4612,7 +4590,7 @@ async function edit(argv) {
   const result = withCopyRunnablePaymentNextActionCommands(
     withCopyRunnableQuotaRecoveryCommands(
       await apiRequest({
-        command: "image-skill edit",
+        command: "luxin edit",
         method: "POST",
         apiBaseUrl: apiBase(args),
         path: "/v1/edit",
@@ -4667,13 +4645,13 @@ async function assets(argv) {
   const args = parseArgs(rest);
   const reference = args.positionals[0] ?? flagString(args, "id");
   if (reference === undefined || reference === null) {
-    return invalid("image-skill assets", "assets requires an asset id or URL");
+    return invalid("luxin assets", "assets requires an asset id or URL");
   }
   const assetId = assetIdFromReference(reference);
   if (assetId === null) {
     return invalid(
-      "image-skill assets",
-      "assets currently supports Image Skill asset ids and media.image-skill.com URLs",
+      "luxin assets",
+      "assets currently supports Luxin asset ids and media.image-skill.com URLs",
     );
   }
   const token = await resolveToken(args);
@@ -4683,7 +4661,7 @@ async function assets(argv) {
   if (subcommand === "show") {
     return withCopyRunnablePaymentNextActionCommands(
       await apiRequest({
-        command: "image-skill assets show",
+        command: "luxin assets show",
         method: "GET",
         apiBaseUrl: apiBase(args),
         path: `/v1/assets/${encodeURIComponent(assetId)}`,
@@ -4695,7 +4673,7 @@ async function assets(argv) {
   if (subcommand === "get") {
     const shown = withCopyRunnablePaymentNextActionCommands(
       await apiRequest({
-        command: "image-skill assets get",
+        command: "luxin assets get",
         method: "GET",
         apiBaseUrl: apiBase(args),
         path: `/v1/assets/${encodeURIComponent(assetId)}`,
@@ -4716,7 +4694,7 @@ async function assets(argv) {
     if (!downloaded.ok) {
       return downloaded.result;
     }
-    shown.envelope.command = "image-skill assets get";
+    shown.envelope.command = "luxin assets get";
     shown.envelope.data = {
       request: {
         reference,
@@ -4728,7 +4706,7 @@ async function assets(argv) {
     };
     return shown;
   }
-  return invalid("image-skill assets", "assets requires show or get");
+  return invalid("luxin assets", "assets requires show or get");
 }
 
 async function jobs(argv) {
@@ -4736,7 +4714,7 @@ async function jobs(argv) {
   const args = parseArgs(rest);
   const jobId = args.positionals[0] ?? flagString(args, "job-id");
   if (jobId === undefined || jobId === null) {
-    return invalid("image-skill jobs", "jobs requires JOB_ID");
+    return invalid("luxin jobs", "jobs requires JOB_ID");
   }
   const token = await resolveToken(args);
   if (!token.ok) {
@@ -4745,7 +4723,7 @@ async function jobs(argv) {
   if (subcommand === "show") {
     return withCopyRunnablePaymentNextActionCommands(
       await apiRequest({
-        command: "image-skill jobs show",
+        command: "luxin jobs show",
         method: "GET",
         apiBaseUrl: apiBase(args),
         path: `/v1/jobs/${encodeURIComponent(jobId)}`,
@@ -4761,7 +4739,7 @@ async function jobs(argv) {
     while (Date.now() - started <= timeoutMs) {
       const current = withCopyRunnablePaymentNextActionCommands(
         await apiRequest({
-          command: "image-skill jobs wait",
+          command: "luxin jobs wait",
           method: "GET",
           apiBaseUrl: apiBase(args),
           path: `/v1/jobs/${encodeURIComponent(jobId)}`,
@@ -4788,7 +4766,7 @@ async function jobs(argv) {
       await sleep(pollIntervalMs);
     }
     return failure(
-      "image-skill jobs wait",
+      "luxin jobs wait",
       8,
       "TIMEOUT",
       `job ${jobId} did not reach a terminal state within ${timeoutMs}ms`,
@@ -4796,7 +4774,7 @@ async function jobs(argv) {
       { retry_after_seconds: Math.ceil(pollIntervalMs / 1000) },
     );
   }
-  return invalid("image-skill jobs", "jobs requires show or wait");
+  return invalid("luxin jobs", "jobs requires show or wait");
 }
 
 async function activity(argv) {
@@ -4809,14 +4787,11 @@ async function activity(argv) {
   if (subcommand === "show") {
     const reference = args.positionals[0] ?? flagString(args, "reference");
     if (reference === undefined || reference === null) {
-      return invalid(
-        "image-skill activity show",
-        "activity show requires REFERENCE",
-      );
+      return invalid("luxin activity show", "activity show requires REFERENCE");
     }
     return withCopyRunnablePaymentNextActionCommands(
       await apiRequest({
-        command: "image-skill activity show",
+        command: "luxin activity show",
         method: "GET",
         apiBaseUrl: apiBase(args),
         path: `/v1/activity/${encodeURIComponent(reference)}`,
@@ -4837,7 +4812,7 @@ async function activity(argv) {
     }
     return withCopyRunnablePaymentNextActionCommands(
       await apiRequest({
-        command: "image-skill activity list",
+        command: "luxin activity list",
         method: "GET",
         apiBaseUrl: apiBase(args),
         path:
@@ -4847,13 +4822,13 @@ async function activity(argv) {
       createGuideCommandPrefix(),
     );
   }
-  return invalid("image-skill activity", "activity requires list or show");
+  return invalid("luxin activity", "activity requires list or show");
 }
 
 async function feedback(argv) {
   const [subcommand, ...rest] = argv;
   if (subcommand !== "create") {
-    return invalid("image-skill feedback", "feedback requires create");
+    return invalid("luxin feedback", "feedback requires create");
   }
   const args = parseArgs(rest);
   const token = await resolveToken(args);
@@ -4864,12 +4839,12 @@ async function feedback(argv) {
   const body = flagString(args, "body");
   if (title === null && body === null) {
     return invalid(
-      "image-skill feedback create",
+      "luxin feedback create",
       "feedback create requires --title or --body",
     );
   }
   return apiRequest({
-    command: "image-skill feedback create",
+    command: "luxin feedback create",
     method: "POST",
     apiBaseUrl: apiBase(args),
     path: "/v1/feedback",
@@ -4927,7 +4902,7 @@ async function resolveInputAssetId(input, args, token) {
     return payload;
   }
   const uploaded = await apiRequest({
-    command: "image-skill upload",
+    command: "luxin upload",
     method: "POST",
     apiBaseUrl: apiBase(args),
     path: "/v1/upload",
@@ -4942,7 +4917,7 @@ async function resolveInputAssetId(input, args, token) {
     return {
       ok: false,
       result: failure(
-        "image-skill upload",
+        "luxin upload",
         9,
         "UPLOAD_ASSET_ID_MISSING",
         "hosted upload did not return an asset id",
@@ -5276,7 +5251,7 @@ async function uploadPayload(input) {
       return {
         ok: false,
         result: failure(
-          "image-skill upload",
+          "luxin upload",
           7,
           "REMOTE_UPLOAD_FETCH_FAILED",
           `could not fetch remote upload URL: HTTP ${response.status}`,
@@ -5301,7 +5276,7 @@ async function uploadPayload(input) {
     return {
       ok: false,
       result: failure(
-        "image-skill upload",
+        "luxin upload",
         2,
         "UPLOAD_MIME_TYPE_UNKNOWN",
         "could not infer MIME type; use png, jpg, jpeg, webp, gif, or avif",
@@ -5574,7 +5549,7 @@ function trustSelectionHint(status) {
   if (status === "stale_or_mismatched") {
     return "Do not rely on this package/contract combination until the mismatch is resolved or a newer package is selected.";
   }
-  return "Do not select Image Skill for new work until hosted health and model registry checks recover.";
+  return "Do not select Luxin for new work until hosted health and model registry checks recover.";
 }
 
 function trustSafeCommands() {
@@ -5772,7 +5747,7 @@ async function fetchPublicText(url, options = {}) {
 // a durable local breadcrumb. On interruption the agent re-runs the same command
 // with the same key; the hosted API replays the original job (returning the
 // asset already paid for) or releases the reserved credit — never a double
-// charge. See https://image-skill.com/cli.md#image-skill-create.
+// charge. See https://luxin.sh/cli.md#luxin-create.
 
 function liveSpendIdempotencyKey(args, operation) {
   const explicit = flagString(args, "idempotency-key");
@@ -5787,7 +5762,7 @@ function inFlightSpendDir() {
 }
 
 function recoverCommandFor(operation, idempotencyKey) {
-  return `image-skill ${operation} --idempotency-key ${idempotencyKey} <same arguments> --json`;
+  return `luxin ${operation} --idempotency-key ${idempotencyKey} <same arguments> --json`;
 }
 
 // The breadcrumb filename derives from the (possibly agent-supplied)
@@ -5915,7 +5890,7 @@ async function readInFlightSpendEntry({ path, file, now }) {
     command:
       typeof parsed.command === "string"
         ? parsed.command
-        : `image-skill ${parsed.operation}`,
+        : `luxin ${parsed.operation}`,
     idempotency_key: parsed.idempotency_key,
     started_at: startedAt,
     age_ms: ageMs,
@@ -5960,7 +5935,7 @@ function withRecoveryArgs(argv, idempotencyKey) {
 }
 
 function renderImageSkillCommand(operation, argv) {
-  return ["image-skill", operation, ...argv.map(shellQuote)].join(" ");
+  return ["luxin", operation, ...argv.map(shellQuote)].join(" ");
 }
 
 async function recordInFlightSpend(input) {
@@ -6091,12 +6066,12 @@ async function apiRequest(input) {
         ? {
             suggested_command: `${input.command} --idempotency-key ${input.body.idempotency_key} --json`,
             idempotency_key: input.body.idempotency_key,
-            docs_url: "https://image-skill.com/cli.md",
+            docs_url: "https://luxin.sh/cli.md",
             retry_after_seconds: 30,
           }
         : {
-            suggested_command: "image-skill doctor --json",
-            docs_url: "https://image-skill.com/cli.md",
+            suggested_command: "luxin doctor --json",
+            docs_url: "https://luxin.sh/cli.md",
             retry_after_seconds: 30,
           };
     return failure(
@@ -6151,11 +6126,11 @@ function parseEnvelope(text, command, statusCode, options = {}) {
 }
 
 function isCreateOrEditCommand(command) {
-  return command === "image-skill create" || command === "image-skill edit";
+  return command === "luxin create" || command === "luxin edit";
 }
 
 function nonJsonRetryRecovery(command, requestBody) {
-  const operation = command === "image-skill edit" ? "edit" : "create";
+  const operation = command === "luxin edit" ? "edit" : "create";
   const existingKey =
     requestBody &&
     typeof requestBody === "object" &&
@@ -6165,12 +6140,11 @@ function nonJsonRetryRecovery(command, requestBody) {
   const idempotencyKey =
     existingKey ??
     `${operation}-retry-${Date.now()}-${randomBytes(4).toString("hex")}`;
-  const anchor =
-    operation === "edit" ? "image-skill-edit" : "image-skill-create";
+  const anchor = operation === "edit" ? "luxin-edit" : "luxin-create";
   return {
     suggested_command: `${command} --idempotency-key ${idempotencyKey} --json`,
     idempotency_key: idempotencyKey,
-    docs_url: `https://image-skill.com/cli.md#${anchor}`,
+    docs_url: `https://luxin.sh/cli.md#${anchor}`,
     retry_after_seconds: 5,
   };
 }
@@ -6293,7 +6267,7 @@ async function promptValue(args) {
     return {
       ok: false,
       result: invalid(
-        "image-skill create",
+        "luxin create",
         "provide either --prompt or --prompt-file, not both",
       ),
     };
@@ -6306,7 +6280,7 @@ async function promptValue(args) {
   }
   return {
     ok: false,
-    result: invalid("image-skill create", "create/edit requires --prompt"),
+    result: invalid("luxin create", "create/edit requires --prompt"),
   };
 }
 
@@ -6314,7 +6288,7 @@ async function editPromptValue(args, modelId) {
   if (args.flags.has("prompt") && flagString(args, "prompt") === null) {
     return {
       ok: false,
-      result: invalid("image-skill edit", "--prompt requires a value"),
+      result: invalid("luxin edit", "--prompt requires a value"),
     };
   }
   if (
@@ -6323,7 +6297,7 @@ async function editPromptValue(args, modelId) {
   ) {
     return {
       ok: false,
-      result: invalid("image-skill edit", "--prompt-file requires a value"),
+      result: invalid("luxin edit", "--prompt-file requires a value"),
     };
   }
   const prompt = flagString(args, "prompt");
@@ -6332,7 +6306,7 @@ async function editPromptValue(args, modelId) {
     return {
       ok: false,
       result: invalid(
-        "image-skill edit",
+        "luxin edit",
         "provide either --prompt or --prompt-file, not both",
       ),
     };
@@ -6351,7 +6325,7 @@ async function editPromptValue(args, modelId) {
       return {
         ok: false,
         result: invalid(
-          "image-skill edit",
+          "luxin edit",
           `model ${modelId} does not accept --prompt`,
         ),
       };
@@ -6361,13 +6335,13 @@ async function editPromptValue(args, modelId) {
   if (value === null) {
     return {
       ok: false,
-      result: invalid("image-skill edit", "edit requires --prompt"),
+      result: invalid("luxin edit", "edit requires --prompt"),
     };
   }
   if (trimmed.length === 0) {
     return {
       ok: false,
-      result: invalid("image-skill edit", "edit prompt cannot be empty"),
+      result: invalid("luxin edit", "edit prompt cannot be empty"),
     };
   }
   return { ok: true, value: trimmed };
@@ -6430,7 +6404,7 @@ async function resolveToken(args, options = {}) {
       false,
       {
         suggested_command: SIGNUP_SUGGESTED_COMMAND,
-        docs_url: "https://image-skill.com/cli.md#image-skill-signup-agent",
+        docs_url: "https://luxin.sh/cli.md#luxin-signup-agent",
       },
     ),
   };
@@ -6521,14 +6495,12 @@ function configWriteRecovery(command) {
   const baseSignupCommand = renderWritableConfigCommand(
     SIGNUP_SUGGESTED_COMMAND,
   );
-  if (command === "image-skill auth save") {
+  if (command === "luxin auth save") {
     return {
       config_path_env: "IMAGE_SKILL_CONFIG_PATH",
       suggested_config_path: LOCAL_WRITABLE_CONFIG_PATH,
-      suggested_command: renderWritableConfigCommand(
-        "image-skill auth save --json",
-      ),
-      docs_url: "https://image-skill.com/cli.md#local-config-and-install",
+      suggested_command: renderWritableConfigCommand("luxin auth save --json"),
+      docs_url: "https://luxin.sh/cli.md#local-config-and-install",
     };
   }
   return {
@@ -6537,7 +6509,7 @@ function configWriteRecovery(command) {
     suggested_command: baseSignupCommand,
     fallback_command: `${SIGNUP_SUGGESTED_COMMAND} --show-token --no-save`,
     fallback_auth_method: "--token-stdin",
-    docs_url: "https://image-skill.com/cli.md#local-config-and-install",
+    docs_url: "https://luxin.sh/cli.md#local-config-and-install",
   };
 }
 
@@ -6607,10 +6579,10 @@ function rejectPaymentCredentialFlags(args, command) {
         command,
         2,
         "PAYMENT_CREDENTIAL_FLAG_REJECTED",
-        `public Image Skill credits commands never accept payment credential flag --${flag}`,
+        `public Luxin credits commands never accept payment credential flag --${flag}`,
         false,
         {
-          docs_url: "https://image-skill.com/cli.md#image-skill-credits-buy",
+          docs_url: "https://luxin.sh/cli.md#luxin-credits-buy",
         },
       );
     }
@@ -6742,7 +6714,7 @@ function requiredIdempotencyKey(args, command, message) {
     result: failure(command, 2, "INVALID_ARGUMENTS", message, false, {
       required_flag: "--idempotency-key",
       suggested_command: `${command} --idempotency-key KEY --json`,
-      docs_url: "https://image-skill.com/cli.md#image-skill-credits",
+      docs_url: "https://luxin.sh/cli.md#luxin-credits",
     }),
   };
 }
@@ -6789,7 +6761,7 @@ function success(command, data, warnings = []) {
 
 function invalid(command, message) {
   return failure(command, 2, "INVALID_ARGUMENTS", message, false, {
-    docs_url: "https://image-skill.com/cli.md",
+    docs_url: "https://luxin.sh/cli.md",
   });
 }
 
@@ -7056,9 +7028,7 @@ function failure(command, exitCode, code, message, retryable, recovery) {
 }
 
 function commandLabel(commandArgv) {
-  return commandArgv.length === 0
-    ? "image-skill"
-    : `image-skill ${commandArgv[0]}`;
+  return commandArgv.length === 0 ? "luxin" : `luxin ${commandArgv[0]}`;
 }
 
 function traceId() {
@@ -7216,7 +7186,7 @@ async function downloadUrl(url, outputPath, options) {
     return {
       ok: false,
       result: failure(
-        "image-skill assets get",
+        "luxin assets get",
         9,
         "OUTPUT_EXISTS",
         `output path already exists: ${outputPath}`,
@@ -7229,7 +7199,7 @@ async function downloadUrl(url, outputPath, options) {
     return {
       ok: false,
       result: failure(
-        "image-skill assets get",
+        "luxin assets get",
         7,
         "ASSET_DOWNLOAD_FAILED",
         `asset download failed: HTTP ${response.status}`,

@@ -1,16 +1,16 @@
-# Image Skill CLI Contract
+# Luxin CLI Contract
 
 Status: preview hosted-product contract.
 
-The `image-skill` thin CLI/client gives agents a stable way to call the hosted Image Skill service, parse JSON responses, receive artifacts, and leave feedback.
+The `luxin` thin CLI/client gives agents a stable way to call the hosted Luxin service, parse JSON responses, receive artifacts, and leave feedback.
 
 Public contract URLs:
 
-- `https://image-skill.com`
-- `https://image-skill.com/skill.md`
-- `https://image-skill.com/llms.txt`
-- `https://image-skill.com/cli.md`
-- `https://api.image-skill.com`
+- `https://luxin.sh`
+- `https://luxin.sh/skill.md`
+- `https://luxin.sh/llms.txt`
+- `https://luxin.sh/cli.md`
+- `https://api.luxin.sh`
 
 ## Global Rules
 
@@ -19,7 +19,7 @@ Public contract URLs:
   compatibility and explicitness, but fresh agents do not need to add it to
   every command.
 - JSON output must use the standard envelope from
-  `https://image-skill.com/llms.txt`.
+  `https://luxin.sh/llms.txt`.
 - Commands must have deterministic exit codes.
 - Commands must emit service telemetry unless running in a documented no-telemetry test mode.
 - Commands must not print secrets after initial creation.
@@ -44,12 +44,12 @@ Public contract URLs:
 
 ## Commands
 
-### `image-skill doctor`
+### `luxin doctor`
 
 Checks thin CLI/client health, hosted service reachability, auth state, local output permissions, and telemetry status.
 
 ```bash
-image-skill doctor --json
+luxin doctor --json
 ```
 
 `doctor` also reports `data.in_flight`, the local live-spend recovery
@@ -61,17 +61,17 @@ recovery commands as agent-internal operational data during normal progress
 updates; surface them to a human only when recovery needs a decision, handoff,
 or requested diagnostic detail.
 
-Use `image-skill doctor --sweep-in-flight --json` to remove only
+Use `luxin doctor --sweep-in-flight --json` to remove only
 sweep-eligible stale breadcrumbs after the long grace window. Plain `doctor`
 never deletes recovery breadcrumbs.
 
-### `image-skill trust`
+### `luxin trust`
 
 Returns a no-auth, no-spend evidence packet for tool selection and package
 provenance checks.
 
 ```bash
-image-skill trust --json
+luxin trust --json
 ```
 
 The packet uses `schema: "image-skill.trust-packet.v0"` and reports the public
@@ -79,12 +79,12 @@ CLI version, npm metadata status, public repo mapping when inferable, hosted
 contract document hashes, hosted `/healthz`, `/v1/models` availability, safe
 copyable commands, proof URL placeholders, and redaction guarantees.
 
-Use `trust` when deciding whether Image Skill is current and honest enough to
+Use `trust` when deciding whether Luxin is current and honest enough to
 select. It is not a required setup step before the first image; the canonical
-fresh-agent creative entrypoint remains `image-skill create --guide`.
+fresh-agent creative entrypoint remains `luxin create --guide`.
 Agents may also use modality-first aliases when that is the natural wording:
-`image-skill image create --guide`, `image-skill video create --guide`,
-`image-skill audio create --guide`, and `image-skill 3d create --guide` all
+`luxin image create --guide`, `luxin video create --guide`,
+`luxin audio create --guide`, and `luxin 3d create --guide` all
 route into the same `create --guide` flow, with video/audio/3D intent hints
 added only when the agent did not already provide `--intent`.
 
@@ -93,13 +93,13 @@ verified, the command still returns a packet with explicit `unreachable`,
 `not_available_yet`, `inspect_only`, or `stale_or_mismatched` states rather
 than omitting the field.
 
-### `image-skill signup --agent`
+### `luxin signup --agent`
 
 Bootstraps restricted agent access. Signup is anonymous by default: no contact
 inbox is required to get a restricted token.
 
 ```bash
-image-skill signup --agent \
+luxin signup --agent \
   --agent-name creative-agent \
   --runtime codex \
   --json
@@ -119,7 +119,7 @@ or feedback.
 
 `--agent-contact` is an email-shaped durable contact inbox and it is optional
 at signup: provide it when a durable inbox already exists, or attach one later
-with `image-skill claim request --contact INBOX --json` when funding or
+with `luxin claim request --contact INBOX --json` when funding or
 durability makes it worth having. Use an agent-owned inbox when available;
 otherwise use an operator, team, or sponsor inbox that can receive future
 claim, billing, or abuse notices. Never invent an inbox or borrow an unrelated
@@ -133,13 +133,13 @@ signup without a contact creates a new agent instead of returning the existing
 one; rely on the saved config to reuse the identity you already have.
 
 `--discovery-source SLUG` (or the `IMAGE_SKILL_DISCOVERY_SOURCE` environment
-variable; the flag wins) optionally records where you discovered Image Skill —
+variable; the flag wins) optionally records where you discovered Luxin —
 a short channel slug such as `clawhub`, `skills-sh`, or `npm` (lowercase
 letters/digits plus `.`/`_`/`-`, max 64 chars). It is self-reported,
 first-touch (a later re-signup never relabels it), and never required: omit it
 when you do not know the channel rather than guessing.
 
-### `image-skill claim request`
+### `luxin claim request`
 
 Attaches an email-shaped durable contact inbox to the authenticated agent —
 the on-demand identity upgrade after an anonymous signup. Use it when funding
@@ -147,7 +147,7 @@ or durability makes a reachable contact worth having (billing, abuse, and
 recovery notices).
 
 ```bash
-image-skill claim request \
+luxin claim request \
   --contact agent-inbox@example.com \
   --json
 ```
@@ -167,7 +167,7 @@ If the agent runtime can hand secrets to a command over stdin, avoid exporting
 the token and use `--token-stdin` instead:
 
 ```bash
-printf '%s\n' "$IMAGE_SKILL_TOKEN" | image-skill usage quota --token-stdin --json
+printf '%s\n' "$IMAGE_SKILL_TOKEN" | luxin usage quota --token-stdin --json
 ```
 
 `--api-base-url` is an advanced preview/test override; production public agents
@@ -185,7 +185,7 @@ already exists, and payment rails, then returns one primary
 dry-run job, payment object, credit debit, or asset.
 
 ```bash
-image-skill create --guide --prompt "a compact field camera on a stainless workbench"
+luxin create --guide --prompt "a compact field camera on a stainless workbench"
 ```
 
 Read `data.stage` and `data.guide_warning`, run `data.next_command` only when
@@ -296,13 +296,13 @@ Manual escape hatches are not prerequisites. Use them only when
 needs deeper capability, quota, payment, or planning detail:
 
 ```bash
-image-skill trust
-image-skill doctor
-image-skill models list
-image-skill models show openai.gpt-image-2
-image-skill whoami
-image-skill usage quota
-image-skill create --dry-run --prompt "a compact field camera on a stainless workbench"
+luxin trust
+luxin doctor
+luxin models list
+luxin models show openai.gpt-image-2
+luxin whoami
+luxin usage quota
+luxin create --dry-run --prompt "a compact field camera on a stainless workbench"
 ```
 
 Use `--show-token --no-save` for hosted signup only when the runtime can
@@ -318,18 +318,18 @@ same auth context.
 Prefer package execution in fresh agent sandboxes:
 
 ```bash
-npm_config_update_notifier=false npx -y image-skill@latest create --guide --prompt "a compact field camera on a stainless workbench" --json
+npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "a compact field camera on a stainless workbench" --json
 ```
 
-Global install is optional, not the primary path. If `npm install -g image-skill`
-or `npx image-skill@latest ...` hits prefix/cache `EACCES`, retry with writable
+Global install is optional, not the primary path. If `npm install -g luxin-cli`
+or `npx luxin-cli@latest ...` hits prefix/cache `EACCES`, retry with writable
 package-manager paths instead of cloning private source:
 
 ```bash
 export npm_config_cache="${npm_config_cache:-$PWD/.npm-cache}"
 export npm_config_prefix="${npm_config_prefix:-$PWD/.npm-global}"
 export PATH="$npm_config_prefix/bin:$PATH"
-npm_config_update_notifier=false npx -y image-skill@latest create --guide --prompt "a compact field camera on a stainless workbench" --json
+npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "a compact field camera on a stainless workbench" --json
 ```
 
 For `npx skills add ... -g -a codex` installs, the writable target is Codex
@@ -343,7 +343,7 @@ same writable path:
 export HOME="$PWD/.agent-home"
 export CODEX_HOME="$HOME/.codex"
 mkdir -p "$HOME" "$CODEX_HOME"
-npx skills add danielgwilson/image-skill-cli --full-depth --skill image-skill -g -a codex -y
+npx skills add danielgwilson/luxin --full-depth --skill luxin -g -a codex -y
 ```
 
 Hosted signup saves auth state to the public CLI config by default. If the
@@ -351,8 +351,8 @@ runtime needs a writable compatibility config path, set
 `IMAGE_SKILL_CONFIG_PATH` before `signup`:
 
 ```bash
-export IMAGE_SKILL_CONFIG_PATH="$PWD/.image-skill/config.json"
-npm_config_update_notifier=false npx -y image-skill@latest signup --agent \
+export IMAGE_SKILL_CONFIG_PATH="$PWD/.luxin/config.json"
+npm_config_update_notifier=false npx -y luxin-cli@latest signup --agent \
   --agent-name creative-agent \
   --runtime codex \
   --json
@@ -364,22 +364,22 @@ then rerun `create --guide` for the requested creative flow.
 When `create --guide` reaches `auth_required`, it probes the configured auth
 path first. If local config cannot be written, `data.next_command` prefixes the
 normal saved-config signup with
-`IMAGE_SKILL_CONFIG_PATH="$PWD/.image-skill/config.json"`, so the first recovery
+`IMAGE_SKILL_CONFIG_PATH="$PWD/.luxin/config.json"`, so the first recovery
 step still saves auth locally without exposing the one-time token.
 `--show-token --no-save` and `data.auth_handoff.rerun_guide.with_stdin` remain
 structured fallback paths for runtimes that intentionally use a separate secret
 store.
 
-### `image-skill whoami`
+### `luxin whoami`
 
 Shows current actor, organization, claim state, token class, and grants.
 The JSON includes `session_origin` so a fresh agent can tell whether it is
 unauthenticated, loaded a saved config, created the token in this process, or
 is using hosted-session auth. `token_created_at` is the active token creation
-timestamp when Image Skill can prove it, otherwise `null`.
+timestamp when Luxin can prove it, otherwise `null`.
 
 ```bash
-image-skill whoami --json
+luxin whoami --json
 ```
 
 Minimum success data:
@@ -393,32 +393,32 @@ Minimum success data:
 }
 ```
 
-### `image-skill usage quota`
+### `luxin usage quota`
 
 Canonical pre-spend check. Shows remaining credits, job limits, model limits,
 and reset windows before create/edit.
 
 ```bash
-image-skill usage quota --json
+luxin usage quota --json
 ```
 
-`image-skill quota --json` remains a compatibility alias.
+`luxin quota --json` remains a compatibility alias.
 
 Hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/quota \
+curl -sS https://api.luxin.sh/v1/quota \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN"
 ```
 
-### `image-skill credits methods`
+### `luxin credits methods`
 
 Machine-readable payment rail discovery. Use this before quoting or buying so
 agents can tell which rails are available, whether live money can move, whether
 browser/human action is required, and which command to try next.
 
 ```bash
-image-skill credits methods --json
+luxin credits methods --json
 ```
 
 Minimum success data shape:
@@ -437,10 +437,10 @@ Minimum success data shape:
       "recommendation_reason": "browserless_agent_self_fund",
       "method_id": "stripe_x402.exact.usdc",
       "pack_id": "starter-500",
-      "command": "image-skill credits quote --pack starter-500 --payment-method stripe_x402.exact.usdc --json",
+      "command": "luxin credits quote --pack starter-500 --payment-method stripe_x402.exact.usdc --json",
       "quote_command_copy_runnable": true,
-      "buy_command": "image-skill credits buy --provider stripe_x402 --quote-id QUOTE_ID --idempotency-key KEY --json",
-      "status_command": "image-skill credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
+      "buy_command": "luxin credits buy --provider stripe_x402 --quote-id QUOTE_ID --idempotency-key KEY --json",
+      "status_command": "luxin credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
       "requires_auth": true,
       "live_money": true,
       "requires_browser": false,
@@ -501,12 +501,12 @@ move money, grant credits, debit credits, call a provider, or write media.
 Hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/payment-methods
+curl -sS https://api.luxin.sh/v1/payment-methods
 ```
 
-### `image-skill credits packs list`
+### `luxin credits packs list`
 
-Lists the recommended Image Skill credit packs. Packs are the default
+Lists the recommended Luxin credit packs. Packs are the default
 live-money buying UX because agents get obvious starter choices and avoid tiny
 fee traps. Use the payment method catalog to choose the rail:
 `stripe_checkout` when a human sponsor can complete Checkout, or
@@ -516,7 +516,7 @@ Exact custom quotes are still supported when an agent already knows the
 required credit budget.
 
 ```bash
-image-skill credits packs list --json
+luxin credits packs list --json
 ```
 
 Minimum success data:
@@ -550,23 +550,23 @@ Minimum success data:
 Hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/credit-packs
+curl -sS https://api.luxin.sh/v1/credit-packs
 ```
 
-### `image-skill credits quote`
+### `luxin credits quote`
 
 Requests a bounded credit quote from the hosted service. Public top-ups use the
 payment method returned by `credits methods --json`: `stripe_checkout` for the
 human Checkout path, or `stripe_x402.exact.usdc` for a browserless
 action-required deposit attempt. A quote never grants credits.
-One Image Skill credit is a stable user-facing value unit worth `$0.01`.
+One Luxin credit is a stable user-facing value unit worth `$0.01`.
 Creative operations can consume more than one credit based on the selected
-model's provider cost and Image Skill's margin policy; inspect
+model's provider cost and Luxin's margin policy; inspect
 `models show MODEL_ID --json` and operation `cost.credit_pricing` for the exact
 debit before spending.
 
 ```bash
-image-skill credits quote --credits 10 --payment-method stripe_x402.exact.usdc --json
+luxin credits quote --credits 10 --payment-method stripe_x402.exact.usdc --json
 ```
 
 Always pass the payment method from `credits methods --json`; the public CLI
@@ -574,7 +574,7 @@ does not infer one. For retry-stable automation, provide an explicit non-secret
 idempotency key:
 
 ```bash
-image-skill credits quote \
+luxin credits quote \
   --credits 10 \
   --payment-method stripe_x402.exact.usdc \
   --idempotency-key quote-run-001 \
@@ -589,7 +589,7 @@ idempotency key for the attempted quote terms.
 For Stripe Checkout terms, prefer a named pack:
 
 ```bash
-image-skill credits quote \
+luxin credits quote \
   --pack starter-500 \
   --payment-method stripe_checkout \
   --idempotency-key stripe-pack-quote-run-001 \
@@ -600,7 +600,7 @@ For the browserless agent x402 rail, quote the exact method id returned by
 `credits methods --json`:
 
 ```bash
-image-skill credits quote \
+luxin credits quote \
   --pack starter-500 \
   --payment-method stripe_x402.exact.usdc \
   --idempotency-key agent-x402-quote-run-001 \
@@ -612,7 +612,7 @@ For exact custom terms, keep the same rail choice. Use
 `stripe_checkout` only for a human Checkout fallback:
 
 ```bash
-image-skill credits quote \
+luxin credits quote \
   --credits 137 \
   --payment-method stripe_checkout \
   --idempotency-key exact-quote-run-001 \
@@ -641,12 +641,12 @@ Minimum success data:
       "quote_id": "quote_...",
       "method_id": "stripe_checkout",
       "provider": "stripe",
-      "command": "image-skill credits buy --provider stripe --quote-id quote_... --idempotency-key purchase:quote_... --json",
+      "command": "luxin credits buy --provider stripe --quote-id quote_... --idempotency-key purchase:quote_... --json",
       "buy_command_copy_runnable": true,
       "purchase_idempotency_key": "purchase:quote_...",
-      "status_command": "image-skill credits status --quote-id quote_... --json",
+      "status_command": "luxin credits status --quote-id quote_... --json",
       "status_command_copy_runnable": true,
-      "status_command_after_payment": "image-skill credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
+      "status_command_after_payment": "luxin credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json",
       "status_command_after_payment_copy_runnable": false,
       "requires_auth": true,
       "live_money": true,
@@ -684,13 +684,13 @@ buy step from placeholders.
 Hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/credit-quotes \
+curl -sS https://api.luxin.sh/v1/credit-quotes \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN" \
   -H "content-type: application/json" \
   -d '{"pack_id":"starter-500","payment_method":"stripe_x402.exact.usdc","idempotency_key":"agent-x402-quote-run-001"}'
 ```
 
-### `image-skill credits buy`
+### `luxin credits buy`
 
 Creates a payment action for a previously returned quote. Choose the provider
 that matches the quote's `accepted_payment_method`.
@@ -703,7 +703,7 @@ is live money when `live_money:true`. Credits are granted only after verified
 settlement and webhook fulfillment succeeds. Deposit challenge creation itself
 must not mutate credit balances. Stay within the delegated cap and never pass
 wallet private keys, seed phrases, x402 payment headers, deposit client
-secrets, card data, Stripe secrets, or provider receipts to Image Skill.
+secrets, card data, Stripe secrets, or provider receipts to Luxin.
 When `create --guide` enters `quota_required` for this rail, it returns
 `data.self_fund_handoff.wallet_settlement` with the buy/status response fields
 to inspect, plus `data.self_fund_handoff.first_safe_command` for no-spend rail
@@ -712,7 +712,7 @@ inspection before quote/buy: `data.stripe_x402.payable_instructions` after
 `data.payment_attempt.stripe_x402.payable_instructions` after `credits status`.
 
 ```bash
-image-skill credits buy \
+luxin credits buy \
   --provider stripe_x402 \
   --quote-id quote_... \
   --idempotency-key agent-x402-buy-run-001 \
@@ -766,8 +766,8 @@ Minimum x402 action-required data:
       "payment_attempt_id": "payatt_...",
       "method_id": "stripe_x402.exact.usdc",
       "payable_instructions_path": "data.stripe_x402.payable_instructions",
-      "status_command": "image-skill credits status --payment-attempt-id payatt_... --json",
-      "quota_command": "image-skill usage quota --json",
+      "status_command": "luxin credits status --payment-attempt-id payatt_... --json",
+      "quota_command": "luxin usage quota --json",
       "command_effect": {
         "wallet_settlement": true,
         "credit_debit": false,
@@ -778,7 +778,7 @@ Minimum x402 action-required data:
   "next": {
     "agent_action": "pay_stripe_crypto_deposit",
     "suggested_commands": [
-      "image-skill credits status --payment-attempt-id payatt_... --json"
+      "luxin credits status --payment-attempt-id payatt_... --json"
     ]
   }
 }
@@ -789,9 +789,9 @@ Checkout Session and returns an `action_required` response with
 `checkout_handoff_url`.
 
 Agents should present or open `checkout_handoff_url` for humans. It is a short
-Image Skill URL that redirects to Stripe Checkout and is safe to copy from
+Luxin URL that redirects to Stripe Checkout and is safe to copy from
 mobile terminals, SSH clients, and wrapped chat output. `checkout_compact_url`
-is also copy-safe and equals the Image Skill handoff when the hosted API can
+is also copy-safe and equals the Luxin handoff when the hosted API can
 provide one. `checkout_url` is the raw Stripe compatibility fallback only; do
 not present it unless no handoff URL is available. Do not trim Stripe Checkout
 URLs: the long `#...` fragment is required by Stripe Checkout in the browser.
@@ -799,10 +799,10 @@ Present any fallback Stripe URL in a fenced code block so terminal wrapping does
 not corrupt it. Stripe-hosted Checkout may also show a promotion-code field for
 operator-provided codes; agents should let the human enter those codes on
 Stripe, never collect promo codes, card details, or wallet credentials in the
-Image Skill CLI.
+Luxin CLI.
 
 ```bash
-image-skill credits buy \
+luxin credits buy \
   --provider stripe \
   --quote-id quote_... \
   --idempotency-key stripe-buy-run-001 \
@@ -819,8 +819,8 @@ Minimum success data:
   "provider": "stripe",
   "accepted_payment_method": "stripe_checkout",
   "checkout_session_id": "cs_...",
-  "checkout_handoff_url": "https://api.image-skill.com/pay/payatt_...",
-  "checkout_compact_url": "https://api.image-skill.com/pay/payatt_...",
+  "checkout_handoff_url": "https://api.luxin.sh/pay/payatt_...",
+  "checkout_compact_url": "https://api.luxin.sh/pay/payatt_...",
   "checkout_url": "https://checkout.stripe.com/c/pay/cs_...#fid...",
   "credits": 500,
   "amount_cents": 500,
@@ -828,10 +828,10 @@ Minimum success data:
   "live_money": true,
   "next": {
     "human_action": "open_checkout_url",
-    "checkout_handoff_url": "https://api.image-skill.com/pay/payatt_...",
-    "checkout_compact_url": "https://api.image-skill.com/pay/payatt_...",
+    "checkout_handoff_url": "https://api.luxin.sh/pay/payatt_...",
+    "checkout_compact_url": "https://api.luxin.sh/pay/payatt_...",
     "fallback_checkout_url": "https://checkout.stripe.com/c/pay/cs_...#fid...",
-    "after_payment": "open checkout_handoff_url or checkout_compact_url; use the full checkout_url only if no Image Skill handoff URL is available, and preserve its Stripe # fragment. Then poll image-skill credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json or image-skill usage quota --json; credits are granted only after verified webhook fulfillment"
+    "after_payment": "open checkout_handoff_url or checkout_compact_url; use the full checkout_url only if no Luxin handoff URL is available, and preserve its Stripe # fragment. Then poll luxin credits status --payment-attempt-id PAYMENT_ATTEMPT_ID --json or luxin usage quota --json; credits are granted only after verified webhook fulfillment"
   }
 }
 ```
@@ -839,7 +839,7 @@ Minimum success data:
 Hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/credit-purchases/stripe-checkout-sessions \
+curl -sS https://api.luxin.sh/v1/credit-purchases/stripe-checkout-sessions \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN" \
   -H "content-type: application/json" \
   -d '{"quote_id":"quote_...","idempotency_key":"stripe-buy-run-001"}'
@@ -848,24 +848,24 @@ curl -sS https://api.image-skill.com/v1/credit-purchases/stripe-checkout-session
 x402 hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/credit-purchases/stripe-x402-deposits \
+curl -sS https://api.luxin.sh/v1/credit-purchases/stripe-x402-deposits \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN" \
   -H "content-type: application/json" \
   -d '{"quote_id":"quote_...","idempotency_key":"agent-x402-buy-run-001"}'
 ```
 
-### `image-skill credits status`
+### `luxin credits status`
 
 Without a payment reference, shows the current credit balance using the same
-quota data as `image-skill usage quota --json`. With a payment reference,
+quota data as `luxin usage quota --json`. With a payment reference,
 shows the durable state of a quote, x402 deposit attempt, Stripe Checkout
 attempt, Checkout Session, or receipt. Use the referenced form after
 `credits buy` so agents do not have to infer payment state from quota deltas
 or activity text.
 
 ```bash
-image-skill credits status --json
-image-skill credits status \
+luxin credits status --json
+luxin credits status \
   --payment-attempt-id payatt_... \
   --json
 ```
@@ -896,8 +896,8 @@ Minimum action-required data:
   "payment_attempt": {
     "payment_attempt_id": "payatt_...",
     "checkout_session_id": "cs_...",
-    "checkout_handoff_url": "https://api.image-skill.com/pay/payatt_...",
-    "checkout_compact_url": "https://api.image-skill.com/pay/payatt_...",
+    "checkout_handoff_url": "https://api.luxin.sh/pay/payatt_...",
+    "checkout_compact_url": "https://api.luxin.sh/pay/payatt_...",
     "checkout_url": "https://checkout.stripe.com/c/pay/cs_...#fid...",
     "attempt_status": "requires_action"
   },
@@ -906,8 +906,8 @@ Minimum action-required data:
   "next": {
     "retry_after_seconds": 10,
     "human_action": "open_checkout_url",
-    "checkout_handoff_url": "https://api.image-skill.com/pay/payatt_...",
-    "checkout_compact_url": "https://api.image-skill.com/pay/payatt_..."
+    "checkout_handoff_url": "https://api.luxin.sh/pay/payatt_...",
+    "checkout_compact_url": "https://api.luxin.sh/pay/payatt_..."
   }
 }
 ```
@@ -918,7 +918,7 @@ Minimum success data includes `state: "succeeded"`, `receipt`,
 Hosted API equivalent:
 
 ```bash
-curl -sS "https://api.image-skill.com/v1/credit-purchases/status?payment_attempt_id=payatt_..." \
+curl -sS "https://api.luxin.sh/v1/credit-purchases/status?payment_attempt_id=payatt_..." \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN"
 ```
 
@@ -927,36 +927,36 @@ tokens, SPTs, live x402 payment headers, deposit client secrets, wallet
 private keys, seed phrases, or any payment credential to credits commands.
 Stripe Checkout collects payment details only on Stripe-hosted pages; x402
 settlement is handled by the agent/wallet against the returned redacted deposit
-challenge, not by pasting credentials into Image Skill. The public request
+challenge, not by pasting credentials into Luxin. The public request
 fields are `credits`, `pack_id`, `payment_method`, `quote_id`, status reference
 IDs, and `idempotency_key`.
 
-### `image-skill models`
+### `luxin models`
 
 First-run creative discovery. Lists public models and shows the full
 capability-preserving schema for one model.
 
 ```bash
-image-skill models --json
-image-skill models list --json
-image-skill models list --details --json
-image-skill models list --available --operation image.generate --json
-image-skill models list --available --operation image.edit --json
-image-skill models list --available --modality video --operation video.generate --json
-image-skill models list --query nano-banana --json
-image-skill models list --catalog-only --provider fal --json
-image-skill models show MODEL_ID --json
-image-skill models show nano-banana --json
-image-skill models show default --json
+luxin models --json
+luxin models list --json
+luxin models list --details --json
+luxin models list --available --operation image.generate --json
+luxin models list --available --operation image.edit --json
+luxin models list --available --modality video --operation video.generate --json
+luxin models list --query nano-banana --json
+luxin models list --catalog-only --provider fal --json
+luxin models show MODEL_ID --json
+luxin models show nano-banana --json
+luxin models show default --json
 ```
 
 Hosted API equivalents:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/models
-curl -sS 'https://api.image-skill.com/v1/models?available=true&modality=video&operation=video.generate'
-curl -sS 'https://api.image-skill.com/v1/models?query=nano-banana'
-curl -sS https://api.image-skill.com/v1/models/xai.grok-imagine-image
+curl -sS https://api.luxin.sh/v1/models
+curl -sS 'https://api.luxin.sh/v1/models?available=true&modality=video&operation=video.generate'
+curl -sS 'https://api.luxin.sh/v1/models?query=nano-banana'
+curl -sS https://api.luxin.sh/v1/models/xai.grok-imagine-image
 ```
 
 `models show` exposes operation support, media input/output types, parameter
@@ -1001,7 +1001,7 @@ runnable model for the requested operation, `summary.execution_availability`
 says so directly and includes the fastest `--available --operation ...`
 recovery command.
 
-Image Skill standardizes common controls so agents can work quickly, but it
+Luxin standardizes common controls so agents can work quickly, but it
 must not flatten rich model capabilities into coarse universal categories.
 Use `model_parameters` for rare or model-specific parameters advertised by the
 capability schema.
@@ -1061,25 +1061,25 @@ Current executable provider-native controls include:
 Inspect each model before use; provider-native controls are available only
 through validated `model_parameters`.
 
-### `image-skill capabilities`
+### `luxin capabilities`
 
 Schema-language view over the same capability catalog. Use this when you need
 the capability abstraction directly rather than starting from a model.
 
 ```bash
-image-skill capabilities --json
-image-skill capabilities list --json
-image-skill capabilities show CAPABILITY_ID --json
+luxin capabilities --json
+luxin capabilities list --json
+luxin capabilities show CAPABILITY_ID --json
 ```
 
-### `image-skill create`
+### `luxin create`
 
 Guides, creates, or plans a zero-cost dry run.
 
 Guide the first image path without mutation:
 
 ```bash
-image-skill create --guide --prompt "A compact field camera on a stainless workbench" --json
+luxin create --guide --prompt "A compact field camera on a stainless workbench" --json
 ```
 
 `create --guide` returns `schema: image-skill.create-guide.v1`,
@@ -1111,7 +1111,7 @@ Skill debit in dollars for one output, matching
 transparency; do not use it as the amount the agent needs to fund.
 
 ```bash
-image-skill create \
+luxin create \
   --prompt "A compact field camera on a stainless workbench" \
   --intent explore \
   --aspect-ratio 1:1 \
@@ -1124,18 +1124,18 @@ Skill selects the strongest available create capability for the requested
 intent and budget, then records the decision in `request.selection`. Explicit
 `--provider`, `--model`, namespaced model ids, and validated
 `model_parameters` always take precedence. For final/product/hero-style
-intents, Image Skill may default an eligible quality-capability request to a
+intents, Luxin may default an eligible quality-capability request to a
 higher output tier only when `--max-estimated-usd-per-image` is high enough for
 that tier; otherwise it stays on a lower-cost quality tier or chooses a cheaper
 capability within the budget and tells agents what happened in the selection
 receipt. Use the `--max-estimated-usd-per-image` value returned by
-`create --guide`; it is sized to the Image Skill credit debit, not only the
+`create --guide`; it is sized to the Luxin credit debit, not only the
 upstream provider estimate.
 
 Preview-compatible richer shape:
 
 ```bash
-image-skill create \
+luxin create \
   --prompt "Campaign-ready product image of a compact field camera" \
   --intent finalize \
   --model MODEL_ID \
@@ -1148,15 +1148,15 @@ image-skill create \
 
 Use `--output-count N` only when `models show MODEL_ID --json` advertises
 `media.output.max_outputs_per_request` greater than `1`. `--output-count` is a
-top-level Image Skill create control; do not pass provider-native `n` through
+top-level Luxin create control; do not pass provider-native `n` through
 `model_parameters` unless the selected model schema explicitly advertises that
 field. Credit pricing and `cost.credit_pricing.credits_required` are total
 operation debits across all requested outputs. `--max-estimated-usd-per-image`
-and raw API `max_estimated_usd_per_image` are per-image Image Skill debit
+and raw API `max_estimated_usd_per_image` are per-image Luxin debit
 budget guards.
 
 Generate video through the same `create` command and durable-media loop. For
-video prompts, run `image-skill create --guide --prompt "..." --json`; the guide
+video prompts, run `luxin create --guide --prompt "..." --json`; the guide
 can select the executable video model, suggest `--aspect-ratio 16:9`, and emit
 the next create command. Plain `create` without a model still defaults to an
 image model, so use the guide or pass the video model id directly. The response
@@ -1164,16 +1164,16 @@ returns a durable owned `video_...` mp4 asset URL, a `job_id`, and a
 `cost.credit_pricing` receipt just like an image create.
 
 ```bash
-image-skill create \
+luxin create \
   --model fal.ltx-video-13b-distilled \
   --prompt "A slow dolly push-in on a steaming espresso cup on a cafe counter, morning light" \
   --aspect-ratio 16:9 \
   --json
 ```
 
-Discover runnable video models with `image-skill models list --available
+Discover runnable video models with `luxin models list --available
 --modality video --operation video.generate --json`. Inspect parameters, output
-media type, and cost first with `image-skill models show
+media type, and cost first with `luxin models show
 fal.ltx-video-13b-distilled --json`. Video runs synchronously through the same
 create call and can take longer than an image; the returned `assets[].url` is an
 owned `video/mp4`.
@@ -1185,7 +1185,7 @@ just like an image create. Audio has no aspect ratio, so do not pass
 `--aspect-ratio`.
 
 ```bash
-image-skill create \
+luxin create \
   --model fal.stable-audio-25-text-to-audio \
   --prompt "A warm lo-fi hip-hop loop with vinyl crackle and a mellow Rhodes piano" \
   --json
@@ -1195,7 +1195,7 @@ image-skill create \
 $0.20/clip (about 34 credits, quoted before spend) and returns an owned
 `audio/wav` clip. The first slice is defaults-only (no tunable
 `model_parameters`); duration/steps controls are a later milestone. Inspect
-parameters, output media type, and cost first with `image-skill models show
+parameters, output media type, and cost first with `luxin models show
 fal.stable-audio-25-text-to-audio --json`. Audio runs synchronously through the
 same create call and can take longer than an image.
 
@@ -1206,14 +1206,14 @@ with the model's advertised reference role. Kling element routes use
 reference-image routes use `--reference-image IMAGE[@INDEX]`; Fal DreamO also
 accepts `:TASK` where `TASK` is `ip`, `id`, or `style`. The public CLI uploads
 local paths and external URLs first, then
-sends top-level `references[]` entries with Image Skill `asset_id` values to
+sends top-level `references[]` entries with Luxin `asset_id` values to
 `/v1/create`. Do not pass provider-native `elements`, `frontal_image_url`,
 `reference_image_urls`, `first_image_url`, `second_image_url`, `images`, or
 `*_reference_task` through `model_parameters`; provider-private URLs are
 resolved server-side after ownership and media-policy validation.
 
 ```bash
-image-skill create \
+luxin create \
   --model fal.kling-image-o3-text-to-image \
   --prompt "Place the same character in a clean studio campaign" \
   --element-frontal ./character-front.png@0 \
@@ -1224,7 +1224,7 @@ image-skill create \
 ```
 
 ```bash
-image-skill create \
+luxin create \
   --model fal.dreamo \
   --prompt "Studio portrait preserving identity with a bolder editorial style" \
   --reference-image ./identity.png@0:id \
@@ -1237,27 +1237,27 @@ image-skill create \
 High-resolution examples:
 
 ```bash
-image-skill create \
+luxin create \
   --prompt "Campaign-ready product image of a compact field camera" \
   --intent final \
   --max-estimated-usd-per-image 0.07 \
   --json
 
-image-skill create \
+luxin create \
   --prompt "Campaign-ready product image of a compact field camera" \
   --model fal.gemini-3-pro-image-preview \
   --model-parameters-json '{"resolution":"4K"}' \
   --max-estimated-usd-per-image 0.30 \
   --json
 
-image-skill create \
+luxin create \
   --prompt "Campaign-ready product image of a compact field camera" \
   --model xai.grok-imagine-image-quality \
   --model-parameters-json '{"resolution":"2k"}' \
   --max-estimated-usd-per-image 0.07 \
   --json
 
-image-skill edit \
+luxin edit \
   --input-asset-id image_... \
   --prompt "preserve the subject and make this campaign-ready" \
   --model fal.nano-banana-2-edit \
@@ -1269,7 +1269,7 @@ image-skill edit \
 `model_parameters` must be validated against the selected model/capability
 schema before any provider call or paid reservation. Unknown fields fail closed
 unless the capability explicitly allows additional properties. This is how
-Image Skill preserves rare model controls without turning every
+Luxin preserves rare model controls without turning every
 provider-specific parameter into a top-level flag.
 In the current preview, Fal create/edit, xAI quality generation, and OpenAI GPT
 Image 2 expose the executable provider-native controls listed in the selected
@@ -1353,7 +1353,7 @@ Minimum success data:
 }
 ```
 
-When hosted artifact storage is configured, `url` is an Image Skill-owned URL.
+When hosted artifact storage is configured, `url` is an Luxin-owned URL.
 Agents should prefer `assets[].url` over provider-origin URLs and should not
 need provider account access to fetch outputs.
 
@@ -1380,9 +1380,9 @@ the blocking hosted request:
 ```json
 {
   "in_flight": {
-    "command": "image-skill create",
+    "command": "luxin create",
     "idempotency_key": "create-...",
-    "recover_command": "image-skill create --idempotency-key create-... <same arguments> --json"
+    "recover_command": "luxin create --idempotency-key create-... <same arguments> --json"
   }
 }
 ```
@@ -1390,12 +1390,12 @@ the blocking hosted request:
 stdout remains the command JSON envelope. If an agent combines streams with
 `2>&1`, split stderr diagnostics from the stdout envelope before parsing. The
 same recovery breadcrumb is stored under `<config-dir>/in-flight/` and appears
-in `image-skill doctor --json` at `data.in_flight`. Keep the in-flight
+in `luxin doctor --json` at `data.in_flight`. Keep the in-flight
 `idempotency_key` and `recover_command` inside the agent workflow unless a
 failed or uncertain operation needs user-visible recovery.
 
 ```bash
-image-skill create \
+luxin create \
   --prompt "A compact field camera on a stainless workbench" \
   --idempotency-key create-run-001 \
   --json
@@ -1404,7 +1404,7 @@ image-skill create \
 Hosted free-preview API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/create \
+curl -sS https://api.luxin.sh/v1/create \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN" \
   -H "content-type: application/json" \
   -d '{
@@ -1420,14 +1420,14 @@ Hosted free-preview create currently requires owned artifact storage and returns
 one `assets[]` entry per output with `assets[].url` under
 `https://media.image-skill.com/...` on success.
 
-### `image-skill upload`
+### `luxin upload`
 
-Normalizes a local image path or remote image URL into an Image Skill-owned
+Normalizes a local image path or remote image URL into an Luxin-owned
 input asset for later edit workflows.
 
 ```bash
-image-skill upload ./source.png --json
-image-skill upload https://example.com/source.png --json
+luxin upload ./source.png --json
+luxin upload https://example.com/source.png --json
 ```
 
 The CLI reads local files and remote URLs client-side, then sends image bytes to
@@ -1467,13 +1467,13 @@ Supported preview MIME types are `image/png`, `image/jpeg`, `image/webp`,
 `INPUT_POLICY_DENIED` with exit `6`. Responses never include local paths, raw
 bytes, base64 payloads, full remote URLs, bucket names, or object keys.
 
-### `image-skill edit`
+### `luxin edit`
 
-Edits an Image Skill-owned input asset or client-normalized local/remote image
+Edits an Luxin-owned input asset or client-normalized local/remote image
 with one hosted provider-backed edit model.
 
 ```bash
-image-skill edit \
+luxin edit \
   --input ASSET_ID_OR_PATH_OR_URL \
   --mask MASK_ASSET_ID_OR_PATH_OR_URL \
   --prompt "Remove the background and keep natural object shadows" \
@@ -1482,8 +1482,8 @@ image-skill edit \
 ```
 
 If `--input` is a local path or external URL, the public CLI first normalizes it
-through the same upload resolver as `image-skill upload`, then sends only the
-resulting `asset_id` to `POST /v1/edit`. If `--input` is an Image Skill asset id
+through the same upload resolver as `luxin upload`, then sends only the
+resulting `asset_id` to `POST /v1/edit`. If `--input` is an Luxin asset id
 or owned asset URL, edit uses that owned asset directly.
 Add `--dry-run` to plan the edit after owned-asset, prompt-policy,
 `model_parameters`, and budget validation. Dry-run edit responses return planned
@@ -1498,7 +1498,7 @@ model's advertised reference role. Kling element routes use
 `--element-reference IMAGE[@ELEMENT_INDEX[:REFERENCE_INDEX]]`; flat
 reference-image routes use `--reference-image IMAGE[@INDEX[:TASK]]`. The
 public CLI uploads local paths and external URLs first, then sends top-level
-`references[]` entries with Image Skill `asset_id` values. For Kling element
+`references[]` entries with Luxin `asset_id` values. For Kling element
 routes, `--element-frontal ./front.png@0` becomes role `element_frontal` for
 element index `0`, and `--element-reference ./side.webp@0:0` becomes role
 `element_reference` for the same element with reference slot `0`. For DreamO
@@ -1519,12 +1519,12 @@ may include up to three additional reference images. DreamO accepts up to two
 contiguous `reference_image` indexes starting at `0`, each with optional
 `reference_task` `ip`, `id`, or `style`. xAI edit accepts up to two contiguous
 `reference_image` indexes starting at `0` and does not accept `reference_task`.
-Reference assets must be Image Skill-owned PNG, JPEG, or WebP images with
+Reference assets must be Luxin-owned PNG, JPEG, or WebP images with
 known non-empty byte length up to 10MB, known width and height of at least
 300px, and aspect ratio from 0.40 to 2.50.
 
 ```bash
-image-skill edit \
+luxin edit \
   --model fal.kling-image-o3-image-to-image \
   --input ./starting-frame.png \
   --element-frontal ./character-front.png@0 \
@@ -1569,7 +1569,7 @@ model by id and the response returns a durable owned `.glb` mesh asset URL (in
 no aspect ratio.
 
 ```bash
-image-skill edit \
+luxin edit \
   --input image_... \
   --model fal.trellis-image-to-3d \
   --json
@@ -1579,8 +1579,8 @@ image-skill edit \
 credits, quoted before spend) and returns an owned `model/gltf-binary` (`.glb`)
 textured mesh. The first slice is defaults-only (no tunable `model_parameters`);
 guidance/steps/mesh_simplify/texture_size controls are a later milestone. Inspect
-parameters, output media type, and cost first with `image-skill models show
-fal.trellis-image-to-3d --json`. The input must be one Image Skill-owned image;
+parameters, output media type, and cost first with `luxin models show
+fal.trellis-image-to-3d --json`. The input must be one Luxin-owned image;
 3D runs synchronously through the same edit call and can take longer than an
 image.
 
@@ -1635,7 +1635,7 @@ returns one for retry safety before the agent follows the quote response into
 `credits buy` and `credits status`.
 
 Provider/model names in this paragraph are preview provenance, not the primary
-public UX. The public selection surface should be Image Skill capabilities and
+public UX. The public selection surface should be Luxin capabilities and
 model-parameter schemas; provider/model details belong in explicit
 provenance/debug output.
 
@@ -1647,12 +1647,12 @@ edit error returns an `error.recovery.idempotency_key` and an
 Live non-dry-run edit emits the same stderr `in_flight` diagnostic and local
 doctor-visible recovery breadcrumb as create.
 
-### `image-skill assets show`
+### `luxin assets show`
 
-Inspects an Image Skill-owned asset URL or hosted asset id.
+Inspects an Luxin-owned asset URL or hosted asset id.
 
 ```bash
-image-skill assets show \
+luxin assets show \
   https://media.image-skill.com/a/image_abc123.png \
   --json
 ```
@@ -1660,7 +1660,7 @@ image-skill assets show \
 For asset-id lookup, use hosted auth:
 
 ```bash
-image-skill assets show image_... --json
+luxin assets show image_... --json
 ```
 
 Minimum success data:
@@ -1685,7 +1685,7 @@ Minimum success data:
 ```
 
 External URLs are rejected. Older assets created before hosted asset metadata
-was recorded may still be inspectable by Image Skill-owned URL.
+was recorded may still be inspectable by Luxin-owned URL.
 
 For hosted generated assets, when quota exposes an available top-up path,
 `data.next_actions.self_fund` mirrors the top-up recommendation, urgency, and
@@ -1696,12 +1696,12 @@ recommended and copy-runnable, `data.self_fund_next_command` aliases
 does not buy, settle a wallet transfer, debit credits, call a provider, create a
 hosted job, or write media.
 
-### `image-skill assets get`
+### `luxin assets get`
 
-Downloads an Image Skill-owned asset URL or hosted asset id to a local file.
+Downloads an Luxin-owned asset URL or hosted asset id to a local file.
 
 ```bash
-image-skill assets get \
+luxin assets get \
   https://media.image-skill.com/a/image_abc123.png \
   --output ./result.png \
   --json
@@ -1713,16 +1713,16 @@ explicit. It verifies byte length when the asset server provides a
 `data.next_actions.self_fund` from the asset metadata response after a
 successful download.
 
-### `image-skill jobs show`
+### `luxin jobs show`
 
-Inspects a hosted Image Skill job visible to the authenticated agent.
+Inspects a hosted Luxin job visible to the authenticated agent.
 
 ```bash
-image-skill jobs show job_... --json
+luxin jobs show job_... --json
 ```
 
 Output includes public job status, trace id, timestamps, capability id, cost
-summary, safety status, and Image Skill-owned asset metadata. For fresh-agent
+summary, safety status, and Luxin-owned asset metadata. For fresh-agent
 parsing, `status`, `state`, `assets`, and `cost` are mirrored at top level and
 match `job.status`, `job.assets`, and `job.cost`. Provider/model provenance is
 available only through explicit provenance/debug affordances for authorized
@@ -1755,12 +1755,12 @@ Minimum success data:
 }
 ```
 
-### `image-skill jobs wait`
+### `luxin jobs wait`
 
-Waits for a hosted Image Skill job to reach a terminal status.
+Waits for a hosted Luxin job to reach a terminal status.
 
 ```bash
-image-skill jobs wait job_... --timeout-ms 30000 --poll-interval-ms 1000 --json
+luxin jobs wait job_... --timeout-ms 30000 --poll-interval-ms 1000 --json
 ```
 
 Completed jobs return immediately. Non-terminal jobs poll until completion,
@@ -1768,13 +1768,13 @@ failure, cancellation, or deterministic timeout. Terminal success uses the same
 top-level `status`, `state`, `assets`, and `cost` mirrors as `jobs show`, with
 `request.timeout_ms` and `request.poll_interval_ms` added for provenance.
 
-### `image-skill activity list`
+### `luxin activity list`
 
 Lists recent hosted activity ledger events visible to the authenticated agent.
 
 ```bash
-image-skill activity list --limit 20 --json
-image-skill activity list --subject job_... --json
+luxin activity list --limit 20 --json
+luxin activity list --subject job_... --json
 ```
 
 Activity is the ledger, not the work queue. Use it to find recent event IDs,
@@ -1825,19 +1825,19 @@ and `trace_id` values in feedback.
 Hosted API equivalent:
 
 ```bash
-curl -sS "https://api.image-skill.com/v1/activity?limit=20&subject=job_..." \
+curl -sS "https://api.luxin.sh/v1/activity?limit=20&subject=job_..." \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN"
 ```
 
-### `image-skill activity show`
+### `luxin activity show`
 
 Shows one hosted activity event or the latest events related to one subject.
 
 ```bash
-image-skill activity show evt_... --json
-image-skill activity show job_... --json
-image-skill activity show image_... --json
-image-skill activity show sig_... --json
+luxin activity show evt_... --json
+luxin activity show job_... --json
+luxin activity show image_... --json
+luxin activity show sig_... --json
 ```
 
 `activity show` accepts activity event IDs plus job, asset, usage, feedback, and
@@ -1851,7 +1851,7 @@ inspection command to run before any quote/buy step.
 Hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/activity/evt_... \
+curl -sS https://api.luxin.sh/v1/activity/evt_... \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN"
 ```
 
@@ -1889,18 +1889,18 @@ planned outputs do not have durable asset IDs, download URLs, usage debits, or
 provider execution.
 
 If a response includes an event type outside this registry, treat it as a
-contract bug and submit `image-skill feedback create --json` with the event ID
+contract bug and submit `luxin feedback create --json` with the event ID
 and trace ID.
 
-### `image-skill feedback create`
+### `luxin feedback create`
 
-Leaves structured product feedback in hosted Image Skill product memory.
-At minimum, provide `--title` and `--body`; Image Skill accepts narrative
+Leaves structured product feedback in hosted Luxin product memory.
+At minimum, provide `--title` and `--body`; Luxin accepts narrative
 feedback and adds quality guidance server-side. Use the structured fields below
 when the agent already knows them.
 
 ```bash
-image-skill feedback create \
+luxin feedback create \
   --type user_feedback \
   --title "Short concrete title" \
   --body "What happened, what was expected, and why it matters" \
@@ -1922,7 +1922,7 @@ public CLI config from default signup, `IMAGE_SKILL_TOKEN`, or
 normally; no raw token copy step is required. If the runtime uses its own
 secret store, prefer `IMAGE_SKILL_TOKEN` or `--token-stdin`. Do not paste tokens
 into feedback title, body, evidence, issues, or logs. Feedback persists through
-`https://api.image-skill.com/v1/feedback`. The hosted API fails closed if
+`https://api.luxin.sh/v1/feedback`. The hosted API fails closed if
 durable hosted feedback storage is unavailable.
 
 JSON errors may include `error.recovery` with machine-readable fields such as
@@ -1948,7 +1948,7 @@ image bytes, source image bytes, and private user data.
 Hosted API equivalent:
 
 ```bash
-curl -sS https://api.image-skill.com/v1/feedback \
+curl -sS https://api.luxin.sh/v1/feedback \
   -H "authorization: Bearer $IMAGE_SKILL_TOKEN" \
   -H "content-type: application/json" \
   -d '{

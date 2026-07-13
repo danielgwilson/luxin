@@ -13,7 +13,7 @@ on:
       - commands.json
       - skills/**
       - package.json
-      - bin/image-skill.mjs
+      - bin/luxin.mjs
       - .github/scripts/check-contract-drift.mjs
       - .github/workflows/contract-drift.yml
   workflow_dispatch:
