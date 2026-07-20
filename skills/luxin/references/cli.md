@@ -399,6 +399,11 @@ Minimum success data:
 Canonical pre-spend check. Shows remaining credits, job limits, model limits,
 and reset windows before create/edit.
 
+The starter preview has 50 lifetime credits and a 50-job UTC-day compatibility
+cap. Funded identities have no daily job cap: their available prepaid credits
+and atomic credit reservations are the spend boundary. For funded identities,
+the optional `daily_jobs` object is omitted from the quota response.
+
 ```bash
 luxin usage quota --json
 ```
