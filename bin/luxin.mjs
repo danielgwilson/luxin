@@ -109,6 +109,14 @@ const GUIDE_NEXT_COMMAND_PLACEHOLDERS = [
     example: "codex-cli",
   },
   {
+    placeholder: "DISCOVERY_SOURCE",
+    flag: "--discovery-source",
+    value_description:
+      "Short lowercase slug for the registry, doc, search result, or channel where you found Luxin (e.g. skills-sh, clawhub, npm-search, github-readme, awesome-list, other).",
+    effect_description: "self-reported discovery channel slug",
+    example: "skills-sh",
+  },
+  {
     placeholder: "PROMPT",
     flag: "--prompt",
     value_description: "The real creative prompt to plan or create.",
@@ -4188,8 +4196,15 @@ function renderGuideSignupCommand(input) {
   // Anonymous signup (decision 0030): no contact placeholder in the handoff —
   // the agent still substitutes its own name/runtime, but no longer has to
   // find (or invent) an inbox before it can authenticate.
+  // Discovery-source attribution (#1814): when no slug is configured in the
+  // environment (a configured one already rides the command prefix into the
+  // fresh process), ask the agent to self-report its channel via the
+  // DISCOVERY_SOURCE placeholder instead of losing attribution at signup.
   const signupCommand = [
     "signup --agent --agent-name AGENT_NAME --runtime RUNTIME_NAME",
+    ...(configuredDiscoverySource() === null
+      ? ["--discovery-source DISCOVERY_SOURCE"]
+      : []),
     ...(input.apiBaseUrl === null
       ? []
       : ["--api-base-url", shellQuote(input.apiBaseUrl)]),

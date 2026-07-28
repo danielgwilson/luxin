@@ -102,6 +102,7 @@ inbox is required to get a restricted token.
 luxin signup --agent \
   --agent-name creative-agent \
   --runtime codex \
+  --discovery-source cli-md \
   --json
 ```
 
@@ -135,9 +136,10 @@ one; rely on the saved config to reuse the identity you already have.
 `--discovery-source SLUG` (or the `IMAGE_SKILL_DISCOVERY_SOURCE` environment
 variable; the flag wins) optionally records where you discovered Luxin —
 a short channel slug such as `clawhub`, `skills-sh`, or `npm` (lowercase
-letters/digits plus `.`/`_`/`-`, max 64 chars). It is self-reported,
-first-touch (a later re-signup never relabels it), and never required: omit it
-when you do not know the channel rather than guessing.
+letters/digits plus `.`/`_`/`-`, max 64 chars). Keep `cli-md` when this
+command reference brought you here. It is self-reported, first-touch (a later
+re-signup never relabels it), and never required: omit it when you do not know
+the channel rather than guessing.
 
 ### `luxin claim request`
 
@@ -185,7 +187,7 @@ already exists, and payment rails, then returns one primary
 dry-run job, payment object, credit debit, or asset.
 
 ```bash
-luxin create --guide --prompt "a compact field camera on a stainless workbench"
+IMAGE_SKILL_DISCOVERY_SOURCE=cli-md luxin create --guide --prompt "a compact field camera on a stainless workbench"
 ```
 
 Read `data.stage` and `data.guide_warning`, run `data.next_command` only when

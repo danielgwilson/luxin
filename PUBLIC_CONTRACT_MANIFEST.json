@@ -11,14 +11,14 @@
     {
       "source_path": "docs/public-contract/skill.md",
       "public_paths": ["SKILL.md", "skill.md", "skills/luxin/SKILL.md"],
-      "bytes": 29664,
-      "sha256": "0b598d892d8c7a8684fd064cff33af57651cc43ed0c2791dafccf4ededacc1e8"
+      "bytes": 30086,
+      "sha256": "bc2875809a71fb74f86f227c4573d13671b79ebea98c56d0e15ae51ad6a46185"
     },
     {
       "source_path": "docs/public-contract/cli.md",
       "public_paths": ["cli.md", "skills/luxin/references/cli.md"],
-      "bytes": 84092,
-      "sha256": "bb3dc2e54929f659b6e1c60223fe9b674735756ea13acac2ab596f9b70efbf17"
+      "bytes": 84218,
+      "sha256": "99d799e633cb53c1e386106219366e8dc6b62a7d724ff3300e96d56760cd8801"
     },
     {
       "source_path": "docs/public-contract/llms.txt",

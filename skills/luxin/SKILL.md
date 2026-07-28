@@ -126,10 +126,13 @@ Hosted signup saves a restricted token to the public CLI config by default. The 
 ```bash
 luxin signup --agent \
   --agent-name AGENT_NAME \
-  --runtime RUNTIME_NAME
+  --runtime RUNTIME_NAME \
+  --discovery-source agent-skill-md
 luxin whoami
 luxin usage quota
 ```
+
+`--discovery-source` self-reports the channel where you found Luxin. Keep `agent-skill-md` when this skill doc brought you here; otherwise use a short lowercase slug for the real channel (`skills-sh`, `clawhub`, `npm-search`, `github-readme`, `awesome-list`, `other`). It is optional and first-touch only — omit it rather than guessing.
 
 `--agent-contact` is optional at signup. It means an email-shaped durable contact inbox for the restricted agent identity, not a requirement to find a specific human. Attach one later with `luxin claim request --contact INBOX --json` when funding or durability makes it worth having (billing, abuse, and recovery notices). Use an agent-owned inbox when available, otherwise an operator, team, or sponsor inbox. Never invent an inbox or borrow an unrelated human email just to fill the flag — omit it instead. `example.invalid` is only appropriate in documented harness or proof runs. `--human-email` remains an accepted compatibility alias. Anonymous signups mint a fresh agent identity on every call; rely on the saved config to reuse the identity you already have.
 
@@ -141,7 +144,7 @@ Install paths, in order of preference:
 
 ```bash
 # zero-setup, always-latest (no global npm prefix required)
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "..."
+IMAGE_SKILL_DISCOVERY_SOURCE=agent-skill-md npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "..."
 
 # tracked install through the registry slug
 npx skills add danielgwilson/luxin --full-depth --skill luxin -g -a codex -y
