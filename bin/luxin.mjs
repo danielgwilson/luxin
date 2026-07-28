@@ -2356,15 +2356,17 @@ function createGuideDefaultModelParameters(input) {
     input.model?.id === "xai.grok-imagine-image-quality" &&
     modelParameters.resolution === undefined
   ) {
-    const twoKEstimate = createGuideProviderCostEstimateForModel(
+    // Budget defaults must compare the credit debit (estimated_revenue_usd),
+    // the same basis the hosted budget guard enforces, not the provider cost.
+    const twoKPricing = createGuidePricingForModel(
       input.model,
       { resolution: "2k" },
       { aspectRatio: input.aspectRatio },
-    ).estimated_provider_cost_usd;
+    );
     const twoKAllowedByBudget =
       input.maxEstimatedUsdPerImage === null ||
-      twoKEstimate === null ||
-      twoKEstimate <= input.maxEstimatedUsdPerImage;
+      typeof twoKPricing?.estimated_revenue_usd !== "number" ||
+      twoKPricing.estimated_revenue_usd <= input.maxEstimatedUsdPerImage;
     const intentClass = createGuideIntentClass(input.intent);
     const resolution =
       intentClass !== "budget_draft" && twoKAllowedByBudget ? "2k" : "1k";
@@ -2387,15 +2389,15 @@ function createGuideDefaultModelParameters(input) {
     input.model?.id === "openai.gpt-image-2" &&
     modelParameters.quality === undefined
   ) {
-    const mediumEstimate = createGuideProviderCostEstimateForModel(
+    const mediumPricing = createGuidePricingForModel(
       input.model,
       { ...modelParameters, quality: "medium" },
       { aspectRatio: input.aspectRatio },
-    ).estimated_provider_cost_usd;
+    );
     const mediumAllowedByBudget =
       input.maxEstimatedUsdPerImage === null ||
-      mediumEstimate === null ||
-      mediumEstimate <= input.maxEstimatedUsdPerImage;
+      typeof mediumPricing?.estimated_revenue_usd !== "number" ||
+      mediumPricing.estimated_revenue_usd <= input.maxEstimatedUsdPerImage;
     if (mediumAllowedByBudget) {
       modelParameters.quality = "medium";
       defaultsApplied.push("quality=medium");
