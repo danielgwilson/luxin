@@ -1,6 +1,6 @@
 {
   "name": "luxin-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Zero-setup durable creative-media CLI for agents (image + video + audio + 3D): guide-first creation, model and cost inspection, owned URLs, JSON recovery, payments, reusable assets, and feedback. Luxin is a creative-media runtime, unrelated to the luxon datetime library.",
   "type": "module",
   "private": false,

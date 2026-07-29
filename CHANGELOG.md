@@ -6,6 +6,34 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.1 - 2026-07-28
+
+- Release (activation/self-fund): publish the first `luxin-cli` payload since
+  the `0.2.0` rename so external agents receive the credits-as-funded-boundary
+  quota contract from #2149 — the starter preview is 50 lifetime credits with
+  a 50-job UTC-day compatibility cap, funded identities have no daily job cap
+  because prepaid credits and atomic credit reservations are the spend
+  boundary, and `usage quota` omits `daily_jobs` for funded identities — plus
+  the guide budget-basis fix from #2164 so `create --guide` picks hosted
+  defaults against the same credit debit the hosted budget guard enforces (a
+  `max_estimated_usd_per_image` cap in the $0.09-$0.12 band now plans the
+  1k/9-credit xAI default instead of failing `BUDGET_EXCEEDED` at 2k).
+- Release (discovery/attribution): the guide `auth_required` signup handoff
+  now asks the agent to self-report a `DISCOVERY_SOURCE` placeholder when no
+  slug is configured in the environment, and the packaged `SKILL.md`,
+  `README`, and `cli.md` quickstarts carry `--discovery-source` /
+  `IMAGE_SKILL_DISCOVERY_SOURCE` attribution from #2166 so external signups
+  stop arriving unattributed.
+- Release (hosted parity): the packaged contract picks up hosted behavior
+  shipped since `0.2.0`: model-parameter validation fails closed on stray
+  `series_amount` and only enforces schema-declared integer minimums (#2161),
+  `models show` and `capabilities` serve the exact catalog schema the hosted
+  validator enforces (#2167), and signup envelopes carry an honest quota
+  warning pointing at the runnable self-fund path when the rolling daily
+  starter free-preview grant budget is exhausted (#2163). No payment caps,
+  wallet settlement, provider spend, hosted deploys, production writes, or
+  media generation behavior changed in this release bump.
+
 ## 0.1.72 - 2026-07-03
 
 - Release (activation/self-fund): publish the quota-wall recovery contract from
