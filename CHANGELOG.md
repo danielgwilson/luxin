@@ -6,6 +6,38 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.2 - 2026-07-30
+
+- Release (retention/self-fund): publish the human handoff from #2181. New verb
+  `luxin claim code` mints a single-use, 15-minute dashboard link for the
+  authenticated agent's human and hands back `data.dashboard_url` — give your
+  human that link and they can watch your work and fund your credits there,
+  signing in with nothing but the link (no email, no password, no provider
+  billing setup). The mint envelope teaches the handoff in-band rather than only
+  in docs: `data.human_handoff` carries
+  `share_field: "data.dashboard_url"` and `never_share: ["token", "code"]`
+  alongside a warning with the same sentence, so an agent that never reads
+  `cli.md` still learns to send the link and nothing else. The code rides in the
+  URL fragment (`#code=...`), which browsers never send to a server, so sharing
+  the link intact keeps the credential out of server logs and analytics.
+- Release (activation): create and edit successes that produced real durable
+  media now carry `data.next_actions.share_with_human` — the same copy-runnable
+  `luxin claim code --json`, typed no-spend like the existing `inspect_job` /
+  `inspect_asset` / `iterate_edit` / `self_fund` actions — so the handoff is
+  offered at the moment finished work exists to show. Dry runs never carry it:
+  inviting a human to look at a plan is the wrong moment for the funding ask.
+- Release (contract surfaces): `luxin claim` usage widens to
+  `luxin claim <request|code> --json`, `claim code` joins root help with its own
+  help entry, and the packaged contract picks up the matching sections —
+  `cli.md` `#luxin-claim-code`, a "Show your human" section in `SKILL.md`, and
+  step `7a. Human handoff` plus `luxin claim code --json` in `llms.txt`. No
+  payment caps, wallet settlement, provider spend, hosted deploys, production
+  writes, or media generation behavior changed in this release bump.
+- Known limitation: `claim code` requires the `dashboard.claim` grant, which is
+  persisted per token at signup. Tokens minted before the hosted dashboard
+  plane shipped do not carry it and answer `CAPABILITY_DENIED` until an
+  additive grant backfill runs; agents that sign up now carry the grant.
+
 ## 0.2.1 - 2026-07-28
 
 - Release (activation/self-fund): publish the first `luxin-cli` payload since
