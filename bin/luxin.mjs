@@ -338,6 +338,7 @@ function commandHelpByKey(key) {
         "trust",
         "signup --agent --agent-name NAME --runtime RUNTIME",
         "claim request --contact INBOX",
+        "claim code",
         "whoami",
         "usage quota",
         "quota",
@@ -400,15 +401,23 @@ function commandHelpByKey(key) {
     },
     claim: {
       command: "luxin claim help",
-      usage: "luxin claim request --contact AGENT_OR_OPERATOR_INBOX --json",
+      usage: "luxin claim <request|code> --json",
       docs_url: "https://luxin.sh/cli.md#luxin-claim-request",
-      subcommands: ["request"],
+      subcommands: ["request", "code"],
     },
     "claim request": {
       command: "luxin claim request help",
       usage: "luxin claim request --contact AGENT_OR_OPERATOR_INBOX --json",
       docs_url: "https://luxin.sh/cli.md#luxin-claim-request",
       required_flags: ["--contact"],
+      optional_flags: ["--token-stdin"],
+    },
+    "claim code": {
+      command: "luxin claim code help",
+      usage: "luxin claim code --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-claim-code",
+      description:
+        "Mint a single-use, short-lived dashboard link and hand data.dashboard_url to your human: they can watch your work and fund your credits there. No inputs beyond auth; no spend.",
       optional_flags: ["--token-stdin"],
     },
     auth: {
@@ -965,12 +974,15 @@ async function signup(argv) {
 // unclaimed; attaching a contact is not inbox-ownership verification.
 async function claim(argv) {
   const [subcommand, ...rest] = argv;
+  if (subcommand === "code") {
+    return await claimCode(rest);
+  }
   if (subcommand !== "request") {
     return failure(
       "luxin claim",
       2,
       "INVALID_ARGUMENTS",
-      "claim requires the request subcommand",
+      "claim requires the request or code subcommand",
       false,
       {
         suggested_command: CLAIM_REQUEST_SUGGESTED_COMMAND,
@@ -1005,6 +1017,25 @@ async function claim(argv) {
     path: "/v1/agent-claims",
     token: token.token,
     body: { contact: contact.trim().toLowerCase() },
+  });
+}
+
+// Claim code (#2088 S1d): mints the single-use, short-TTL dashboard link the
+// agent hands to its HUMAN — they watch the work and fund the credits there.
+// The code rides in the URL fragment of data.dashboard_url, which never
+// reaches servers, logs, or analytics. Hand over the link and nothing else.
+async function claimCode(argv) {
+  const args = parseArgs(argv);
+  const token = await resolveToken(args);
+  if (!token.ok) {
+    return token.result;
+  }
+  return apiRequest({
+    command: "luxin claim code",
+    method: "POST",
+    apiBaseUrl: apiBase(args),
+    path: "/v1/dashboard-codes",
+    token: token.token,
   });
 }
 

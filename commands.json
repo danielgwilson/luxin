@@ -33,7 +33,7 @@
       "surface": "hosted_cli",
       "mutation": true,
       "spend": false,
-      "subcommands": ["request"]
+      "subcommands": ["request", "code"]
     },
     {
       "id": "whoami",
@@ -166,6 +166,7 @@
           "trust",
           "signup --agent --agent-name NAME --runtime RUNTIME",
           "claim request --contact INBOX",
+          "claim code",
           "whoami",
           "usage quota",
           "quota",
@@ -238,9 +239,9 @@
       "key": "claim",
       "help": {
         "command": "luxin claim help",
-        "usage": "luxin claim request --contact AGENT_OR_OPERATOR_INBOX --json",
+        "usage": "luxin claim <request|code> --json",
         "docs_url": "https://luxin.sh/cli.md#luxin-claim-request",
-        "subcommands": ["request"]
+        "subcommands": ["request", "code"]
       }
     },
     {
@@ -250,6 +251,16 @@
         "usage": "luxin claim request --contact AGENT_OR_OPERATOR_INBOX --json",
         "docs_url": "https://luxin.sh/cli.md#luxin-claim-request",
         "required_flags": ["--contact"],
+        "optional_flags": ["--token-stdin"]
+      }
+    },
+    {
+      "key": "claim code",
+      "help": {
+        "command": "luxin claim code help",
+        "usage": "luxin claim code --json",
+        "docs_url": "https://luxin.sh/cli.md#luxin-claim-code",
+        "description": "Mint a single-use, short-lived dashboard link and hand data.dashboard_url to your human: they can watch your work and fund your credits there. No inputs beyond auth; no spend.",
         "optional_flags": ["--token-stdin"]
       }
     },

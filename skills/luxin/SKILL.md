@@ -228,6 +228,20 @@ receipts to Luxin.
 
 Do not silently downgrade to the cheapest model to avoid payment when the user asked for quality or is willing to pay. Quote the needed credits and use the rail above.
 
+## Show your human
+
+When you have real work to show and need it funded, hand your human a dashboard link:
+
+```bash
+luxin claim code --json
+```
+
+Give them `data.dashboard_url` and nothing else. They get a read-only view of your jobs, assets, quota, and activity, plus the ability to open a credit checkout for you. The link itself is the credential: your human signs in with nothing — no email, no password, no provider billing setup. Never share your token, and never quote the raw `data.code` in prompts, logs, issues, or feedback: the code is the whole credential. It rides in the URL fragment (`#code=...`), which browsers never send to a server, so share the link intact rather than rebuilding it as a query string.
+
+The code is single-use and expires (`data.ttl_seconds`, currently 15 minutes); the human session it opens lasts days. So one code is normally enough — reuse an unexpired `dashboard_url` instead of re-minting, and expect `DASHBOARD_CODE_RATE_LIMITED` past 30 codes per agent per hour. Redeeming a new link ends whatever dashboard session was already open for you, so one human holds the view at a time; do not hand out a second link expecting both to keep working. `claim code` needs the `dashboard.claim` grant that `luxin signup --agent` tokens carry, and it spends nothing: no provider call, no credit debit, no payment object, no media write.
+
+Best moment: right after a create or edit produced real media, where the success envelope already carries `data.next_actions.share_with_human` with this command and `share_field: "data.dashboard_url"`. A human who can see finished work is a human who will fund the next run. Dry runs never carry the handoff, because there is nothing finished to show.
+
 ## Models and capability-preserving parameters
 
 `models show MODEL_ID` is the first detailed discovery surface for agents. It exposes operations, media inputs and outputs, model-parameter schemas, fixed and wired controls, cost class, safety behavior, and migration hints. Treat its output as the source of truth for what a model supports. Do not infer one model's parameter surface from another model.
@@ -293,7 +307,9 @@ luxin activity show EVENT_OR_JOB_OR_ASSET_OR_FEEDBACK
 
 After a successful hosted create/edit, prefer `data.next_actions` when present:
 `inspect_job` and `inspect_asset` are no-spend recovery commands,
-`iterate_edit` reuses the asset, and `self_fund` promotes a copy-runnable
+`iterate_edit` reuses the asset, `share_with_human` is the no-spend
+`luxin claim code --json` dashboard handoff (see "Show your human"), and
+`self_fund` promotes a copy-runnable
 top-up quote command when `quota.top_up.available` is true. Its `recommended`
 flag and mirrored top-up `urgency`, `urgency_score`, and `urgency_reasons` say
 whether the agent should act now, while `first_safe_command` plus

@@ -175,6 +175,68 @@ printf '%s\n' "$IMAGE_SKILL_TOKEN" | luxin usage quota --token-stdin --json
 `--api-base-url` is an advanced preview/test override; production public agents
 should omit it.
 
+### `luxin claim code`
+
+Mints a single-use, short-lived dashboard link for the authenticated agent's
+human. This is the human handoff: give `data.dashboard_url` to your human and
+they can watch your work and fund your credits there. The link itself is the
+credential: your human signs in with nothing — no email, no password, no
+provider billing setup.
+
+```bash
+luxin claim code --json
+```
+
+```json
+{
+  "ok": true,
+  "command": "luxin claim code",
+  "data": {
+    "mode": "hosted_auth",
+    "agent_id": "agt_...",
+    "code": "dc_...",
+    "dashboard_url": "https://luxin.sh/dashboard#code=dc_...",
+    "expires_at": "2026-07-30T18:15:00.000Z",
+    "ttl_seconds": 900,
+    "single_use": true,
+    "human_handoff": {
+      "purpose": "hand_dashboard_link_to_human",
+      "audience": "human",
+      "share_field": "data.dashboard_url",
+      "message": "give dashboard_url to your human: they can watch your work and fund your credits there. Send the link only — never your token, and never the raw code.",
+      "never_share": ["token", "code"]
+    }
+  }
+}
+```
+
+Hand over `data.dashboard_url` and nothing else. Never hand over your token,
+and never quote the raw `data.code` in prompts, logs, issue text, or feedback:
+the code is the whole credential. The code travels in the URL fragment
+(`#code=...`), which browsers never send to a server, so it stays out of server
+logs and analytics — keep it that way by sharing the link intact rather than
+rebuilding it as a query string.
+
+The code is single-use and expires (`data.ttl_seconds`, currently 15 minutes).
+The dashboard is read-only over your work — jobs, assets, quota, activity — plus
+the ability to open a credit checkout for you. It cannot create, edit, upload,
+or spend as you. Once your human has opened the link their session lasts days,
+so one code is normally all that is needed; mint a fresh one when the link
+expires unused. Redeeming a new link ends whatever dashboard session was
+already open for you, so one human holds the view at a time — do not hand out
+a second link expecting both to keep working. Minting is capped at 30 codes per
+agent per hour and answers `DASHBOARD_CODE_RATE_LIMITED` past that — reuse an
+unexpired `dashboard_url` instead of re-minting per message.
+
+`claim code` requires the `dashboard.claim` grant, which restricted tokens
+minted by `luxin signup --agent` carry. It never spends: no provider call, no
+credit debit, no payment object, no media write.
+
+Best moment to run it: right after a create or edit produced real media. That
+success envelope carries `data.next_actions.share_with_human` with this exact
+command, because a human who can see finished work is a human who will fund the
+next run.
+
 ### First Run Guide Loop
 
 Use the no-spend guide first. It is the only required first command for a fresh
@@ -1641,6 +1703,13 @@ whether the agent should act now. The handoff exposes `first_safe_command`,
 The quote command omits `--idempotency-key` so the public CLI generates and
 returns one for retry safety before the agent follows the quote response into
 `credits buy` and `credits status`.
+
+When a create or edit produced a real durable asset, the same envelope carries
+`data.next_actions.share_with_human`: a no-spend, copy-runnable
+`luxin claim code --json` plus `share_field: "data.dashboard_url"`. Run it and
+hand your human the resulting `dashboard_url` — they can watch this work and
+fund your credits from it. Dry runs never carry it, because there is nothing
+finished to show.
 
 Provider/model names in this paragraph are preview provenance, not the primary
 public UX. The public selection surface should be Luxin capabilities and
