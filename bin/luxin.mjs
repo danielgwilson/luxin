@@ -3444,7 +3444,24 @@ function createGuideBlocker(stage, input) {
     };
   }
   if (stage === "quota_required") {
-    const remaining = quotaRemainingCredits(input.quota?.envelope.data ?? null);
+    const quotaData = input.quota?.envelope.data ?? null;
+    const remaining = quotaRemainingCredits(quotaData);
+    // Mirror createGuideStage's credit-first ordering: credits only outrank the
+    // daily-job cap when they are genuinely short. Agents that hold spare
+    // credits but hit the daily allowance (issues #2103, #2148) must be told the
+    // honest trigger, not a credits-shortfall line that reads as wrong to them
+    // (same confusion class as #1193).
+    const creditsShort =
+      input.estimatedCredits !== null &&
+      remaining !== null &&
+      remaining < input.estimatedCredits;
+    const dailyJobs = quotaData?.daily_jobs;
+    if (!creditsShort && dailyJobs !== undefined && dailyJobs.remaining <= 0) {
+      return {
+        code: "quota_required",
+        message: `You've reached today's job allowance (${dailyJobs.cap}/day); a top-up raises your daily allowance so you can keep creating now.`,
+      };
+    }
     return {
       code: "quota_required",
       message: `Selected first image requires ${input.estimatedCredits ?? "unknown"} credits; current remaining credits are ${remaining ?? "unknown"}.`,
