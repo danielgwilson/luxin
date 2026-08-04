@@ -421,6 +421,7 @@
         "docs_url": "https://luxin.sh/cli.md#luxin-create",
         "optional_flags": [
           "--guide",
+          "--no-spend",
           "--dry-run",
           "--model",
           "--aspect-ratio",

@@ -355,6 +355,26 @@ step.
   `data.auth_handoff.next_command.with_env` or
   `data.auth_handoff.next_command.with_stdin` so auth follows the create.
 
+For a no-spend or dry-run study, add `--no-spend` to `create --guide` for a
+compact output mode. `data.no_spend_output_mode.enabled` is then `true` and the
+live self-fund and payment command templates are omitted:
+`data.self_fund_next_command`, `data.self_fund_next_command_label`,
+`data.self_fund_handoff`, `data.self_fund_preparation`, and
+`data.checks.payments.suggested_commands` are suppressed (each is listed in
+`data.no_spend_output_mode.suppressed_fields`), so the safe dry-run is not
+buried under quote/buy/payment workflow commands. The response still centers on
+the dry-run command (`data.recommended_no_spend_command`, aliased by
+`data.no_spend_next_command`), and the provider-call, credit-debit, and
+media-write false proof in `data.mutation` is retained. The self-fund path
+stays discoverable without dominating via
+`data.no_spend_output_mode.self_fund_discovery`: its
+`rerun_with_funding_command` re-runs the guide without `--no-spend` to surface
+the funding templates, and `inspect_methods_command` is a read-only, no-spend
+payment-method inspection (the same command as
+`data.escape_hatches.payment_methods`). `--no-spend` is a guide output mode; it
+requires `--guide`, and for a no-spend planned job outside the guide use
+`create --dry-run`.
+
 Manual escape hatches are not prerequisites. Use them only when
 `data.next_command` / `data.escape_hatches` asks, or when the task genuinely
 needs deeper capability, quota, payment, or planning detail:

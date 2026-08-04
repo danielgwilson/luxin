@@ -552,6 +552,7 @@ function commandHelpByKey(key) {
       docs_url: "https://luxin.sh/cli.md#luxin-create",
       optional_flags: [
         "--guide",
+        "--no-spend",
         "--dry-run",
         "--model",
         "--aspect-ratio",
@@ -1984,13 +1985,66 @@ async function createGuide(args, options = {}) {
     paymentSummary,
     selfFundPreparation,
   );
+  // #2194: no-spend output mode. Omit the live self-fund and payment command
+  // templates when the agent opts into a no-spend/dry-run study so the safe
+  // dry-run is not buried under quote/buy/payment workflow commands. Retain the
+  // dry-run command and the mutation proof, and keep the self-fund path
+  // discoverable via self_fund_discovery instead of dominating the response.
+  const noSpendOutputMode = flagBool(args, "no-spend");
+  const paymentSummaryOutput = noSpendOutputMode
+    ? { ...paymentSummary, suggested_commands: [] }
+    : paymentSummary;
+  const selfFundHandoffOutput = noSpendOutputMode ? null : selfFundHandoff;
+  const selfFundPreparationOutput = noSpendOutputMode
+    ? null
+    : selfFundPreparation;
+  const selfFundNextCommandOutput = noSpendOutputMode
+    ? null
+    : selfFundNextCommand;
+  const selfFundNextCommandLabelOutput = noSpendOutputMode
+    ? null
+    : selfFundNextCommandLabel;
+  const noSpendOutputModeData = noSpendOutputMode
+    ? {
+        enabled: true,
+        suppressed_fields: [
+          "self_fund_next_command",
+          "self_fund_next_command_label",
+          "self_fund_handoff",
+          "self_fund_preparation",
+          "checks.payments.suggested_commands",
+        ],
+        self_fund_discovery: {
+          rerun_with_funding_command: renderGuideCommand(
+            trimmedPrompt.length > 0 ? trimmedPrompt : "PROMPT",
+            explicitApiBaseUrl(args),
+            guideCommandPrefix,
+            {
+              operation: guideOperation,
+              inputReference: options.inputReference,
+              modelId: requestedModelId,
+              providerId: requestedProviderId,
+              intent: requestedIntentFlag,
+              maxEstimatedUsdPerImage,
+              modelParametersJson: requestedModelParametersJson,
+            },
+          ),
+          inspect_methods_command: escapeHatches.payment_methods,
+          note: "No-spend output mode omits live self-fund and payment command templates. Re-run this guide without --no-spend to surface them; data.escape_hatches.payment_methods stays available for read-only, no-spend payment-method inspection. provider_call, credit_debit, and media_write remain false (see data.mutation).",
+        },
+      }
+    : {
+        enabled: false,
+        suppressed_fields: [],
+        self_fund_discovery: null,
+      };
   const guideRecovery = createGuideRecovery(stage, {
     blocker,
     nextCommand,
     noSpendNextCommand,
     afterNext,
     escapeHatches,
-    selfFundNextCommand,
+    selfFundNextCommand: selfFundNextCommandOutput,
   });
   return createGuideSuccess(command, quota?.envelope.actor ?? null, {
     schema:
@@ -2040,7 +2094,7 @@ async function createGuide(args, options = {}) {
               ? null
               : (quota.envelope.error?.code ?? "quota_unavailable"),
       },
-      payments: paymentSummary,
+      payments: paymentSummaryOutput,
     },
     selection:
       selected === null
@@ -2090,13 +2144,14 @@ async function createGuide(args, options = {}) {
     recommended_no_spend_command: noSpendNextCommand,
     recommended_no_spend_command_label: noSpendNextCommandLabel,
     recommended_no_spend_command_effect: noSpendNextCommandEffect,
-    self_fund_next_command: selfFundNextCommand,
-    self_fund_next_command_label: selfFundNextCommandLabel,
-    self_fund_handoff: selfFundHandoff,
-    self_fund_preparation: selfFundPreparation,
+    self_fund_next_command: selfFundNextCommandOutput,
+    self_fund_next_command_label: selfFundNextCommandLabelOutput,
+    self_fund_handoff: selfFundHandoffOutput,
+    self_fund_preparation: selfFundPreparationOutput,
     after_next: afterNext,
     auth_handoff: authHandoff,
     escape_hatches: escapeHatches,
+    no_spend_output_mode: noSpendOutputModeData,
     mutation: {
       provider_call: false,
       hosted_create: false,
@@ -4439,6 +4494,12 @@ async function create(argv) {
   if (flagBool(args, "guide")) {
     return createGuide(args);
   }
+  if (flagBool(args, "no-spend")) {
+    return invalid(
+      "luxin create",
+      "create --no-spend is a guide output mode; combine it with --guide, or use create --dry-run for a no-spend planned job",
+    );
+  }
   const prompt = await promptValue(args);
   if (!prompt.ok) {
     return prompt.result;
@@ -4585,6 +4646,12 @@ async function edit(argv) {
       guideOperation: "edit",
       inputReference: input,
     });
+  }
+  if (flagBool(args, "no-spend")) {
+    return invalid(
+      "luxin edit",
+      "edit --no-spend is a guide output mode; combine it with --guide, or use edit --dry-run for a no-spend planned job",
+    );
   }
   if (input === undefined) {
     return invalid(
