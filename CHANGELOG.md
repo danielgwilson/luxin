@@ -6,6 +6,94 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.3 - 2026-08-04
+
+- Release (self-fund/recovery): the wall now offers a human-funding handoff
+  instead of only a rail no external agent could walk (#2201). Both wall types
+  — credits depleted and daily job cap reached — route through
+  `QUOTA_EXCEEDED`, and the recovery envelope now carries
+  `error.recovery.human_handoff`: a copy-runnable `luxin claim code --json`,
+  typed `no_spend`, with the honest instruction to hand `data.dashboard_url`
+  (and nothing else — never the token, never the raw code) to your human, who
+  funds credits at the dashboard in about a minute. With no wallet evidence —
+  the external default — that handoff leads `error.recovery.suggested_command`
+  and `error.recovery.suggested_commands`; the agent-native x402 quote/buy rail
+  stays listed and `top_up.preferred_payment_method`
+  (`stripe_x402.exact.usdc`) is unchanged. New `error.recovery.delegated_spend`
+  (`state`, `per_tx_cap_usd`, `agent_day_remaining_usd`, `requires_wallet`)
+  lets an agent tell whether it can settle x402 itself before it stops at the
+  wall; it defaults to `state: "unknown"`, and when a caller proves delegated
+  spend is available the x402 quote leads instead. The credits-depleted wall
+  message — the majority wall — now names the price (a ~$5 top-up of 500
+  credits, pack `starter-500`), the concrete next step, and both paths, at the
+  quality the daily-cap message already had. The packaged CLI rewrites the
+  handoff command through your invocation prefix, so what the wall prints is
+  runnable as printed.
+- Release (honest messaging): the `create --guide` / `edit --guide`
+  `quota_required` blocker is now trigger-aware (#2200). It used to always emit
+  the credits-shortfall line ("Selected first image requires N credits; current
+  remaining credits are M") even when the trigger was the daily job cap, so an
+  agent holding spare credits read a message that was simply wrong about why it
+  was blocked. The blocker now mirrors the stage's credit-first ordering:
+  credits only outrank the daily cap when they are genuinely short, and
+  otherwise the message names the real trigger — "You've reached today's job
+  allowance (X/day); a top-up raises your daily allowance so you can keep
+  creating now" — matching the hosted daily-cap copy.
+- Release (no-spend mode): `create --guide` and `edit --guide` accept an opt-in
+  `--no-spend` output mode (#2194). A cold-agent no-spend study got a guide
+  response that repeatedly embedded live create, quote, buy, and payment
+  command templates, which buried the safe dry-run and raised the chance of
+  picking a prohibited action. With `--no-spend`,
+  `data.no_spend_output_mode.enabled` is `true` and the live funding templates
+  are omitted — `data.self_fund_next_command`,
+  `data.self_fund_next_command_label`, `data.self_fund_handoff`,
+  `data.self_fund_preparation`, and `data.checks.payments.suggested_commands`,
+  each named in `data.no_spend_output_mode.suppressed_fields`. The dry-run
+  command (`data.recommended_no_spend_command` / `data.no_spend_next_command`)
+  and the `provider_call` / `credit_debit` / `media_write` false proof in
+  `data.mutation` are retained. The funding path stays discoverable without
+  dominating via `data.no_spend_output_mode.self_fund_discovery`:
+  `rerun_with_funding_command` re-runs the same guide without `--no-spend`, and
+  `inspect_methods_command` is a read-only, no-spend payment-method
+  inspection. `--no-spend` is a guide output mode: outside `--guide` it is
+  rejected with the pointer to `create --dry-run` for a no-spend planned job.
+  `luxin create --help` and the packaged `cli.md` / `commands.json` carry the
+  flag.
+- Release (trust/billing): a completed, charged job always surfaces an asset
+  (#2107). A live create/edit reserves credit before calling the provider and
+  settles on the provider's success envelope — but a provider that answered
+  SUCCESS with an empty or planned-only asset list used to settle the
+  reservation and commit a charged, asset-less job, so the agent was billed for
+  nothing and had no recoverable job or asset. The runner now requires at least
+  one real (non-planned) asset before settling: otherwise it releases the
+  reserved credit and returns a retryable `PROVIDER_COMPLETED_WITHOUT_ASSET`
+  failure instead of committing the charge. Nothing to change on your side —
+  the debit-without-media outcome is gone.
+- Release (guide reliability): the `create --guide` executable-default read is
+  guarded against the shape the hosted registry actually returns (#2109).
+  `GET /v1/models` serves the compact model-summary rows, which carry
+  `model_execution_status` as a flat field rather than nested under
+  `execution`; a nested-only read failed every row's executable check and
+  dead-ended the guide at `no_executable_model` even though an executable
+  default existed and an explicit `create --dry-run --model fal.bagel` still
+  planned for zero credits. The flat-reading fix shipped earlier, but every
+  guide fixture used the nested shape, so a regression would have passed CI.
+  This release adds a faithful regression test serving the compact/flat shape
+  and asserting `ready_to_create` with the executable default selected.
+- Resolved (0.2.2 known limitation): the `dashboard.claim` grant backfill
+  landed (#2184), so `luxin claim code` no longer answers `CAPABILITY_DENIED`
+  for agents whose tokens predate the hosted dashboard plane. That matters more
+  now that the wall itself recommends the command.
+- Release (hosted parity): the Stripe reconciliation sweep is rail-aware and
+  transitions confirmed-unsettled pending attempts older than its abandonment
+  window to a terminal `expired` state with an audit trail (#2160). Settled
+  attempts are never abandoned and live-money retrieval failures still fail
+  loudly. No packaged CLI command changed for this; stale open quotes on your
+  account simply stop lingering as pending forever.
+- No payment caps, wallet settlement, provider spend, dist-tag mutation, or
+  media generation behavior changed in this release bump beyond the
+  debited-no-asset release path above, which only ever refunds.
+
 ## 0.2.2 - 2026-07-30
 
 - Release (retention/self-fund): publish the human handoff from #2181. New verb

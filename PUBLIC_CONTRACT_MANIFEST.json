@@ -5,7 +5,7 @@
   "source_root": "docs/public-contract",
   "public_repo": "danielgwilson/luxin",
   "package_name": "luxin-cli",
-  "package_version": "0.2.2",
+  "package_version": "0.2.3",
   "note": "Generated from private upstream public contracts. Do not edit by hand.",
   "files": [
     {
