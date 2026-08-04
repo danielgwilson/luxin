@@ -7051,6 +7051,16 @@ function quotaRecoveryWithCopyRunnableCommands(recovery, commandPrefix) {
           ),
         }
       : {}),
+    ...(recovery.human_handoff &&
+    typeof recovery.human_handoff === "object" &&
+    typeof recovery.human_handoff.command === "string"
+      ? {
+          human_handoff: {
+            ...recovery.human_handoff,
+            command: render(recovery.human_handoff.command),
+          },
+        }
+      : {}),
     top_up: quotaTopUpWithCopyRunnableCommands(recovery.top_up, commandPrefix),
   };
 }
