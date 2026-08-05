@@ -10,7 +10,7 @@
   "files": [
     {
       "source_path": "docs/public-contract/skill.md",
-      "public_paths": ["SKILL.md", "skill.md", "skills/luxin/SKILL.md"],
+      "public_paths": ["skill.md", "skills/luxin/SKILL.md"],
       "bytes": 31915,
       "sha256": "2b5bd02b85fa680e1ef698a083f990ab924642c3ea281e141cc877ecc5111f87"
     },

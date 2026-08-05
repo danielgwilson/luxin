@@ -10,7 +10,7 @@ const manifestSchema = "image-skill.public-contract-manifest.v1";
 const requiredContracts = [
   {
     source_path: "docs/public-contract/skill.md",
-    public_paths: ["SKILL.md", "skill.md", "skills/luxin/SKILL.md"],
+    public_paths: ["skill.md", "skills/luxin/SKILL.md"],
   },
   {
     source_path: "docs/public-contract/cli.md",
