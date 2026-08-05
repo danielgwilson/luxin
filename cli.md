@@ -196,8 +196,8 @@ luxin claim code --json
     "agent_id": "agt_...",
     "code": "dc_...",
     "dashboard_url": "https://luxin.sh/dashboard#code=dc_...",
-    "expires_at": "2026-07-30T18:15:00.000Z",
-    "ttl_seconds": 900,
+    "expires_at": "2026-07-30T19:00:00.000Z",
+    "ttl_seconds": 3600,
     "single_use": true,
     "human_handoff": {
       "purpose": "hand_dashboard_link_to_human",
@@ -217,7 +217,7 @@ the code is the whole credential. The code travels in the URL fragment
 logs and analytics — keep it that way by sharing the link intact rather than
 rebuilding it as a query string.
 
-The code is single-use and expires (`data.ttl_seconds`, currently 15 minutes).
+The code is single-use and expires (`data.ttl_seconds`, currently 60 minutes).
 The dashboard is read-only over your work — jobs, assets, quota, activity — plus
 the ability to open a credit checkout for you. It cannot create, edit, upload,
 or spend as you. Once your human has opened the link their session lasts days,
