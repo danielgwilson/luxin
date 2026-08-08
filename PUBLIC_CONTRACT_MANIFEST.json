@@ -11,8 +11,8 @@
     {
       "source_path": "docs/public-contract/skill.md",
       "public_paths": ["skill.md", "skills/luxin/SKILL.md"],
-      "bytes": 31915,
-      "sha256": "2b5bd02b85fa680e1ef698a083f990ab924642c3ea281e141cc877ecc5111f87"
+      "bytes": 32585,
+      "sha256": "dd3779a81e03901d8c0b8b46a11a76377f6702063d23ef2d48df5e05f84d567d"
     },
     {
       "source_path": "docs/public-contract/cli.md",

@@ -257,6 +257,8 @@ luxin models show openai.gpt-image-2
 
 `--available` filters to runnable rows (`status:"available"` and `execution.model_execution_status:"executable"`). Do not treat provider-level `status:"available"` as runnable. `--catalog-only` exposes research rows that are not runnable yet; inspect them, do not pass them to create or edit.
 
+Aspect ratio is a normalized top-level control, not a `model_parameters` field: pass `--aspect-ratio 16:9` (API: top-level `aspect_ratio` on `/v1/create` and `/v1/edit`). Supported values are per-model — `models show MODEL_ID` lists them under `media.input.aspect_ratios.values`, and passing one a model does not expose fails before any spend. If you do not state a ratio, the model default applies, so put the ratio you need in the brief or pass the flag. `create --guide` reads an explicit ratio from your prompt, reports it as `selection.suggested_aspect_ratio`, prefers a model that can express it, and includes it in `data.next_command`.
+
 Pass model-specific controls through validated JSON, not invented top-level flags:
 
 ```bash
@@ -264,6 +266,7 @@ luxin create \
   --prompt-file ./prompt.md \
   --intent finalize \
   --model openai.gpt-image-2 \
+  --aspect-ratio 16:9 \
   --output-count 2 \
   --model-parameters-json '{"quality":"high","background":"opaque","output_format":"png"}' \
   --max-usd 0.80
