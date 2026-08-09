@@ -1255,6 +1255,11 @@ debit in dollars for one output, matching
 `cost.estimated_debit_usd_per_image` and
 `cost.estimated_credits * cost.credit_unit_usd` when credit pricing is known.
 That is the amount the agent needs to fund.
+`cost.cheaper_alternative` names one available model that costs strictly fewer
+credits than the selection and still satisfies the brief, with its
+`model_id` and `estimated_credits`; it is null when the selection is already
+the cheapest model that satisfies the brief. Pass its `model_id` to `--model`
+to take it.
 
 ```bash
 luxin create \
@@ -1265,9 +1270,15 @@ luxin create \
   --json
 ```
 
-Hosted defaults are quality-first. If an agent does not choose a model, Image
-Skill selects the strongest available create capability for the requested
-intent and budget, then records the decision in `request.selection`. Explicit
+Hosted defaults are intent-first. If an agent does not choose a model, Image
+Skill selects a create capability for the requested intent and budget, then
+records the decision in `request.selection`. `--intent draft` (or `cheap`,
+`budget`, `test`) selects the lowest-credit available model; `--intent final`
+(or `hero`, `product`, `campaign`, `deliverable`) selects the quality-first
+model; no intent, or `--intent explore`, selects a cost-efficient
+general-purpose model for iteration. A brief that states a reproducibility or
+aspect-ratio requirement still gets a model that can express it, even when a
+cheaper model cannot: capability outranks price. Explicit
 `--provider`, `--model`, namespaced model ids, and validated
 `model_parameters` always take precedence. For final/product/hero-style
 intents, Luxin may default an eligible quality-capability request to a
@@ -1499,7 +1510,7 @@ Minimum success data:
     "selection": {
       "policy": "hosted_default_create_v1",
       "reason": "hosted default selected the strongest currently available quality-first create model",
-      "intent": "explore",
+      "intent": "final",
       "capability": {
         "id": "is.image.generate.xai-grok-imagine-image-quality.v1"
       },

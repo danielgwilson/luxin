@@ -2828,20 +2828,39 @@ function createGuideIntentClass(intent) {
   return "general";
 }
 
+// Mirrors src/hosted-create-policy.ts (#2231). budget_draft is a superset of
+// general and both are ordered ascending by charged credits, so a
+// cost-minimizing intent can never select a model priced above the general
+// default. final keeps the quality-premium lead.
 function preferredCreateGuideModelIds(intentClass) {
-  return intentClass === "budget_draft"
-    ? [
-        "fal.flux-dev",
-        "xai.grok-imagine-image-quality",
-        "xai.grok-imagine-image",
-        "openai.gpt-image-2",
-      ]
-    : [
-        "xai.grok-imagine-image-quality",
-        "fal.flux-dev",
-        "xai.grok-imagine-image",
-        "openai.gpt-image-2",
-      ];
+  if (intentClass === "budget_draft") {
+    return [
+      "fal.flux-1-schnell",
+      "fal.flux-1-dev",
+      "xai.grok-imagine-image",
+      "fal.bria-text-to-image-fast",
+      "xai.grok-imagine-image-quality",
+      "openai.gpt-image-2",
+    ];
+  }
+  if (intentClass === "final") {
+    return [
+      "xai.grok-imagine-image-quality",
+      "openai.gpt-image-2",
+      "fal.flux-1-dev",
+      "xai.grok-imagine-image",
+      "fal.flux-1-schnell",
+      "fal.bria-text-to-image-fast",
+    ];
+  }
+  return [
+    "fal.flux-1-dev",
+    "xai.grok-imagine-image",
+    "xai.grok-imagine-image-quality",
+    "openai.gpt-image-2",
+    "fal.flux-1-schnell",
+    "fal.bria-text-to-image-fast",
+  ];
 }
 
 function guideBudgetUsdForModel(model) {
@@ -3226,9 +3245,14 @@ function createGuideSelectionReason(
       model?.id,
     )
   ) {
-    return createGuideIntentClass(intent) === "budget_draft"
-      ? "guide selected a draft/budget create model with high-definition defaults"
-      : "guide selected the strongest currently available quality-first create model for this intent";
+    const intentClass = createGuideIntentClass(intent);
+    if (intentClass === "budget_draft") {
+      return "guide selected the lowest-credit available create model for a draft/budget intent";
+    }
+    if (intentClass === "general") {
+      return "guide selected a cost-efficient general-purpose create model for iteration; pass --intent final for the quality-first model";
+    }
+    return "guide selected the strongest currently available quality-first create model for this intent";
   }
   return operation === "edit"
     ? "guide selected the first available executable input-image edit model"
