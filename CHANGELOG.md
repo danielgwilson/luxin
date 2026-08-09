@@ -6,6 +6,47 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.4 - 2026-08-09
+
+- Release (correctness): the guide honors an aspect ratio stated in the brief
+  instead of dropping it (#2213, #2203, #2209). A "16:9 cinematic widescreen
+  poster" brief previously returned a 2048x2048 square and charged 12 credits
+  for it: `selection.suggested_aspect_ratio` was hard-null for every image
+  model because the guide only ever suggested a ratio for video. The guide now
+  extracts an explicit ratio conservatively, treats it as a required capability
+  during model selection the way #2225 treats seed, and passes
+  `--aspect-ratio` through to create, dry-run and edit. Bare "portrait" and
+  "landscape" deliberately do not fire, and neither do quantity ratios ("the
+  ratio of sugar to flour is 3:2") or bare clock times.
+- Release (output): `create --guide` at an unblocked `ready_to_create` returns
+  the decision rather than every field (#2204 and its cluster). Measured
+  21,667 to 7,911 bytes, 449 to 200 lines. A blocked agent still receives the
+  full recovery and self-fund apparatus, because that is when it is the right
+  answer, and the pre-wall funding nudge survives whenever it is genuinely
+  recommended. `data.output_mode` names every omitted and compacted field and
+  carries a copy-runnable `--explain`, so nothing is trimmed silently.
+- Release (cost): `--intent` now drives model selection (#2231). `draft`
+  previously selected a 25-credit model against a 12-credit default and now
+  selects a 1-credit one; the unhinted default drops from 12 to 4 credits.
+  `final` still selects the quality model, and reproducibility briefs still
+  route to a seed-capable model. `cost.cheaper_alternative` names one available
+  model that costs strictly less and still satisfies the brief.
+- Release (trust): public responses no longer publish our provider cost,
+  revenue, realized margin, target margin, or payment-fee model. What a caller
+  is charged is unchanged; what we paid and made is no longer disclosed.
+- Release (dry-run): hosted create and edit responses carry an explicit
+  `data.mutation` stating `provider_call`, `credit_debit` and `media_write`
+  rather than leaving them to be inferred (#2216), and planned assets are
+  labelled as placeholders rather than media.
+- Release (contract): `aspect_ratio` is documented in `skill.md` as the
+  top-level normalized control it always was.
+- Release (media): newly created assets are returned at `media.luxin.sh`.
+  Existing `media.image-skill.com` URLs continue to resolve and are still
+  accepted as input.
+- Release (discovery): the `image-skill` skill slug resolves again. The rename
+  removed it and `npx skills add ... --skill image-skill` had failed since
+  2026-07-13 on the mirror path carrying most of our installs.
+
 ## 0.2.3 - 2026-08-04
 
 - Release (self-fund/recovery): the wall now offers a human-funding handoff
