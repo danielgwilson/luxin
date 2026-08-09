@@ -19,12 +19,15 @@ provenance; this file is the human- and agent-readable release map.
   `selection.suggested_aspect_ratio` read the same unpublished block and
   returned null on every real video call unless the brief happened to name a
   ratio.
-- Known issue (#2259): `create --guide` can quote a different credit figure than
-  the `--dry-run` it hands you, because it prices the model's catalog default
-  shape rather than the ratio the command actually sends. Measured against the
-  live API: 4 vs 5 with no ratio stated, 4 vs 3 at 16:9. The dry-run figure is
-  the authoritative one; budget from it, not from the guide. Unchanged from
-  0.2.4; the fix landed server-side but not in this package.
+- Correction (added after 0.2.5 shipped): the 0.2.5 tarball carries a "known
+  issue" note claiming `create --guide` can quote a different credit figure than
+  the `--dry-run` it hands you. **That note is wrong and the behaviour it
+  describes does not exist.** It was written from a measurement taken during a
+  deploy-skew window, minutes after the fix merged and before the hosted API had
+  deployed its half. Measured after both halves landed, the guide and the dry-run
+  agree: 5 and 5 with no ratio stated, 3 and 3 at 16:9. #2259 is fixed and
+  closed. Budgeting from the dry-run figure remains sound advice, but it is not a
+  workaround for anything.
 
 ## 0.2.4 - 2026-08-09
 
