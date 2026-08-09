@@ -1,6 +1,6 @@
 {
   "name": "luxin-cli",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Image generation, image editing, video, audio, and image-to-3D for agents, with no API key to obtain first. The agent signs itself up, starts on free preview credits, and gets hosted media URLs, recoverable jobs, and cost receipts.",
   "type": "module",
   "private": false,

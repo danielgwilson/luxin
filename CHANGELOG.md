@@ -6,6 +6,26 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.5 - 2026-08-09
+
+- Release (correctness): `edit --guide` selects a model again. It gated on
+  `media.input.images.required`, which the hosted `/v1/models` summary does not
+  publish, so on 0.2.4 every edit brief returned `no_executable_model` and the
+  blocker named `create`. The predicate now reads `supports`, which the summary
+  does publish; measured on the live 220-model catalog the two express the same
+  79-model set, so this drops a redundant conjunct rather than a guarantee. The
+  blocker also names the operation it actually failed on.
+- Release (correctness): a plain video brief reports its aspect ratio again.
+  `selection.suggested_aspect_ratio` read the same unpublished block and
+  returned null on every real video call unless the brief happened to name a
+  ratio.
+- Known issue (#2259): `create --guide` can quote a different credit figure than
+  the `--dry-run` it hands you, because it prices the model's catalog default
+  shape rather than the ratio the command actually sends. Measured against the
+  live API: 4 vs 5 with no ratio stated, 4 vs 3 at 16:9. The dry-run figure is
+  the authoritative one; budget from it, not from the guide. Unchanged from
+  0.2.4; the fix landed server-side but not in this package.
+
 ## 0.2.4 - 2026-08-09
 
 - Release (correctness): the guide honors an aspect ratio stated in the brief
