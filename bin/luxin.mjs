@@ -208,6 +208,111 @@ const GUIDE_NEXT_COMMAND_PLACEHOLDERS = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Explicit aspect-ratio intent (#2213/#2203/#2209, hardened by #2243/#2252).
+//
+// An agent that briefs "a 16:9 cinematic widescreen poster" is stating a
+// REQUIRED output shape, not decorating the prompt. This CLI used to ignore it
+// entirely: `createGuideSuggestedAspectRatio` only ever suggested a ratio for
+// video models, so `selection.suggested_aspect_ratio` was null for every image
+// create and the emitted `next_command` carried no `--aspect-ratio`. The agent
+// then got the model default with no signal that the ratio it asked for had
+// been dropped.
+//
+// Aspect ratio is a TOP-LEVEL NORMALIZED control (`--aspect-ratio`, validated
+// against `media.input.aspect_ratios.values`), NOT a `model_parameters` field.
+//
+// Conservative on purpose: a false negative degrades to the old behavior (no
+// suggested ratio), while a false positive silently overrides the shape an
+// agent actually wanted. So this fires ONLY on an explicit ratio token from a
+// known allowlist, or on an orientation word BOUND to an orientation noun.
+// Bare "portrait" and bare "landscape" are deliberately excluded -- "a portrait
+// of a woman" and "a landscape at dusk" are subject/genre words.
+// ---------------------------------------------------------------------------
+
+// Ratio tokens accepted verbatim from a brief. Deliberately limited to the
+// unambiguous photographic/display ratios. `2:1` and `1:2` are NOT here: they
+// collide with odds and mixing ratios far more often than they express a shape.
+const EXPLICIT_ASPECT_RATIOS = [
+  "1:1",
+  "4:3",
+  "3:4",
+  "3:2",
+  "2:3",
+  "16:9",
+  "9:16",
+  "21:9",
+  "9:21",
+];
+
+// A `W:H` token that is not part of a longer numeric run (so "16:9:30" and
+// "1920:1080:2" do not match) and is not a clock time ("9:16 am").
+const ASPECT_RATIO_TOKEN_RE =
+  /(?<![\d.:])(\d{1,2}):(\d{1,2})(?![\d.:])(?!\s*[ap]\.?m\.?\b)/gi;
+
+// A `W:H` token can appear in a brief without being a shape request:
+//
+//   "the ratio of sugar to flour is 3:2 in this recipe"   -> must not fire
+//   "a train departing at 16:9"                           -> must not fire
+//
+// Deliberately narrow. These match the immediate context of the token only;
+// they are not an attempt at natural-language understanding, and #2252 had to
+// walk back a first cut that over-matched.
+const RATIO_SUPPRESSING_CONTEXT = [
+  // Quantity ratios and mixes: "ratio of sugar to flour is 3:2", "a 2:3 mix",
+  // "dilute 1:1", "3:2 by weight/volume".
+  //
+  // Requires the "ratio of X TO Y" quantities construction, and exempts the
+  // shape vocabulary. A first cut matched any "ratio of ... N:M" and silently
+  // killed "an image with an aspect ratio of 16:9" -- the single most standard
+  // way to state a ratio in English, and a far worse failure than the recipe
+  // case it was written for (#2252).
+  /\bratios?\s+of\b(?![^.!?]*?\b(?:width|height|aspect)\b)[^.!?]*?\bto\b[^.!?]*?\d{1,2}:\d{1,2}/i,
+  /\d{1,2}:\d{1,2}\s*(?:dilution|mix(?:ture)?|blend|ratio\s+by|by\s+(?:weight|volume)|odds)\b/i,
+  /\b(?:dilut\w*|mix(?:ed|ing)?|blend\w*|steep\w*)\s+(?:it\s+|them\s+)?(?:at\s+|to\s+)?\d{1,2}:\d{1,2}/i,
+  // Clock times written without a leading zero: "a train departing at 16:9".
+  // `ASPECT_RATIO_TOKEN_RE` already rejects the "9:16 am" form; this covers the
+  // bare 24-hour reading.
+  //
+  // Keyed on a SCHEDULE VERB, not on a bare preposition. "at" alone is
+  // ambiguous and suppressing it broke a real request -- "render at 4:3 for the
+  // retro TV bumper" is a shape request and must keep firing.
+  //
+  // `leav` and `board` are deliberately NOT in this list: they collide with
+  // ordinary image nouns (autumn leaves, boardwalk, surfboard, keyboard,
+  // billboard), so "a photo of autumn leaves at 16:9" would lose its ratio.
+  /\b(?:depart|arriv|due|scheduled|timetabled)\w*\s+(?:at|by|around)?\s*\d{1,2}:\d{1,2}\b/i,
+];
+
+// Orientation nouns that turn an ambiguous orientation adjective into an
+// unambiguous shape request. "portrait orientation" / "vertical video" /
+// "square canvas" are shape requests; "portrait of a woman" is not.
+const ORIENTATION_NOUN =
+  "orientation|format|mode|aspect(?:\\s+ratio)?|ratio|crop|canvas|image|photo|picture|poster|banner|video|frame|composition|layout|thumbnail|cover";
+
+function boundOrientationRe(adjective) {
+  // "<adj> <noun>" (e.g. "vertical video") or "in <adj>" / "<adj> orientation".
+  return new RegExp(
+    `\\b(?:in\\s+${adjective}\\b|${adjective}[\\s-]+(?:${ORIENTATION_NOUN})\\b)`,
+    "i",
+  );
+}
+
+const ORIENTATION_RULES = [
+  // "widescreen" and "ultrawide" are unambiguous on their own -- they have no
+  // competing subject/genre meaning.
+  { re: /\bultra[\s-]?wide(?:screen)?\b/i, ratio: "21:9" },
+  { re: /\bwide[\s-]?screen\b/i, ratio: "16:9" },
+  // These four need an orientation noun to bind to.
+  { re: boundOrientationRe("portrait"), ratio: "9:16" },
+  { re: boundOrientationRe("vertical"), ratio: "9:16" },
+  { re: boundOrientationRe("landscape"), ratio: "16:9" },
+  { re: boundOrientationRe("horizontal"), ratio: "16:9" },
+  { re: boundOrientationRe("square"), ratio: "1:1" },
+];
+
+const GUIDE_ASPECT_RATIO_PROBE_LIMIT = 8;
+
 function agentSkillHint(commandPrefix = "luxin") {
   return {
     url: AGENT_SKILL_URL,
@@ -1806,16 +1911,61 @@ async function createGuide(args, options = {}) {
     return token.result;
   }
 
-  const selected =
-    models.envelope.ok && models.envelope.data?.models
-      ? selectCreateGuideModel(models.envelope.data.models, requestedModelId, {
+  // Explicit aspect ratio stated in the brief, treated as a required capability
+  // during model selection and propagated into the emitted commands
+  // (#2213/#2203/#2209, guards corrected by #2252).
+  const briefAspectRatio = requestedAspectRatioFromBrief({
+    prompt: trimmedPrompt,
+    intent: requestedIntentFlag,
+  });
+  const listedModels =
+    models.envelope.ok && Array.isArray(models.envelope.data?.models)
+      ? models.envelope.data.models
+      : null;
+  const selectModel = (candidateModels) =>
+    candidateModels === null
+      ? null
+      : selectCreateGuideModel(candidateModels, requestedModelId, {
           operation: guideOperation,
           prompt: trimmedPrompt,
           intent: requestedIntent,
           maxEstimatedUsdPerImage,
+          requestedAspectRatio: briefAspectRatio,
+        });
+  let selection = selectModel(listedModels);
+  if (briefAspectRatio !== null && listedModels !== null) {
+    // Two-pass: the first pass names the models worth asking about, then one
+    // bounded round of detail lookups makes the second pass actually
+    // capability-aware instead of guessing.
+    const capabilityModels = await guideModelsWithAspectRatioCapabilities({
+      models: listedModels,
+      modelIds: guideAspectRatioProbeModelIds({
+        models: listedModels,
+        selected: selection?.model ?? null,
+        intent: requestedIntent,
+      }),
+      apiBaseUrl,
+    });
+    if (capabilityModels !== listedModels) {
+      selection = selectModel(capabilityModels);
+    }
+  }
+  const selected = selection?.model ?? null;
+  const selectedAspectRatio = createGuideSuggestedAspectRatio({
+    model: selected,
+    requestedAspectRatio: briefAspectRatio,
+  });
+  // The brief asked for a ratio and the selected model cannot express it, so no
+  // model could. Say so instead of dropping it silently.
+  const unsupportedAspectRatioWarning =
+    briefAspectRatio !== null &&
+    selectedAspectRatio === null &&
+    selected !== null
+      ? aspectRatioUnsupportedWarning({
+          aspectRatio: briefAspectRatio,
+          modelId: selected.id,
         })
       : null;
-  const selectedAspectRatio = createGuideSuggestedAspectRatio(selected);
   const pricingContext = {
     aspectRatio: selectedAspectRatio ?? "1:1",
     outputCount: 1,
@@ -1977,12 +2127,21 @@ async function createGuide(args, options = {}) {
     noSpendNextCommandLabel,
     noSpendNextCommandEffect,
   });
-  const guideWarning = createGuideWarning(stage, {
+  const baseGuideWarning = createGuideWarning(stage, {
     nextCommandEffect,
     paymentSummary,
     nextCommandCopyRunnable,
     readyCompact,
   });
+  // Append, never replace: the stage warning carries the spend-safety contract
+  // agents rely on, and the ratio note is additive context.
+  const guideWarning =
+    unsupportedAspectRatioWarning === null
+      ? baseGuideWarning
+      : {
+          ...baseGuideWarning,
+          warning: `${baseGuideWarning.warning} ${unsupportedAspectRatioWarning}`,
+        };
   const quotaTopUp = createGuideQuotaTopUp(
     quota?.envelope.data?.top_up ?? null,
   );
@@ -2211,14 +2370,23 @@ async function createGuide(args, options = {}) {
             modality: selected.modality ?? null,
             suggested_aspect_ratio: selectedAspectRatio,
             reason:
-              requestedModelId === null
-                ? createGuideSelectionReason(
-                    selected,
-                    trimmedPrompt,
-                    requestedIntent,
-                    guideOperation,
-                  )
-                : createGuideRequestedSelectionReason(selected),
+              requestedModelId !== null
+                ? createGuideRequestedSelectionReason(selected)
+                : selection?.aspectRatioRoutedFrom != null &&
+                    briefAspectRatio !== null
+                  ? aspectRatioRoutedCreateSelectionReason({
+                      aspectRatio: briefAspectRatio,
+                      skippedModelId: selection.aspectRatioRoutedFrom,
+                    })
+                  : selection?.aspectRatioCapableFallback === true &&
+                      briefAspectRatio !== null
+                    ? `guide selected an available model that supports the requested ${briefAspectRatio} aspect ratio`
+                    : createGuideSelectionReason(
+                        selected,
+                        trimmedPrompt,
+                        requestedIntent,
+                        guideOperation,
+                      ),
           },
     cost: {
       estimated_credits: estimatedCredits,
@@ -2283,6 +2451,12 @@ function selectCreateGuideModel(
     prompt = "",
     intent = undefined,
     maxEstimatedUsdPerImage = null,
+    /**
+     * Aspect ratio explicitly requested by the brief, treated as a REQUIRED
+     * capability during selection (#2213/#2203/#2209) the same way a
+     * reproducibility need is. Null when the brief states no ratio.
+     */
+    requestedAspectRatio = null,
   } = {},
 ) {
   const isExecutableCreate = (model) =>
@@ -2300,10 +2474,18 @@ function selectCreateGuideModel(
     operation === "edit"
       ? isExecutableInputImageEdit(model)
       : isExecutableCreate(model) || isExecutableInputImageEdit(model);
+  const requestedRatio = requestedAspectRatio ?? null;
+  const chosen = (
+    model,
+    { aspectRatioRoutedFrom = null, aspectRatioCapableFallback = false } = {},
+  ) =>
+    model === undefined || model === null
+      ? null
+      : { model, aspectRatioRoutedFrom, aspectRatioCapableFallback };
   if (requestedModelId !== null) {
     const requested = resolveModelLookup(requestedModelId, models);
     return requested !== undefined && isExecutableGuideModel(requested)
-      ? requested
+      ? chosen(requested)
       : null;
   }
   const candidates =
@@ -2320,7 +2502,7 @@ function selectCreateGuideModel(
     });
     const threeDimensional = eligible3d[0];
     if (threeDimensional !== undefined) {
-      return threeDimensional;
+      return chosen(threeDimensional);
     }
   }
   const eligible = guideCandidatesWithinBudget({
@@ -2330,23 +2512,151 @@ function selectCreateGuideModel(
   if (createGuideImpliesAudio({ prompt, intent })) {
     const audio = eligible.find((model) => model?.modality === "audio");
     if (audio !== undefined) {
-      return audio;
+      return chosen(audio);
     }
   }
   if (createGuideImpliesVideo({ prompt, intent })) {
-    const video = eligible.find((model) => model?.modality === "video");
+    const videoCandidates = eligible.filter(
+      (model) => model?.modality === "video",
+    );
+    const video =
+      videoCandidates.find(
+        (model) => !modelCannotExpressAspectRatio(model, requestedRatio),
+      ) ?? videoCandidates[0];
     if (video !== undefined) {
-      return video;
+      return chosen(video);
     }
   }
   const intentClass = createGuideIntentClass(intent);
-  for (const modelId of preferredCreateGuideModelIds(intentClass)) {
-    const preferred = eligible.find((model) => model?.id === modelId);
-    if (preferred !== undefined) {
-      return preferred;
+  const preferredCandidates = preferredCreateGuideModelIds(intentClass)
+    .map((modelId) => eligible.find((model) => model?.id === modelId))
+    .filter((model) => model !== undefined);
+  const [topPreferred] = preferredCandidates;
+
+  // An explicitly requested aspect ratio is a REQUIRED capability, so walk the
+  // curated preference list in strength order but skip models that are KNOWN
+  // not to express the ratio through the normalized `--aspect-ratio` control
+  // (#2213/#2203/#2209). Unknown capability is not a denial: see
+  // `modelAspectRatioSupport`.
+  const preferredSupportingRatio = preferredCandidates.find(
+    (model) => !modelCannotExpressAspectRatio(model, requestedRatio),
+  );
+  if (preferredSupportingRatio !== undefined) {
+    const routedForAspectRatio =
+      requestedRatio !== null &&
+      topPreferred !== undefined &&
+      topPreferred.id !== preferredSupportingRatio.id;
+    return chosen(preferredSupportingRatio, {
+      aspectRatioRoutedFrom: routedForAspectRatio ? topPreferred.id : null,
+    });
+  }
+
+  // No curated model can express the ratio: fall out to the strongest
+  // remaining executable candidate that provably can, before degrading to the
+  // ratio-blind fallback.
+  if (requestedRatio !== null) {
+    const capable = eligible.find(
+      (model) => modelAspectRatioSupport(model, requestedRatio) === true,
+    );
+    if (capable !== undefined) {
+      return chosen(capable, {
+        aspectRatioRoutedFrom: topPreferred?.id ?? null,
+        aspectRatioCapableFallback: topPreferred === undefined,
+      });
     }
   }
-  return eligible[0] ?? null;
+
+  // Nothing can express the requested ratio (or none was requested): keep the
+  // ordinary selection exactly. The caller emits an honest guide_warning rather
+  // than letting the ratio disappear silently.
+  if (topPreferred !== undefined) {
+    return chosen(topPreferred);
+  }
+  return chosen(eligible[0]);
+}
+
+// The hosted `/v1/models` list is a compact summary and does not publish
+// `media.input.aspect_ratios.values`, so a stated ratio cannot be checked
+// against it. Probe the detail endpoint for the handful of models the guide
+// would actually route between -- never the whole catalog, whose
+// `?details=true` payload is multiple megabytes.
+//
+// Fail-open: an unreachable, errored, or malformed detail response leaves the
+// capability UNKNOWN, which never disqualifies a model and never triggers the
+// unsupported-ratio warning.
+
+function guideAspectRatioProbeModelIds({ models, selected, intent }) {
+  const ids = [];
+  if (typeof selected?.id === "string") {
+    ids.push(selected.id);
+  }
+  for (const modelId of preferredCreateGuideModelIds(
+    createGuideIntentClass(intent),
+  )) {
+    if (models.some((model) => model?.id === modelId)) {
+      ids.push(modelId);
+    }
+  }
+  return [...new Set(ids)].slice(0, GUIDE_ASPECT_RATIO_PROBE_LIMIT);
+}
+
+async function guideModelsWithAspectRatioCapabilities({
+  models,
+  modelIds,
+  apiBaseUrl,
+}) {
+  const missing = modelIds.filter((modelId) => {
+    const model = models.find((candidate) => candidate?.id === modelId);
+    return model !== undefined && guideModelAspectRatioValues(model) === null;
+  });
+  if (missing.length === 0) {
+    return models;
+  }
+  const probes = await Promise.all(
+    missing.map(async (modelId) => {
+      try {
+        const detail = await apiRequest({
+          command: "luxin create --guide",
+          method: "GET",
+          apiBaseUrl,
+          path: `/v1/models/${encodeURIComponent(modelId)}`,
+        });
+        const values = guideModelAspectRatioValues(
+          detail?.envelope?.data?.model ?? null,
+        );
+        return values === null ? null : { modelId, values };
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const resolved = new Map(
+    probes
+      .filter((probe) => probe !== null)
+      .map((probe) => [probe.modelId, probe.values]),
+  );
+  if (resolved.size === 0) {
+    return models;
+  }
+  return models.map((model) => {
+    const values = resolved.get(model?.id);
+    if (values === undefined) {
+      return model;
+    }
+    return {
+      ...model,
+      media: {
+        ...model?.media,
+        input: {
+          ...model?.media?.input,
+          aspect_ratios: {
+            ...model?.media?.input?.aspect_ratios,
+            values,
+          },
+        },
+      },
+    };
+  });
 }
 
 const MODEL_ALIAS_RULES = [
@@ -2745,14 +3055,124 @@ function createGuideImpliesVideo(input) {
   );
 }
 
-function createGuideSuggestedAspectRatio(model) {
-  if (model?.modality !== "video") {
-    return null;
+// Extract an explicitly requested aspect ratio from a create/edit brief.
+//
+// Precedence:
+// 1. An explicit `W:H` token from EXPLICIT_ASPECT_RATIOS wins over any
+//    orientation word -- it is the most specific statement of intent.
+// 2. Otherwise a bound orientation phrase is used.
+//
+// Conflicts resolve to null (no request) rather than to a guess: two different
+// explicit ratios, or two orientation phrases implying different shapes, mean
+// the brief is ambiguous and the guide should not pick a side.
+function classifyRequestedAspectRatio(input) {
+  const text = `${input?.intent ?? ""} ${input?.prompt ?? ""}`.trim();
+  if (text.length === 0) {
+    return { aspectRatio: null, signal: null };
   }
+
+  const ratioTokenIsSuppressed = RATIO_SUPPRESSING_CONTEXT.some((re) =>
+    re.test(text),
+  );
+
+  const explicit = new Set();
+  if (!ratioTokenIsSuppressed) {
+    for (const match of text.matchAll(ASPECT_RATIO_TOKEN_RE)) {
+      const token = `${match[1]}:${match[2]}`;
+      if (EXPLICIT_ASPECT_RATIOS.includes(token)) {
+        explicit.add(token);
+      }
+    }
+  }
+  if (explicit.size === 1) {
+    const [only] = [...explicit];
+    return { aspectRatio: only ?? null, signal: "explicit_ratio_token" };
+  }
+  if (explicit.size > 1) {
+    // Contradictory explicit ratios: refuse to guess.
+    return { aspectRatio: null, signal: null };
+  }
+
+  const implied = new Set();
+  for (const rule of ORIENTATION_RULES) {
+    if (rule.re.test(text)) {
+      implied.add(rule.ratio);
+    }
+  }
+  if (implied.size === 1) {
+    const [only] = [...implied];
+    return { aspectRatio: only ?? null, signal: "orientation_phrase" };
+  }
+  return { aspectRatio: null, signal: null };
+}
+
+function requestedAspectRatioFromBrief(input) {
+  return classifyRequestedAspectRatio(input).aspectRatio;
+}
+
+// The normalized ratios a model publishes, or null when the payload does not
+// say. The hosted `/v1/models` list is a compact summary and omits the `media`
+// block entirely, so "not published" is the common case here and must be kept
+// distinct from "published and does not include this ratio".
+function guideModelAspectRatioValues(model) {
   const values = Array.isArray(model?.media?.input?.aspect_ratios?.values)
     ? model.media.input.aspect_ratios.values
     : model?.aspect_ratios;
-  if (!Array.isArray(values)) {
+  return Array.isArray(values) ? values : null;
+}
+
+// Tri-state on purpose: true (published and supported), false (published and
+// NOT supported), null (capability unknown). Unknown must never be read as a
+// denial -- doing so would make every ratio request in production claim "no
+// available model supports this", which is worse than the bug being fixed.
+function modelAspectRatioSupport(model, aspectRatio) {
+  if (aspectRatio === null || aspectRatio === undefined) {
+    return true;
+  }
+  const values = guideModelAspectRatioValues(model);
+  return values === null ? null : values.includes(aspectRatio);
+}
+
+function modelCannotExpressAspectRatio(model, aspectRatio) {
+  return modelAspectRatioSupport(model, aspectRatio) === false;
+}
+
+// Honest capability note for the case where an explicitly requested aspect
+// ratio made the guide skip its normal top pick. Name the capability that
+// forced the hop so agents learn which model could not express the shape.
+function aspectRatioRoutedCreateSelectionReason(input) {
+  return `guide selected a create model that supports the requested ${input.aspectRatio} aspect ratio because ${input.skippedModelId} does not expose ${input.aspectRatio}`;
+}
+
+// Fail-honestly note for the case where NO available model can express the
+// requested ratio. The guide keeps its normal selection and says so rather than
+// silently dropping the ratio, which is the exact failure this fixes.
+function aspectRatioUnsupportedWarning(input) {
+  return `The requested ${input.aspectRatio} aspect ratio is not supported by any available model, so data.next_command omits --aspect-ratio and ${input.modelId} will use its own default shape. Run the model_inspection_command to see the ratios it does support.`;
+}
+
+function createGuideSuggestedAspectRatio(input) {
+  const model = input?.model ?? null;
+  const requestedAspectRatio = input?.requestedAspectRatio ?? null;
+  if (model === null) {
+    return null;
+  }
+  // An explicit request wins for every modality, but not when the selected
+  // model is KNOWN not to express it. In that case return null so
+  // `next_command` stays runnable (`--aspect-ratio` would fail model
+  // validation) and let the caller warn instead of silently pretending the
+  // ratio was honored.
+  if (requestedAspectRatio !== null) {
+    return modelCannotExpressAspectRatio(model, requestedAspectRatio)
+      ? null
+      : requestedAspectRatio;
+  }
+  // No explicit request: preserve the existing video-only default.
+  if (model?.modality !== "video") {
+    return null;
+  }
+  const values = guideModelAspectRatioValues(model);
+  if (values === null) {
     return null;
   }
   return values.includes("16:9") ? "16:9" : (values[0] ?? null);
@@ -4196,6 +4616,7 @@ function createGuideNextCommand(stage, input) {
       prompt: input.prompt,
       inputReference: input.inputReference,
       budgetGuard: input.budgetGuard,
+      aspectRatio: input.aspectRatio,
       modelParametersJson: input.modelParametersJson,
       dryRun: false,
       idempotencyKey: `edit-guide-${Date.now()}-${randomBytes(4).toString("hex")}`,
@@ -4255,6 +4676,7 @@ function createGuideEscapeHatches(input) {
               prompt: input.prompt,
               inputReference: input.inputReference,
               budgetGuard: input.budgetGuard,
+              aspectRatio: input.aspectRatio,
               modelParametersJson: input.modelParametersJson,
               dryRun: true,
               apiBaseUrl: input.apiBaseUrl,
@@ -4390,6 +4812,9 @@ function renderInputImageGuideCommand(input) {
     "--model",
     shellQuote(input.modelId),
     ...(promptless ? [] : ["--prompt", shellQuote(input.prompt)]),
+    ...(input.aspectRatio === null || input.aspectRatio === undefined
+      ? []
+      : ["--aspect-ratio", shellQuote(input.aspectRatio)]),
     "--max-estimated-usd-per-image",
     shellQuote(formatUsd(input.budgetGuard)),
     ...(input.modelParametersJson === null ||
