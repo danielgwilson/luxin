@@ -32,6 +32,39 @@ const PROMPTLESS_EDIT_MODEL_IDS = new Set([
   // provider rejects any prompt, so the public CLI must not require/send one.
   "fal.trellis-image-to-3d",
 ]);
+// #2204-#2216: the guide fields the `ready_compact` output mode drops. Kept as
+// one list so the delete and `data.output_mode.omitted_fields` cannot drift.
+const COMPACT_OMITTABLE_GUIDE_FIELDS = [
+  "auth_handoff",
+  "auth_ready",
+  "escape_hatches",
+  "guide_recovery",
+  "no_spend_evaluation",
+  "recommended_no_spend_command",
+  "recommended_no_spend_command_effect",
+  "recommended_no_spend_command_label",
+  "self_fund_handoff",
+  "self_fund_next_command",
+  "self_fund_next_command_label",
+  "self_fund_preparation",
+];
+// Kept whenever the pre-wall top-up is recommended: dropping the funding nudge
+// at ready_to_create would regress the self-fund wall work.
+const COMPACT_SELF_FUND_GUIDE_FIELDS = new Set([
+  "self_fund_handoff",
+  "self_fund_next_command",
+  "self_fund_next_command_label",
+  "self_fund_preparation",
+]);
+
+// #2194 + #2204-#2216: in `ready_compact` mode `escape_hatches` is omitted, so
+// the no-spend discovery note points at the literal command instead of a field
+// that is not in the response.
+function noSpendDiscoveryNote(readyCompact) {
+  return readyCompact
+    ? "No-spend output mode omits live self-fund and payment command templates. Re-run this guide without --no-spend to surface them; self_fund_discovery.inspect_methods_command stays available for read-only, no-spend payment-method inspection. provider_call, credit_debit, and media_write remain false (see data.mutation). data.output_mode lists the fields this ready_to_create response also omits."
+    : "No-spend output mode omits live self-fund and payment command templates. Re-run this guide without --no-spend to surface them; data.escape_hatches.payment_methods stays available for read-only, no-spend payment-method inspection. provider_call, credit_debit, and media_write remain false (see data.mutation).";
+}
 const DEFAULT_CONFIG_PATH = join(
   process.env.XDG_CONFIG_HOME ?? join(os.homedir(), ".config"),
   "luxin",
@@ -553,6 +586,7 @@ function commandHelpByKey(key) {
       optional_flags: [
         "--guide",
         "--no-spend",
+        "--explain",
         "--dry-run",
         "--model",
         "--aspect-ratio",
@@ -1867,6 +1901,14 @@ async function createGuide(args, options = {}) {
     quota,
     estimatedCredits,
   });
+  // #2204-#2216: `--explain` opts back into the complete payload in every
+  // stage; the compact default is for the agent that just wants the decision.
+  // The payment/self-fund/recovery apparatus is correct when the guide is
+  // blocked and noise when it is not, so shape on that state rather than on a
+  // flag the caller has to know about.
+  const explainOutputMode = flagBool(args, "explain");
+  const readyCompact =
+    stage === "ready_to_create" && blocker === null && !explainOutputMode;
   const nextCommand = createGuideNextCommand(stage, {
     prompt: trimmedPrompt,
     selected,
@@ -1929,6 +1971,7 @@ async function createGuide(args, options = {}) {
     nextCommandEffect,
     paymentSummary,
     nextCommandCopyRunnable,
+    readyCompact,
   });
   const quotaTopUp = createGuideQuotaTopUp(
     quota?.envelope.data?.top_up ?? null,
@@ -1991,9 +2034,16 @@ async function createGuide(args, options = {}) {
   // dry-run command and the mutation proof, and keep the self-fund path
   // discoverable via self_fund_discovery instead of dominating the response.
   const noSpendOutputMode = flagBool(args, "no-spend");
-  const paymentSummaryOutput = noSpendOutputMode
-    ? { ...paymentSummary, suggested_commands: [] }
-    : paymentSummary;
+  // Keep the pre-wall self-fund nudge whenever it is actually recommended.
+  const selfFundRecommended = selfFundPreparation?.recommended === true;
+  const paymentSummaryOutput =
+    noSpendOutputMode || readyCompact
+      ? {
+          ...paymentSummary,
+          suggested_commands: [],
+          ...(readyCompact ? { preferred_method_summary: null } : {}),
+        }
+      : paymentSummary;
   const selfFundHandoffOutput = noSpendOutputMode ? null : selfFundHandoff;
   const selfFundPreparationOutput = noSpendOutputMode
     ? null
@@ -2030,7 +2080,7 @@ async function createGuide(args, options = {}) {
             },
           ),
           inspect_methods_command: escapeHatches.payment_methods,
-          note: "No-spend output mode omits live self-fund and payment command templates. Re-run this guide without --no-spend to surface them; data.escape_hatches.payment_methods stays available for read-only, no-spend payment-method inspection. provider_call, credit_debit, and media_write remain false (see data.mutation).",
+          note: noSpendDiscoveryNote(readyCompact),
         },
       }
     : {
@@ -2046,7 +2096,49 @@ async function createGuide(args, options = {}) {
     escapeHatches,
     selfFundNextCommand: selfFundNextCommandOutput,
   });
-  return createGuideSuccess(command, quota?.envelope.actor ?? null, {
+  // #2204-#2216: fields the compact ready payload drops. `self_fund_*` only
+  // joins the list when the pre-wall top-up is not recommended.
+  const compactOmittedFields = readyCompact
+    ? COMPACT_OMITTABLE_GUIDE_FIELDS.filter(
+        (field) =>
+          selfFundRecommended === false ||
+          !COMPACT_SELF_FUND_GUIDE_FIELDS.has(field),
+      )
+    : [];
+  const compactCompactedFields = readyCompact
+    ? [
+        "checks.payments.preferred_method_summary",
+        "checks.payments.suggested_commands",
+        "checks.quota.top_up",
+      ]
+    : [];
+  const outputModeData = {
+    schema: "image-skill.guide-output-mode.v1",
+    mode: readyCompact ? "ready_compact" : "full",
+    reason: readyCompact
+      ? "stage is ready_to_create with no blocker, so the guide returns the decision, the cost, and the no-spend proof. Payment, self-fund, auth-handoff, and recovery detail belong to blocked stages and are omitted here."
+      : explainOutputMode
+        ? "--explain returns every guide field in every stage."
+        : "the guide is not at an unblocked ready_to_create stage, so every field is returned.",
+    omitted_fields: compactOmittedFields,
+    compacted_fields: compactCompactedFields,
+    full_output_command: renderGuideCommand(
+      trimmedPrompt.length > 0 ? trimmedPrompt : "PROMPT",
+      explicitApiBaseUrl(args),
+      guideCommandPrefix,
+      {
+        operation: guideOperation,
+        inputReference: options.inputReference,
+        modelId: requestedModelId,
+        providerId: requestedProviderId,
+        intent: requestedIntentFlag,
+        maxEstimatedUsdPerImage,
+        modelParametersJson: requestedModelParametersJson,
+        explain: true,
+      },
+    ),
+  };
+  const guideData = {
     schema:
       guideOperation === "edit"
         ? "image-skill.edit-guide.v1"
@@ -2086,7 +2178,7 @@ async function createGuide(args, options = {}) {
         required_credits: estimatedCredits,
         daily_jobs_remaining:
           quota?.envelope.data?.daily_jobs?.remaining ?? null,
-        top_up: quotaTopUp,
+        top_up: readyCompact ? null : quotaTopUp,
         reason:
           quota === null
             ? "auth_required"
@@ -2152,6 +2244,7 @@ async function createGuide(args, options = {}) {
     auth_handoff: authHandoff,
     escape_hatches: escapeHatches,
     no_spend_output_mode: noSpendOutputModeData,
+    output_mode: outputModeData,
     mutation: {
       provider_call: false,
       hosted_create: false,
@@ -2160,7 +2253,11 @@ async function createGuide(args, options = {}) {
       credit_debit: false,
       media_write: false,
     },
-  });
+  };
+  for (const field of compactOmittedFields) {
+    delete guideData[field];
+  }
+  return createGuideSuccess(command, quota?.envelope.actor ?? null, guideData);
 }
 
 function createGuideSuccess(command, actor, data) {
@@ -4072,14 +4169,22 @@ function createGuideWarning(stage, input) {
       warning,
     };
   }
+  // #2204-#2216: name the field this response actually carries. The compact
+  // ready payload drops the `recommended_no_spend_command` alias, so it points
+  // at the base field instead; blocked and `--explain` payloads keep the alias
+  // and keep naming it. Either way
+  // `data[data.guide_warning.recommended_command_field]` resolves.
+  const noSpendField =
+    input.readyCompact === true
+      ? "no_spend_next_command"
+      : "recommended_no_spend_command";
   return {
     ...base,
     next_command_safety: "live_media_create_credit_debit",
     no_spend_safe: false,
     spend_required: true,
-    recommended_command_field: "recommended_no_spend_command",
-    warning:
-      "data.next_command is a live media create that can call a provider, debit credits, and create media. Run it only when media spend is allowed; otherwise run data.recommended_no_spend_command.",
+    recommended_command_field: noSpendField,
+    warning: `data.next_command is a live media create that can call a provider, debit credits, and create media. Run it only when media spend is allowed; otherwise run data.${noSpendField}.`,
   };
 }
 
@@ -4257,7 +4362,7 @@ function renderGuideCommand(
   const operation = options.operation ?? "create";
   return [
     commandPrefix,
-    `${operation} --guide --prompt`,
+    `${operation} --guide${options.explain === true ? " --explain" : ""} --prompt`,
     shellQuote(prompt),
     ...(operation === "edit" &&
     typeof options.inputReference === "string" &&
@@ -4517,6 +4622,12 @@ async function create(argv) {
       "create --no-spend is a guide output mode; combine it with --guide, or use create --dry-run for a no-spend planned job",
     );
   }
+  if (flagBool(args, "explain")) {
+    return invalid(
+      "luxin create",
+      "create --explain is a guide output mode; combine it with --guide to return every guide field",
+    );
+  }
   const prompt = await promptValue(args);
   if (!prompt.ok) {
     return prompt.result;
@@ -4668,6 +4779,12 @@ async function edit(argv) {
     return invalid(
       "luxin edit",
       "edit --no-spend is a guide output mode; combine it with --guide, or use edit --dry-run for a no-spend planned job",
+    );
+  }
+  if (flagBool(args, "explain")) {
+    return invalid(
+      "luxin edit",
+      "edit --explain is a guide output mode; combine it with --guide to return every guide field",
     );
   }
   if (input === undefined) {

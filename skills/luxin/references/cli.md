@@ -244,9 +244,41 @@ agent. It checks health, executable model availability, auth/quota when a token
 already exists, and payment rails, then returns one primary
 `data.next_command` plus machine-readable `data.next_command_copy_runnable`,
 `data.next_command_missing_inputs`, `data.next_command_effect`,
-`data.guide_warning`, `data.auth_ready`, `data.no_spend_evaluation`, and
-`data.guide_recovery`. Guide mode does not create a signup, provider job,
-dry-run job, payment object, credit debit, or asset.
+`data.guide_warning`, and `data.output_mode`. Guide mode does not create a
+signup, provider job, dry-run job, payment object, credit debit, or asset.
+
+The guide shapes its response on state. When the guide is blocked
+(`prompt_required`, `service_unreachable`, `no_executable_model`,
+`auth_required`, `quota_required`) it returns every field, including the
+self-fund, payment-recovery, and auth-handoff detail a blocked agent needs. When
+`data.stage` is `ready_to_create` and `data.blocker` is `null`, nothing is
+blocked on funding or auth, so the response is compact: it carries the decision
+(`data.next_command`, `data.selection`, `data.cost`), the safety verdict
+(`data.guide_warning`, `data.next_command_effect`), and the no-spend proof
+(`data.no_spend_next_command` and its effect), and omits
+`data.auth_ready`, `data.auth_handoff`, `data.escape_hatches`,
+`data.guide_recovery`, `data.no_spend_evaluation`, the `data.self_fund_*`
+fields, and the `data.recommended_no_spend_command` alias trio. The alias is a
+documented duplicate of `data.no_spend_next_command`; dropping it is why
+`data.guide_warning.recommended_command_field` names the base field in a
+compact response. Resolve the no-spend command through that pointer and the
+difference is invisible.
+
+`data.output_mode` always says which shape you got and never leaves a missing
+field ambiguous: `mode` is `ready_compact` or `full`, `omitted_fields` lists
+every omitted key by name, `compacted_fields` lists sub-objects that are present
+but emptied (`checks.quota.top_up`,
+`checks.payments.preferred_method_summary`, `checks.payments.suggested_commands`),
+and `full_output_command` is a copy-runnable rerun with `--explain` that returns
+every field in every stage. Add `--explain` to `create --guide` / `edit --guide`
+whenever you want the complete payload — debugging, harnesses, and
+recovery loops should use it. `--explain` is a guide output mode; it requires
+`--guide`.
+
+One exception keeps the funding path intact: when a pre-wall top-up is actually
+recommended (`data.self_fund_preparation.recommended` is `true`), the
+`data.self_fund_*` fields stay in the compact response and are not listed in
+`data.output_mode.omitted_fields`.
 
 ```bash
 IMAGE_SKILL_DISCOVERY_SOURCE=cli-md luxin create --guide --prompt "a compact field camera on a stainless workbench"
@@ -260,7 +292,10 @@ When `data.next_command_copy_runnable` is `false`, fill
 payment state changes. Do not run
 `doctor`, `models list`, `signup`, `whoami`, `usage quota`, `create --dry-run`,
 or payment commands as a setup checklist before the guide asks for them.
-For no-doc recovery loops, prefer `data.guide_recovery`: it names the current
+For no-doc recovery loops, prefer `data.guide_recovery`. It is returned
+whenever the guide is blocked; at an unblocked `ready_to_create` rerun the guide
+with `--explain` (or run `data.output_mode.full_output_command`) to get it. It
+names the current
 precondition (`precondition_code` / `precondition_message`), the safest
 no-spend command and field to run (`no_spend_command_field` /
 `no_spend_command`), the command to run after the precondition changes, and the
@@ -332,26 +367,34 @@ step.
   `false`, `data.guide_warning.spend_required` is `true`, and
   `data.guide_warning.recommended_command_field` is
   `recommended_no_spend_command`.
-  `data.auth_ready.ready` is `true`,
-  `data.auth_ready.next_command_requires_auth` is `true`, and
-  `data.auth_ready.next_command_auth_ready` is `true`; the returned
-  `data.next_command` can reuse the current saved config, env token, or stdin
-  token context without exposing a raw token.
-  `data.no_spend_evaluation.stop_here` is `true`,
-  `data.no_spend_evaluation.next_command_is_live_create` is `true`, and
-  `data.no_spend_evaluation.recommended_command_field` is
-  `recommended_no_spend_command`. Run `data.next_command` for the first bounded
+  This stage returns the compact payload described above:
+  `data.output_mode.mode` is `ready_compact`. Auth is already usable, so the
+  returned `data.next_command` reuses the current saved config, env token, or
+  stdin token context without exposing a raw token; `data.auth_ready` and
+  `data.auth_handoff` are omitted here and returned under `--explain`.
+  Run `data.next_command` for the first bounded
   create only when media spend is allowed. If you are in a no-spend evaluation
   or only need proof that the path is ready, stop before `data.next_command` and
-  run `data.recommended_no_spend_command` instead; it aliases
-  `data.no_spend_next_command` and is the dry-run plan command. Its
+  run the dry-run plan command instead. Always resolve it as
+  `data[data.guide_warning.recommended_command_field]` rather than hardcoding a
+  field name: in this compact response that field is `no_spend_next_command`,
+  and in blocked or `--explain` responses it is the
+  `recommended_no_spend_command` alias. Its
   `data.no_spend_next_command_effect.label` is
   `dry_run_planned_job_no_provider_call_no_credit_debit_no_media_write`, with
   `no_spend`, `hosted_create_dry_run`, `planned_job`, and `plan_receipt` true,
   `activity_event: "job.planned"`, and provider call, credit debit, and media
   write false. It may create a recoverable planned job/activity receipt, but no
-  provider execution, debit, downloadable asset, or media write. If the guide authenticated from
-  env or stdin, prefer
+  provider execution, debit, downloadable asset, or media write.
+  Under `--explain` this stage also returns
+  `data.auth_ready.ready` `true`,
+  `data.auth_ready.next_command_requires_auth` `true`,
+  `data.auth_ready.next_command_auth_ready` `true`,
+  `data.no_spend_evaluation.stop_here` `true`,
+  `data.no_spend_evaluation.next_command_is_live_create` `true`,
+  `data.no_spend_evaluation.recommended_command_field`
+  `recommended_no_spend_command`, and `data.guide_recovery`. If the guide
+  authenticated from env or stdin, prefer
   `data.auth_handoff.next_command.with_env` or
   `data.auth_handoff.next_command.with_stdin` so auth follows the create.
 
@@ -370,13 +413,23 @@ stays discoverable without dominating via
 `data.no_spend_output_mode.self_fund_discovery`: its
 `rerun_with_funding_command` re-runs the guide without `--no-spend` to surface
 the funding templates, and `inspect_methods_command` is a read-only, no-spend
-payment-method inspection (the same command as
-`data.escape_hatches.payment_methods`). `--no-spend` is a guide output mode; it
+payment-method inspection (the same command as `data.escape_hatches.payment_methods`
+when that field is present). `--no-spend` is a guide output mode; it
 requires `--guide`, and for a no-spend planned job outside the guide use
 `create --dry-run`.
 
+`--no-spend` composes with the state-dependent shaping above: at an unblocked
+`ready_to_create` the response is already compact, so
+`data.output_mode.omitted_fields` and
+`data.no_spend_output_mode.suppressed_fields` together describe what is missing.
+At `ready_to_create` the plain guide (no flags) is now the smallest response;
+reach for `--no-spend` when you want the suppression declared explicitly, and
+for `--explain` when you want everything.
+
 Manual escape hatches are not prerequisites. Use them only when
-`data.next_command` / `data.escape_hatches` asks, or when the task genuinely
+`data.next_command` / `data.escape_hatches` asks (`data.escape_hatches` is
+returned when the guide is blocked and under `--explain`), or when the task
+genuinely
 needs deeper capability, quota, payment, or planning detail:
 
 ```bash
@@ -1174,11 +1227,15 @@ luxin create --guide --prompt "A compact field camera on a stainless workbench" 
 
 `create --guide` returns `schema: image-skill.create-guide.v1`,
 `stage`, `next_command`, `next_command_copy_runnable`,
-`next_command_missing_inputs`, `guide_warning`, `auth_ready`,
-`no_spend_evaluation`, `recommended_no_spend_command`,
-`self_fund_next_command`, `self_fund_handoff`, `self_fund_preparation`,
-`escape_hatches`, selected executable model and cost, auth/quota/payment
-blockers, and mutation flags. All
+`next_command_missing_inputs`, `guide_warning`, `next_command_effect`,
+`recommended_no_spend_command` (aliased by `no_spend_next_command`) and its
+effect, `output_mode`, selected executable model and cost, auth/quota/payment
+blockers, and mutation flags. When the guide is blocked, and at any stage under
+`--explain`, it also returns `auth_ready`, `auth_handoff`,
+`no_spend_evaluation`, `guide_recovery`, `escape_hatches`,
+`self_fund_next_command`, `self_fund_handoff`, and `self_fund_preparation`;
+`output_mode.omitted_fields` names whichever of those the current response left
+out, and `output_mode.full_output_command` is the rerun that returns them. All
 mutation flags must be false in guide mode: no provider call, hosted create,
 signup, payment object, credit debit, or media write.
 For next-command safety, read `next_command_copy_runnable`,
@@ -1384,7 +1441,28 @@ usage debits, media writes, or provider execution. In the first-run guide, this
 exact no-spend command behavior is exposed as
 `data.no_spend_next_command_effect` and
 `data.recommended_no_spend_command_effect`; the evaluator stop policy is exposed
-as `data.no_spend_evaluation`.
+as `data.no_spend_evaluation` when the guide is blocked or run with `--explain`.
+
+While the agent can still create, hosted `create` / `edit` responses no longer
+repeat the browserless top-up step tree. `data.next_actions.self_fund` keeps its
+recommendation, urgency, and command fields, but its `workflow` is replaced by
+`workflow_field: "quota.top_up.workflow"`, which points at the copy still
+carried in the same response. Once credits are exhausted and the agent is at the
+wall, `data.next_actions.self_fund.workflow` is inlined again, because that is
+the block the agent has to act on.
+
+Every hosted `create` / `edit` response carries `data.mutation`, so a no-spend
+evaluator reads the proof instead of inferring it from `dry_run` plus a
+`planned` asset. On a dry run it reports `provider_call: false`,
+`credit_debit: false`, and `media_write: false` explicitly, alongside
+`hosted_create_dry_run: true` and, for an authenticated dry run,
+`planned_job: true`, `plan_receipt: true`, and `activity_event: "job.planned"`
+for the recoverable receipt the dry run does write. An anonymous dry run stores
+nothing and reports `planned_job: false` with `activity_event: null`. Each entry
+in `data.assets` is labelled: a dry-run placeholder is
+`label: "planned_placeholder_not_media"` with `placeholder: true` and
+`downloadable: false`, and real output is `label: "durable_media"` with
+`downloadable: true`.
 
 Minimum success data:
 

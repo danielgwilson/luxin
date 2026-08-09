@@ -422,6 +422,7 @@
         "optional_flags": [
           "--guide",
           "--no-spend",
+          "--explain",
           "--dry-run",
           "--model",
           "--aspect-ratio",
