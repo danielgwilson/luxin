@@ -1,7 +1,7 @@
 ---
 name: ai-image-generation
 description: >-
-  AI image generation for agents: text-to-image and prompt-to-image through Luxin's zero-setup hosted runtime. Use when an agent needs a generated image with no provider API key, OAuth, local runtime, or per-provider billing account. Start with the no-spend guide, then create durable hosted images with recoverable jobs, cost receipts, model parameters, stable JSON, and browserless x402 when available.
+  AI image generation from a text prompt, with no API key to obtain first. The agent signs itself up in one command and starts on free preview credits: no provider account to open, no billing to set up. Name a model or let the guide pick one, then get the image back as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:

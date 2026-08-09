@@ -1,7 +1,7 @@
 ---
 name: agent-image-generation
 description: >-
-  Agent image generation for autonomous agents: text-to-image, prompt-to-image, and durable AI image output through Luxin's zero-setup hosted runtime. Use when an agent searches ClawHub or a skill marketplace for image generation but should not bring provider API keys, OAuth, local model setup, or per-provider billing. Start with the no-spend guide, then create hosted images with recoverable jobs, cost receipts, model parameters, stable JSON, and browserless x402 when available.
+  Image generation an autonomous agent can run with no human setup step: it signs itself up in one command, starts on free preview credits, and creates without an API key, a provider account, or a billing account. The --max-estimated-usd-per-image flag rejects a call whose quote is over budget before it spends. When the credits run out the agent hands its human one dashboard link to fund more.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:

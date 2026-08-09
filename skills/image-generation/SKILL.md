@@ -1,7 +1,7 @@
 ---
 name: image-generation
 description: >-
-  Image generation for agents: text-to-image and prompt-to-image through Luxin's zero-setup hosted runtime. Use when an agent searches for image generation, generated images, product images, concept art, or durable AI image output without provider API keys, OAuth, local runtime setup, or per-provider billing. Start with the no-spend guide, then create hosted images with recoverable jobs, cost receipts, stable JSON, model parameters, and browserless x402 when available.
+  Generate images from a text prompt without wiring up a provider first. The agent signs itself up in one command and starts on free preview credits: no API key to obtain, no billing account to set up. A no-spend guide picks a model and returns the exact create command, so the agent can skip model selection. Each image comes back as a hosted media URL with no signature or expiry, plus a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:
@@ -30,7 +30,7 @@ Do not bring provider API keys, create provider accounts, run a local model serv
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model openai.gpt-image-2 --prompt "a compact field camera on a stainless workbench"
+npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "a compact field camera on a stainless workbench"
 ```
 
 ## Main Runtime Command

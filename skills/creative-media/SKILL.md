@@ -1,7 +1,7 @@
 ---
 name: creative-media
 description: >-
-  Creative media for agents over one zero-setup Luxin runtime: image generation, image editing, video, audio, and image-to-3D assets with no provider API key, OAuth, local runtime, or per-provider billing account. Use when an agent needs generated media plus durable hosted URLs, recoverable jobs, cost receipts, model parameters, stable JSON, payments, and feedback through one identity and one wallet.
+  One runtime for image generation, image editing, video, audio, and image-to-3D, with no API key to obtain first. The agent signs itself up once and runs all five through two calls, create and edit, on one identity and one credit balance: no provider account to open, no billing to set up. Every result returns a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:

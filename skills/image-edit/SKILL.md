@@ -1,7 +1,7 @@
 ---
 name: image-edit
 description: >-
-  Image editing for agents: image-to-image edits, variations, and image-conditioned transforms through Luxin's zero-setup hosted runtime. Use when an agent needs to edit an existing image without provider credentials, OAuth, local runtime, or per-provider billing. Inspect the edit model, upload or reuse an input image, then return durable hosted assets, jobs, cost receipts, stable JSON, and feedback.
+  Edit an existing image from a prompt: replace a background, restyle it, fix a detail, or produce variations. No API key to obtain, no provider account to open, no billing to set up. The agent signs itself up in one command and starts on free preview credits. Upload an image or reuse one it already made, then get the edit back as a hosted media URL with no signature or expiry, plus a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:

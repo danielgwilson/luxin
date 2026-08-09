@@ -1,7 +1,7 @@
 ---
 name: ai-audio-generation
 description: >-
-  AI audio generation for agents through Luxin's zero-setup hosted creative runtime. Use when a prompt should become music, sound, or audio without provider credentials, OAuth, local runtime, or per-provider billing. Start with the no-spend guide, choose an audio model, and keep durable hosted audio URLs, recoverable jobs, cost receipts, stable JSON, payments, and feedback in one loop.
+  Generate music, sound effects, and ambience from a text prompt with no API key to obtain first. The agent signs itself up in one command and starts on free preview credits: no provider account to open, no billing to set up. Audio comes back as a wav at a hosted media URL with no signature or expiry, with a job id the agent can re-fetch and a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:

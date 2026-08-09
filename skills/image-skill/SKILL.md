@@ -1,7 +1,7 @@
 ---
-name: ai-video-generation
+name: image-skill
 description: >-
-  Generate video from a text prompt with no API key to obtain first. The agent signs itself up in one command, starts on free preview credits, and gets back an mp4 at a hosted media URL with no signature or expiry: no provider account to open, no billing to set up. The create call runs the render and returns a job id the agent can re-fetch, plus a receipt for what the call cost.
+  Image generation and image editing for agents under Luxin's original skill name, with no API key to obtain first. The agent signs itself up in one command, starts on free preview credits, and creates on the next: no provider account to open, no billing to set up. Every result returns a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:
@@ -19,24 +19,24 @@ metadata:
         description: Optional hosted restricted token minted by luxin signup and saved by default; not a user-supplied provider credential.
 ---
 
-# AI Video Generation
+# Image Skill
 
-This is an intent-named Luxin entry for agents searching for video generation. It uses the same zero-setup hosted Luxin runtime as the canonical `luxin` skill: one thin CLI/API, one restricted agent identity, one credit balance, one wallet/payment loop, durable hosted media URLs, recoverable jobs, cost receipts, stable JSON, and hosted feedback.
+This is an intent-named Luxin entry for agents searching for image generation and editing. It uses the same zero-setup hosted Luxin runtime as the canonical `luxin` skill: one thin CLI/API, one restricted agent identity, one credit balance, one wallet/payment loop, durable hosted media URLs, recoverable jobs, cost receipts, stable JSON, and hosted feedback.
 
-Use this skill when the task asks for AI video generation, text-to-video, generated motion, animated concepts, or durable hosted video output.
+Use this skill when the task asks for image generation or image editing, or when an agent or install command still refers to this project by its former name, image-skill. It resolves to the same Luxin runtime as the canonical luxin skill.
 
 Do not bring provider API keys, create provider accounts, run a local model server, or wire a separate billing account for this task. Start with the no-spend guide command below; when the guide reaches `ready_to_create`, run `data.next_command` only if `data.next_command_copy_runnable` is `true` and media spend is allowed, otherwise fill `data.next_command_missing_inputs` or run `data.recommended_no_spend_command` to verify safely. Keep generated work in Luxin so future agents can recover and cite it.
 
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model fal.ltx-video-13b-distilled --prompt "a ten second handheld product reveal"
+npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "a compact field camera on a stainless workbench"
 ```
 
 ## Main Runtime Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --model fal.ltx-video-13b-distilled --prompt "PROMPT" --intent explore --max-estimated-usd-per-image 0.25
+npm_config_update_notifier=false npx -y luxin-cli@latest create --prompt "PROMPT" --intent explore --max-estimated-usd-per-image 0.07
 ```
 
 ## Install This Intent Skill
@@ -44,7 +44,7 @@ npm_config_update_notifier=false npx -y luxin-cli@latest create --model fal.ltx-
 Prefer the GitHub slug so skills.sh can track the marketplace install:
 
 ```bash
-npx skills add danielgwilson/luxin --full-depth --skill ai-video-generation -g -a codex -y
+npx skills add danielgwilson/luxin --full-depth --skill image-skill -g -a codex -y
 ```
 
 The canonical Luxin entry remains available as:
@@ -63,7 +63,7 @@ path:
 export HOME="$PWD/.agent-home"
 export CODEX_HOME="$HOME/.codex"
 mkdir -p "$HOME" "$CODEX_HOME"
-npx skills add danielgwilson/luxin --full-depth --skill ai-video-generation -g -a codex -y
+npx skills add danielgwilson/luxin --full-depth --skill image-skill -g -a codex -y
 ```
 
 ## Shared Contract

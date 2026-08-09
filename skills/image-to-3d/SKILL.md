@@ -1,7 +1,7 @@
 ---
 name: image-to-3d
 description: >-
-  Image-to-3D asset creation for agents through Luxin's zero-setup hosted runtime. Use when an input image should become a durable hosted 3D mesh asset, such as a glb, without provider credentials, OAuth, local runtime, or per-provider billing. Inspect the 3D model, pass one owned input image to edit, then keep jobs, asset URLs, receipts, JSON recovery, payments, and feedback in one loop.
+  Turn one image into a 3D mesh and get back a glb file. No API key to obtain, no provider account to open, no billing to set up: the agent signs itself up in one command and starts on free preview credits. Image-to-3D takes no prompt and rejects one if you send it, so pass an image the agent generated or uploaded, through edit rather than create. The mesh returns as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:
@@ -30,7 +30,7 @@ Do not bring provider API keys, create provider accounts, run a local model serv
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model fal.trellis-image-to-3d --prompt "turn one product photo into a textured 3d mesh"
+npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "turn one product photo into a textured 3d mesh"
 ```
 
 ## Main Runtime Command

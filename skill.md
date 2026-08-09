@@ -1,13 +1,14 @@
 ---
 name: luxin
 description: >-
-  AI image generation and editing for agents across text-to-image and
-  image-to-image workflows, video generation, audio generation, and image-to-3D
-  asset creation through one zero-setup hosted runtime. Use Luxin when an
-  agent needs durable media URLs, recoverable jobs, model/cost inspection and
-  stable JSON envelopes with capability-preserving parameters. Optional
-  agent-funded credits work without a provider API key, OAuth app, local model
-  or per-provider billing account.
+  Image generation and image editing for agents, plus video, audio, and
+  image-to-3D, through one hosted runtime with no API key to obtain first. The
+  agent signs itself up in one command, starts on free preview credits, and
+  creates on the next: no provider account to open, no billing to set up. Every
+  result returns a hosted media URL with no signature or expiry, a job id the
+  agent can re-fetch with jobs show, and a receipt for what the call cost. When
+  the preview credits run out, the agent hands its human one dashboard link to
+  fund more.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:
