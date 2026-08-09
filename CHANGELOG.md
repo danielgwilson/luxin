@@ -6,6 +6,23 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.6 - 2026-08-09
+
+- Release (trust): `create --guide` now says when it cannot price the request it
+  is planning, instead of presenting the model's default-shape quote as the
+  planned debit. `selection.planned_debit_source` reports which of the two you
+  got, and the unpriceable case carries a warning pointing at the dry-run.
+- This closes a gap that was invisible rather than wrong: the hosted API
+  published per-aspect-ratio create debits only when they differed from the
+  quote, so an absent field could mean either "the quote already is the debit"
+  or "this server is older than your CLI". The npm package and the hosted API
+  deploy independently, so that second case is permanent, not a one-off, and it
+  under-quoted silently during any deploy gap or rollback. The API now publishes
+  the debit for every create-capable model (107 of 107 live rows), so absence
+  means exactly one thing, and the CLI now treats it that way.
+- Carries the correction to the 0.2.5 note below: the "known issue" that shipped
+  in the 0.2.5 tarball describes behaviour that does not exist.
+
 ## 0.2.5 - 2026-08-09
 
 - Release (correctness): `edit --guide` selects a model again. It gated on
