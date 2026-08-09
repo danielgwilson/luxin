@@ -2007,6 +2007,16 @@ async function createGuide(args, options = {}) {
           defaultedModelParameters.modelParameters,
           pricingContext,
         );
+  // The quote is not the debit, and against a server that does not publish
+  // debits this CLI cannot compute one -- it has no pricing engine, by design.
+  // Say that plainly instead of letting the caller budget against a number the
+  // product does not charge (#2259, #2272).
+  const plannedDebitUnavailable =
+    selected !== null &&
+    createGuideModelSupportsCreate(selected) &&
+    !createGuideSelectedModelRequiresInputImage(selected) &&
+    !createGuideCanPriceModelParameters(selected) &&
+    !createGuideRegistryPublishesCreditDebit(selected);
   const estimatedCredits = pricing?.credits_required ?? null;
   // The guide publishes what the caller will be charged, never our provider
   // cost. `economics.estimated_usd_per_image` is the hosted charge per image.
@@ -2406,6 +2416,9 @@ async function createGuide(args, options = {}) {
       pricing_source: pricing?.pricing_source ?? null,
       model_parameter_defaults_applied:
         defaultedModelParameters.defaultsApplied,
+      planned_debit_source: plannedDebitUnavailable
+        ? "create_credit_debit_unavailable"
+        : "registry_create_credit_debit",
     },
     blocker,
     guide_warning: guideWarning,
@@ -2443,11 +2456,20 @@ async function createGuide(args, options = {}) {
   for (const field of compactOmittedFields) {
     delete guideData[field];
   }
-  return createGuideSuccess(command, quota?.envelope.actor ?? null, guideData);
+  return createGuideSuccess(
+    command,
+    quota?.envelope.actor ?? null,
+    guideData,
+    plannedDebitUnavailable
+      ? [
+          "create_credit_debit_unavailable: this hosted API does not publish per-aspect-ratio create debits, so the credits above are the model's default-shape quote and may not be what create debits. Run the dry_run command in escape_hatches for the exact figure before budgeting.",
+        ]
+      : [],
+  );
 }
 
-function createGuideSuccess(command, actor, data) {
-  const result = success(command, data);
+function createGuideSuccess(command, actor, data, warnings = []) {
+  const result = success(command, data, warnings);
   result.envelope.actor = actor;
   return result;
 }
@@ -2968,6 +2990,26 @@ function createGuidePricingForModel(model, modelParameters, context = {}) {
 // this CLI has no pricing engine to recompute it -- so the registry publishes
 // the answer and this reads it. Absent field means the quote already is the
 // debit.
+// Does this registry response publish create debits at all?
+//
+// The hosted API and this CLI ship independently, so a client can always be
+// talking to a server older than itself. `create_credit_debit_by_aspect_ratio`
+// is published for EVERY create-capable model precisely so that absence has one
+// meaning -- "this server cannot tell me the debit" -- rather than being
+// confusable with "the debit happens to equal the quote". When it is absent the
+// honest answer is to say so and point at the dry-run, not to present the
+// model's default-shape quote as the planned debit (#2259, #2272).
+function createGuideRegistryPublishesCreditDebit(model) {
+  return (
+    isRecord(model?.economics?.create_credit_debit_by_aspect_ratio) ||
+    isRecord(model?.create_credit_debit_by_aspect_ratio)
+  );
+}
+
+function createGuideModelSupportsCreate(model) {
+  return Array.isArray(model?.supports) && model.supports.includes("create");
+}
+
 function createGuideAspectRatioCreditPricing(model, context) {
   // Both shapes: `GET /v1/models` serves the COMPACT summary, which flattens
   // economics onto the row, and only `?details=true` (or a fixture built from
