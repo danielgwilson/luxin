@@ -1983,22 +1983,20 @@ async function createGuide(args, options = {}) {
           modelParameters: modelParameters.value ?? {},
           maxEstimatedUsdPerImage,
         });
-  const shouldPriceModelParameters =
-    selected !== null &&
-    !createGuideSelectedModelRequiresInputImage(selected) &&
-    createGuideCanPriceModelParameters(selected) &&
-    (defaultedModelParameters.defaultsApplied.length > 0 ||
-      Object.keys(modelParameters.value ?? {}).length > 0);
+  // Price the request the guide is about to emit, at the ratio it will emit it
+  // with -- not the registry's default-shape quote, which describes a request
+  // `create` never makes (#2259). Models priced from input-image dimensions stay
+  // on the quote: the guide uploads nothing, so there are no dimensions to price
+  // from. `tests/hosted-create-estimate-parity.test.ts` pins this against the
+  // source dry-run so the two implementations cannot drift apart again.
   const pricing =
-    selected === null
-      ? null
-      : shouldPriceModelParameters
-        ? createGuidePricingForModel(
-            selected,
-            defaultedModelParameters.modelParameters,
-            pricingContext,
-          )
-        : createGuideModelCreditPricing(selected);
+    selected === null || createGuideSelectedModelRequiresInputImage(selected)
+      ? createGuideModelCreditPricing(selected)
+      : createGuidePricingForModel(
+          selected,
+          defaultedModelParameters.modelParameters,
+          pricingContext,
+        );
   const estimatedCredits = pricing?.credits_required ?? null;
   // The guide publishes what the caller will be charged, never our provider
   // cost. `economics.estimated_usd_per_image` is the hosted charge per image.
@@ -2939,7 +2937,49 @@ function createGuidePricingForModel(model, modelParameters, context = {}) {
   if (createGuideCanPriceModelParameters(model)) {
     return createGuideXaiImagePricing(model, modelParameters, context);
   }
-  return createGuideModelCreditPricing(model);
+  return (
+    createGuideAspectRatioCreditPricing(model, context) ??
+    createGuideModelCreditPricing(model)
+  );
+}
+
+// The debit `create` will actually make at the ratio the guide is about to
+// emit, read from the model registry (#2259).
+//
+// `economics.credit_pricing` is the quote at the model's own default shape --
+// no aspect ratio, no policy model-parameter defaults. `create` never sends
+// that request: it always sends a concrete ratio (`1:1` unless the brief asked
+// otherwise) plus the hosted defaults. For any model priced from its output
+// shape or from a defaulted parameter the quote is therefore not the debit, and
+// this CLI has no pricing engine to recompute it -- so the registry publishes
+// the answer and this reads it. Absent field means the quote already is the
+// debit.
+function createGuideAspectRatioCreditPricing(model, context) {
+  // Both shapes: `GET /v1/models` serves the COMPACT summary, which flattens
+  // economics onto the row, and only `?details=true` (or a fixture built from
+  // the full catalog) nests it. Reading only the nested one is how a fix passes
+  // its own test against a payload production never sends.
+  const byAspectRatio = isRecord(
+    model?.economics?.create_credit_debit_by_aspect_ratio,
+  )
+    ? model.economics.create_credit_debit_by_aspect_ratio
+    : model?.create_credit_debit_by_aspect_ratio;
+  const aspectRatio = context?.aspectRatio;
+  if (!isRecord(byAspectRatio) || typeof aspectRatio !== "string") {
+    return null;
+  }
+  const credits = byAspectRatio[aspectRatio];
+  if (!Number.isFinite(credits)) {
+    return null;
+  }
+  const quoted = createGuideModelCreditPricing(model);
+  return {
+    ...(quoted ?? {}),
+    credits_required: credits,
+    credit_unit_usd: CREDIT_UNIT_USD,
+    estimated_charge_usd: roundUsd(credits * CREDIT_UNIT_USD),
+    pricing_confidence: quoted?.pricing_confidence ?? "known",
+  };
 }
 
 function createGuideCanPriceModelParameters(model) {
