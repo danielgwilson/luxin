@@ -1933,7 +1933,16 @@ async function createGuide(args, options = {}) {
           requestedAspectRatio: briefAspectRatio,
         });
   let selection = selectModel(listedModels);
-  if (briefAspectRatio !== null && listedModels !== null) {
+  // The compact hosted list omits `media.input.aspect_ratios` entirely, so the
+  // ratio capability can only come from the detail endpoint. Probe when the
+  // brief named a ratio (selection itself has to be capability-aware) and also
+  // when the pick is a video model: `selection.suggested_aspect_ratio` is
+  // video-only, and without the probe it reported null on every real video
+  // brief that did not state a ratio -- the same
+  // published-payload-omits-the-field defect as #2265, one field over.
+  const needsAspectRatioCapabilities =
+    briefAspectRatio !== null || selection?.model?.modality === "video";
+  if (needsAspectRatioCapabilities && listedModels !== null) {
     // Two-pass: the first pass names the models worth asking about, then one
     // bounded round of detail lookups makes the second pass actually
     // capability-aware instead of guessing.
@@ -1943,6 +1952,7 @@ async function createGuide(args, options = {}) {
         models: listedModels,
         selected: selection?.model ?? null,
         intent: requestedIntent,
+        routing: briefAspectRatio !== null,
       }),
       apiBaseUrl,
     });
@@ -2055,6 +2065,7 @@ async function createGuide(args, options = {}) {
     guideCommandPrefix,
   );
   const blocker = createGuideBlocker(stage, {
+    operation: guideOperation,
     requestedModelId,
     quota,
     estimatedCredits,
@@ -2465,8 +2476,6 @@ function selectCreateGuideModel(
   const isExecutableInputImageEdit = (model) =>
     model?.status === "available" &&
     guideModelExecutionStatus(model) === "executable" &&
-    Array.isArray(model?.supports) &&
-    (model.supports.includes("edit") || model.supports.includes("variation")) &&
     createGuideSelectedModelRequiresInputImage(model);
   const isExecutableGuideModel = (model) =>
     operation === "edit"
@@ -2583,16 +2592,21 @@ function selectCreateGuideModel(
 // capability UNKNOWN, which never disqualifies a model and never triggers the
 // unsupported-ratio warning.
 
-function guideAspectRatioProbeModelIds({ models, selected, intent }) {
+function guideAspectRatioProbeModelIds({ models, selected, intent, routing }) {
   const ids = [];
   if (typeof selected?.id === "string") {
     ids.push(selected.id);
   }
-  for (const modelId of preferredCreateGuideModelIds(
-    createGuideIntentClass(intent),
-  )) {
-    if (models.some((model) => model?.id === modelId)) {
-      ids.push(modelId);
+  // Only a stated ratio can make the guide hop between models. Without one the
+  // sole open question is what the current pick can express, so asking about
+  // the alternatives would be a round trip spent on an answer nothing reads.
+  if (routing) {
+    for (const modelId of preferredCreateGuideModelIds(
+      createGuideIntentClass(intent),
+    )) {
+      if (models.some((model) => model?.id === modelId)) {
+        ids.push(modelId);
+      }
     }
   }
   return [...new Set(ids)].slice(0, GUIDE_ASPECT_RATIO_PROBE_LIMIT);
@@ -3057,6 +3071,43 @@ function roundUsdMicro(value) {
   return Math.round(value * 1_000_000) / 1_000_000;
 }
 
+// ---------------------------------------------------------------------------
+// How the guide reads a model field. Read this before adding an accessor.
+//
+// There is NO normalizer. `createGuide` hands the rows from `GET /v1/models`
+// to these accessors verbatim -- `withModelSummary` is the `models list`
+// command's compactor and never runs on this path. So an accessor here has to
+// cope with BOTH published shapes itself:
+//
+//   GET /v1/models      (compact list)   flat: model_execution_status,
+//                                        credits_required, estimated_usd_per_image,
+//                                        max_outputs_per_request, artifact_storage.
+//                                        NO `media`, `execution`, or `economics`.
+//   GET /v1/models/:id  (detail)         nested under execution/economics/media.
+//
+// The convention is therefore NESTED-OR-FLAT: try the detail shape, fall back
+// to the flat field the list actually publishes. That convention is the whole
+// safety property, and #2265 was one accessor quietly breaking it.
+// `createGuideSelectedModelRequiresInputImage` read
+// `media.input.images.required` with a "fallback" of `accepts_input_images` --
+// a field the API has never published -- so against a real list row it had no
+// fallback at all, and it failed closed.
+//
+//   guideModelExecutionStatus       execution.model_execution_status  -> flat
+//   createGuideModelCreditPricing   economics.credit_pricing          -> flat
+//   guideBudgetUsdForModel          economics.estimated_usd_per_image -> flat
+//   guideModelAspectRatioValues     media.input.aspect_ratios.values  -> none;
+//                                   fails open and is hydrated from the detail
+//                                   endpoint on demand (see the note there)
+//   ...SelectedModelRequiresInputImage  reads `supports`, published on the list
+//
+// `max_outputs_per_request` and `artifact_storage` are published flat as well,
+// but nothing on the guide path reads them. Their only nested reads live in
+// `modelSummaryRow`/`modelSummaryTaskTags`, which `withModelSummary` skips
+// outright for a payload already marked `compact_model_summary` -- which the
+// hosted list is. Those eight `media.*` reads therefore never see a list row.
+// ---------------------------------------------------------------------------
+
 function guideModelExecutionStatus(model) {
   if (
     isRecord(model?.execution) &&
@@ -3173,6 +3224,26 @@ function requestedAspectRatioFromBrief(input) {
 // say. The hosted `/v1/models` list is a compact summary and omits the `media`
 // block entirely, so "not published" is the common case here and must be kept
 // distinct from "published and does not include this ratio".
+//
+// #2265, worth stating because the next reader will assume otherwise: this is
+// ONE OF EXACTLY TWO `media.*` reads that run over the LIST payload, and the
+// two behave OPPOSITELY. `GET /v1/models/:id` does publish `media`; the compact
+// list does not. So a `media.*` read is only safe here if it either fails open
+// or arranges to be hydrated from the detail endpoint first.
+//
+//   - This one FAILS OPEN. Unknown never disqualifies a model, so an unhydrated
+//     read costs a hint, not a decision. That is why capability routing kept
+//     working in production while `edit --guide` was dead.
+//   - `createGuideSelectedModelRequiresInputImage` used to FAIL CLOSED: no
+//     `media` meant no model could prove it accepts an input image, so `edit
+//     --guide` selected nothing on every real call. It no longer reads `media`
+//     at all -- see the note there.
+//
+// Failing open is not the same as being correct. `guideModelSuggestedAspectRatio`
+// consumes this to REPORT a value rather than to gate one, so before the probe
+// was extended to video picks it published `suggested_aspect_ratio: null` on
+// every video brief that did not state a ratio -- silently, since no blocker
+// fires. Fail-open degrades quietly; that is its failure mode, not its absence.
 function guideModelAspectRatioValues(model) {
   const values = Array.isArray(model?.media?.input?.aspect_ratios?.values)
     ? model.media.input.aspect_ratios.values
@@ -3237,10 +3308,31 @@ function createGuideSuggestedAspectRatio(input) {
   return values.includes("16:9") ? "16:9" : (values[0] ?? null);
 }
 
+// #2265: this must decide from what the hosted payload actually publishes.
+// `GET /v1/models` returns the compact summary, which omits the `media` block
+// entirely (and has never published `accepts_input_images`), so gating on
+// `media.input.images.required` disqualified every model on every real call and
+// `edit --guide` could not select one, ever.
+//
+// This read FAILED CLOSED, which is why it was catastrophic rather than merely
+// lossy: an absent field could not prove any model accepts an input image, so
+// the guide selected nothing and reported `no_executable_model`. The other
+// list-payload `media.*` read (`guideModelAspectRatioValues`) fails open and
+// only loses a hint. Do not assume the two are interchangeable -- see the note
+// there before adding a third.
+//
+// `supports` is published and carries the same fact: it is derived from the
+// capability's operations (`image.edit` -> "edit", `image.variation` ->
+// "variation"), and both are input-image operations by construction. On the
+// live 220-model catalog the old conjunction and this predicate select the
+// identical 79 models, so the dropped conjunct was doing no work -- while
+// costing the mirror the ability to decide at all.
+//
+// Keep this reading only summary fields. `src/` holds strictly more model data
+// than the mirror can ever see; every extra field the guide reads there is a
+// fresh chance for the two surfaces to decide differently.
 function createGuideSelectedModelRequiresInputImage(model) {
   return (
-    (model?.media?.input?.images?.required === true ||
-      model?.accepts_input_images === true) &&
     Array.isArray(model?.supports) &&
     (model.supports.includes("edit") || model.supports.includes("variation"))
   );
@@ -3931,12 +4023,16 @@ function createGuideBlocker(stage, input) {
     };
   }
   if (stage === "no_executable_model") {
+    // #2265: name the operation that actually failed. Saying "create" when the
+    // caller ran `edit --guide` made the one diagnostic an agent gets point at
+    // the wrong half of the product.
+    const operation = input.operation === "edit" ? "edit" : "create";
     return {
       code: "no_executable_model",
       message:
         input.requestedModelId === null
-          ? "No available executable create model was found in the public registry."
-          : `Requested model is not currently an available executable create model: ${input.requestedModelId}`,
+          ? `No available executable ${operation} model was found in the public registry.`
+          : `Requested model is not currently an available executable ${operation} model: ${input.requestedModelId}`,
     };
   }
   if (stage === "auth_required") {
