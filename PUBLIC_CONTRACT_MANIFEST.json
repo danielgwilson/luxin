@@ -11,20 +11,20 @@
     {
       "source_path": "docs/public-contract/skill.md",
       "public_paths": ["skill.md", "skills/luxin/SKILL.md"],
-      "bytes": 33666,
-      "sha256": "69bf64d14fa1158999d653e03f0f9a30b05849d947205a6486186e90cd8d5aeb"
+      "bytes": 33659,
+      "sha256": "8a3774b4ca87589b544e330ba83a4a488b6f1ca70ddd69a1bac8f7f5cfc817a3"
     },
     {
       "source_path": "docs/public-contract/cli.md",
       "public_paths": ["cli.md", "skills/luxin/references/cli.md"],
-      "bytes": 93503,
-      "sha256": "c6f5a34b7fbaf26b587cfcbe62f60d1017b5303d64ce3a9bddedf22096b7818b"
+      "bytes": 93460,
+      "sha256": "2dc7b3bed1d9e16c3c6afacd72a52eb0f15f07267b55eb5e2853e26a7b6edf61"
     },
     {
       "source_path": "docs/public-contract/llms.txt",
       "public_paths": ["llms.txt", "skills/luxin/references/llms.txt"],
-      "bytes": 42813,
-      "sha256": "9c7883a58284099e0eff2aaeb1b11fc3f031073d4a9a54eefe5732018345d4f6"
+      "bytes": 42735,
+      "sha256": "31ca7634f06f2099c0e5c8a88c68593cacd7887d9df2ab13b70809f7283b9df4"
     },
     {
       "source_path": "docs/public-contract/commands.json",

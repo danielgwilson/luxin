@@ -1250,12 +1250,11 @@ from several arrays. It is `browserless_agent_self_fund` when the preferred
 rail is live money, browserless, agent initiated, and agent settleable;
 `human_payment_handoff` when a human/browser completion step is required; and
 `payment_method_inspection` when the guide cannot classify a direct top-up path.
-In guide cost output, `cost.estimated_usd_per_image` is the estimated Image
-Skill debit in dollars for one output, matching
+In guide cost output, `cost.estimated_usd_per_image` is the estimated Luxin
+debit in dollars for one output, matching
 `cost.estimated_debit_usd_per_image` and
 `cost.estimated_credits * cost.credit_unit_usd` when credit pricing is known.
-`cost.estimated_provider_usd_per_image` is the upstream provider estimate for
-transparency; do not use it as the amount the agent needs to fund.
+That is the amount the agent needs to fund.
 
 ```bash
 luxin create \
@@ -1475,22 +1474,24 @@ Minimum success data:
   "assets": [
     {
       "asset_id": "image_...",
-      "path": "https://media.image-skill.com/a/image_abc123.png",
+      "path": "https://media.luxin.sh/a/image_abc123.png",
       "mime_type": "image/png",
-      "url": "https://media.image-skill.com/a/image_abc123.png",
+      "url": "https://media.luxin.sh/a/image_abc123.png",
       "content_length": 333444,
       "width": 2048,
       "height": 2048
     }
   ],
   "cost": {
-    "estimated_usd": 0.07,
+    "estimated_usd": 0.12,
     "credit_pricing": {
       "credit_unit_usd": 0.01,
       "credits_required": 12,
-      "estimated_provider_cost_usd": 0.07,
-      "estimated_revenue_usd": 0.12,
-      "pricing_confidence": "known"
+      "estimated_charge_usd": 0.12,
+      "self_fundable": true,
+      "self_fund_block_reason": null,
+      "pricing_confidence": "known",
+      "pricing_source": "model_parameters"
     }
   },
   "request": {
@@ -1586,7 +1587,9 @@ curl -sS https://api.luxin.sh/v1/create \
 
 Hosted free-preview create currently requires owned artifact storage and returns
 one `assets[]` entry per output with `assets[].url` under
-`https://media.image-skill.com/...` on success.
+`https://media.luxin.sh/...` on success. Previously issued
+`https://media.image-skill.com/...` URLs remain valid and are still accepted
+wherever an asset URL is an input.
 
 ### `luxin upload`
 
@@ -1615,7 +1618,7 @@ Minimum success data:
     "asset_id": "image_...",
     "job_id": "job_...",
     "kind": "uploaded",
-    "url": "https://media.image-skill.com/a/image_abc123.png",
+    "url": "https://media.luxin.sh/a/image_abc123.png",
     "mime_type": "image/png",
     "content_length": 12345
   },
@@ -1828,7 +1831,7 @@ Inspects an Luxin-owned asset URL or hosted asset id.
 
 ```bash
 luxin assets show \
-  https://media.image-skill.com/a/image_abc123.png \
+  https://media.luxin.sh/a/image_abc123.png \
   --json
 ```
 
@@ -1849,7 +1852,7 @@ Minimum success data:
   "asset": {
     "asset_id": "image_...",
     "job_id": "job_...",
-    "url": "https://media.image-skill.com/a/image_abc123.png",
+    "url": "https://media.luxin.sh/a/image_abc123.png",
     "mime_type": "image/png",
     "content_length": 12345,
     "width": 1024,
@@ -1877,7 +1880,7 @@ Downloads an Luxin-owned asset URL or hosted asset id to a local file.
 
 ```bash
 luxin assets get \
-  https://media.image-skill.com/a/image_abc123.png \
+  https://media.luxin.sh/a/image_abc123.png \
   --output ./result.png \
   --json
 ```
@@ -1915,16 +1918,14 @@ Minimum success data:
   "state": "completed",
   "assets": [],
   "cost": {
-    "estimated_usd": 0.05,
-    "provider_reported_usd_ticks": null
+    "estimated_usd": 0.05
   },
   "job": {
     "job_id": "job_...",
     "status": "completed",
     "assets": [],
     "cost": {
-      "estimated_usd": 0.05,
-      "provider_reported_usd_ticks": null
+      "estimated_usd": 0.05
     }
   }
 }

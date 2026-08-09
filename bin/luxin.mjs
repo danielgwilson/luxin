@@ -85,9 +85,28 @@ const AGENT_SKILL_URL = "https://luxin.sh/skill.md";
 const AGENT_LLMS_URL = "https://luxin.sh/llms.txt";
 const AGENT_CLI_DOCS_URL = "https://luxin.sh/cli.md";
 const CREDIT_UNIT_USD = 0.01;
-const TARGET_GROSS_MARGIN = 0.4;
-const PAYMENT_BACKED_CREDIT_PAYMENT_FEE_RATE = 0.015;
-const PAYMENT_BACKED_CREDIT_PAYMENT_FEE_MODEL = "stripe_stablecoin_usd_percent";
+const CANONICAL_PUBLIC_MEDIA_HOST = "media.luxin.sh";
+const LEGACY_PUBLIC_MEDIA_HOST = "media.image-skill.com";
+// media.luxin.sh is the canonical media host. media.image-skill.com is the
+// pre-rename host; it still serves the identical objects, so asset URLs handed
+// out under it stay valid inputs forever.
+const ACCEPTED_PUBLIC_MEDIA_HOSTS = [
+  CANONICAL_PUBLIC_MEDIA_HOST,
+  LEGACY_PUBLIC_MEDIA_HOST,
+];
+// Credit prices for the xAI Grok Imagine image variants, in credits
+// (1 credit = CREDIT_UNIT_USD). The guide prices model parameters locally so it
+// can pick a resolution without a second round trip; the hosted API remains the
+// authority. Exact fractions keep the local estimate identical to the hosted
+// price. These are prices, not costs: the CLI never computes or publishes
+// provider cost or margin.
+const XAI_IMAGE_CREDIT_PRICES = {
+  source_image: { standard: 1 / 3, quality: 5 / 3 },
+  output_image: {
+    standard: 10 / 3,
+    quality: { "1k": 25 / 3, "2k": 35 / 3 },
+  },
+};
 const MODALITY_COMMAND_ALIASES = new Map([
   ["image", { command: "create", intent: null }],
   ["video", { command: "create", intent: "video" }],
@@ -1830,25 +1849,16 @@ async function createGuide(args, options = {}) {
             pricingContext,
           )
         : createGuideModelCreditPricing(selected);
-  const providerCostEstimate =
-    selected === null || !shouldPriceModelParameters
-      ? null
-      : createGuideProviderCostEstimateForModel(
-          selected,
-          defaultedModelParameters.modelParameters,
-          pricingContext,
-        );
   const estimatedCredits = pricing?.credits_required ?? null;
-  const estimatedProviderUsdPerImage =
-    providerCostEstimate?.estimated_provider_cost_usd ??
+  // The guide publishes what the caller will be charged, never our provider
+  // cost. `economics.estimated_usd_per_image` is the hosted charge per image.
+  const estimatedDebitUsdPerImage =
+    pricing?.estimated_charge_usd ??
     selected?.economics?.estimated_usd_per_image ??
-    pricing?.fallback_provider_cost_usd ??
     (typeof selected?.estimated_usd_per_image === "number"
       ? selected.estimated_usd_per_image
       : null) ??
     null;
-  const estimatedDebitUsdPerImage =
-    pricing?.estimated_revenue_usd ?? estimatedProviderUsdPerImage;
   const budgetGuard =
     maxEstimatedUsdPerImage ??
     estimatedDebitUsdPerImage ??
@@ -2214,7 +2224,6 @@ async function createGuide(args, options = {}) {
       estimated_credits: estimatedCredits,
       estimated_usd_per_image: estimatedDebitUsdPerImage,
       estimated_debit_usd_per_image: estimatedDebitUsdPerImage,
-      estimated_provider_usd_per_image: estimatedProviderUsdPerImage,
       credit_unit_usd: pricing?.credit_unit_usd ?? CREDIT_UNIT_USD,
       pricing_confidence: pricing?.pricing_confidence ?? null,
       pricing_source: pricing?.pricing_source ?? null,
@@ -2526,12 +2535,11 @@ function preferredCreateGuideModelIds(intentClass) {
 }
 
 function guideBudgetUsdForModel(model) {
+  // Budget caps compare the credit debit -- what the caller pays.
   const pricing = createGuideModelCreditPricing(model);
   return (
-    pricing?.estimated_revenue_usd ??
+    pricing?.estimated_charge_usd ??
     model?.economics?.estimated_usd_per_image ??
-    pricing?.estimated_provider_cost_usd ??
-    pricing?.fallback_provider_cost_usd ??
     (typeof model?.estimated_usd_per_image === "number"
       ? model.estimated_usd_per_image
       : null) ??
@@ -2547,7 +2555,7 @@ function createGuideDefaultModelParameters(input) {
     input.model?.id === "xai.grok-imagine-image-quality" &&
     modelParameters.resolution === undefined
   ) {
-    // Budget defaults must compare the credit debit (estimated_revenue_usd),
+    // Budget defaults must compare the credit debit (estimated_charge_usd),
     // the same basis the hosted budget guard enforces, not the provider cost.
     const twoKPricing = createGuidePricingForModel(
       input.model,
@@ -2556,8 +2564,8 @@ function createGuideDefaultModelParameters(input) {
     );
     const twoKAllowedByBudget =
       input.maxEstimatedUsdPerImage === null ||
-      typeof twoKPricing?.estimated_revenue_usd !== "number" ||
-      twoKPricing.estimated_revenue_usd <= input.maxEstimatedUsdPerImage;
+      typeof twoKPricing?.estimated_charge_usd !== "number" ||
+      twoKPricing.estimated_charge_usd <= input.maxEstimatedUsdPerImage;
     const intentClass = createGuideIntentClass(input.intent);
     const resolution =
       intentClass !== "budget_draft" && twoKAllowedByBudget ? "2k" : "1k";
@@ -2587,8 +2595,8 @@ function createGuideDefaultModelParameters(input) {
     );
     const mediumAllowedByBudget =
       input.maxEstimatedUsdPerImage === null ||
-      typeof mediumPricing?.estimated_revenue_usd !== "number" ||
-      mediumPricing.estimated_revenue_usd <= input.maxEstimatedUsdPerImage;
+      typeof mediumPricing?.estimated_charge_usd !== "number" ||
+      mediumPricing.estimated_charge_usd <= input.maxEstimatedUsdPerImage;
     if (mediumAllowedByBudget) {
       modelParameters.quality = "medium";
       defaultsApplied.push("quality=medium");
@@ -2599,45 +2607,17 @@ function createGuideDefaultModelParameters(input) {
 }
 
 function createGuidePricingForModel(model, modelParameters, context = {}) {
-  const estimate = createGuideProviderCostEstimateForModel(
-    model,
-    modelParameters,
-    context,
-  );
-  if (estimate.estimated_provider_cost_usd === null) {
-    return createGuideModelCreditPricing(model);
+  if (createGuideCanPriceModelParameters(model)) {
+    return createGuideXaiImagePricing(model, modelParameters, context);
   }
-  return createGuideCreditPricingForProviderCost({
-    providerCostUsd: estimate.estimated_provider_cost_usd,
-    pricingConfidence: estimate.pricing_confidence,
-    pricingSource: estimate.pricing_source,
-  });
+  return createGuideModelCreditPricing(model);
 }
 
 function createGuideCanPriceModelParameters(model) {
   return String(model?.id ?? "").startsWith("xai.grok-imagine-image");
 }
 
-function createGuideProviderCostEstimateForModel(
-  model,
-  modelParameters = {},
-  context = {},
-) {
-  if (String(model?.id ?? "").startsWith("xai.grok-imagine-image")) {
-    return createGuideXaiImageCostEstimate(model, modelParameters, context);
-  }
-  return {
-    estimated_provider_cost_usd:
-      typeof model?.economics?.estimated_usd_per_image === "number"
-        ? model.economics.estimated_usd_per_image
-        : (createGuideModelCreditPricing(model)?.estimated_provider_cost_usd ??
-          null),
-    pricing_source: "model_registry",
-    pricing_confidence: "known",
-  };
-}
-
-function createGuideXaiImageCostEstimate(model, modelParameters, context) {
+function createGuideXaiImagePricing(model, modelParameters, context) {
   const modelId = String(model?.id ?? "");
   const quality = modelId.includes("-quality");
   const edit = modelId.endsWith("-edit");
@@ -2652,11 +2632,20 @@ function createGuideXaiImageCostEstimate(model, modelParameters, context) {
       ? context.referenceAssetCount
       : 0;
   const sourceImageCount = edit ? 1 + referenceAssetCount : 0;
-  const inputUsdPerImage = quality ? 0.01 : 0.002;
-  let outputUsdPerImage = 0.02;
-  if (quality) {
-    outputUsdPerImage = resolution === "2k" ? 0.07 : 0.05;
-  }
+  const sourceCredits = quality
+    ? XAI_IMAGE_CREDIT_PRICES.source_image.quality
+    : XAI_IMAGE_CREDIT_PRICES.source_image.standard;
+  const outputCredits = quality
+    ? XAI_IMAGE_CREDIT_PRICES.output_image.quality[resolution]
+    : XAI_IMAGE_CREDIT_PRICES.output_image.standard;
+  const creditsRequired = Math.max(
+    1,
+    Math.ceil(
+      roundUsdMicro(
+        sourceCredits * sourceImageCount + outputCredits * outputImageCount,
+      ),
+    ),
+  );
   const defaultResolution =
     modelParameters?.resolution === undefined ||
     modelParameters?.resolution === null ||
@@ -2666,66 +2655,11 @@ function createGuideXaiImageCostEstimate(model, modelParameters, context) {
     outputImageCount === 1 &&
     sourceImageCount === (edit ? 1 : 0);
   return {
-    estimated_provider_cost_usd: roundUsdMicro(
-      inputUsdPerImage * sourceImageCount +
-        outputUsdPerImage * outputImageCount,
-    ),
-    pricing_source: defaultShape ? "model_registry" : "model_parameters",
-    pricing_confidence: "known",
-  };
-}
-
-function createGuideCreditPricingForProviderCost(input) {
-  const providerCostUsd = roundUsdMicro(input.providerCostUsd);
-  const creditsRequired = Math.max(
-    1,
-    Math.ceil(
-      roundUsdMicro(
-        providerCostUsd / (1 - TARGET_GROSS_MARGIN) / CREDIT_UNIT_USD,
-      ),
-    ),
-  );
-  const estimatedRevenueUsd = roundUsd(creditsRequired * CREDIT_UNIT_USD);
-  const estimatedPaymentFeeUsd = roundUsdMicro(
-    estimatedRevenueUsd * PAYMENT_BACKED_CREDIT_PAYMENT_FEE_RATE,
-  );
-  const estimatedNetRevenueUsd = roundUsdMicro(
-    estimatedRevenueUsd - estimatedPaymentFeeUsd,
-  );
-  const estimatedGrossMargin =
-    estimatedRevenueUsd > 0
-      ? roundRatio(
-          (estimatedRevenueUsd - providerCostUsd) / estimatedRevenueUsd,
-        )
-      : null;
-  const estimatedFeeAdjustedMargin =
-    estimatedRevenueUsd > 0
-      ? roundRatio(
-          (estimatedNetRevenueUsd - providerCostUsd) / estimatedRevenueUsd,
-        )
-      : null;
-  const selfFundBlockReason =
-    estimatedNetRevenueUsd + 1e-9 < providerCostUsd
-      ? "payment_fee_margin_negative"
-      : null;
-  return {
     credits_required: creditsRequired,
     credit_unit_usd: CREDIT_UNIT_USD,
-    estimated_provider_cost_usd: providerCostUsd,
-    fallback_provider_cost_usd: null,
-    estimated_revenue_usd: estimatedRevenueUsd,
-    estimated_gross_margin: estimatedGrossMargin,
-    payment_fee_rate: PAYMENT_BACKED_CREDIT_PAYMENT_FEE_RATE,
-    payment_fee_model: PAYMENT_BACKED_CREDIT_PAYMENT_FEE_MODEL,
-    estimated_payment_fee_usd: estimatedPaymentFeeUsd,
-    estimated_net_revenue_usd: estimatedNetRevenueUsd,
-    estimated_fee_adjusted_margin: estimatedFeeAdjustedMargin,
-    self_fundable: selfFundBlockReason === null,
-    self_fund_block_reason: selfFundBlockReason,
-    target_gross_margin: TARGET_GROSS_MARGIN,
-    pricing_confidence: input.pricingConfidence,
-    pricing_source: input.pricingSource,
-    margin_model: "provider_cost_plus_margin",
+    estimated_charge_usd: roundUsd(creditsRequired * CREDIT_UNIT_USD),
+    pricing_confidence: "known",
+    pricing_source: defaultShape ? "model_registry" : "model_parameters",
   };
 }
 
@@ -2748,10 +2682,6 @@ function falDefaultImageSize(aspectRatio) {
 
 function roundUsd(value) {
   return Math.round(value * 100) / 100;
-}
-
-function roundRatio(value) {
-  return Math.round(value * 1000) / 1000;
 }
 
 function roundUsdMicro(value) {
@@ -2779,16 +2709,8 @@ function createGuideModelCreditPricing(model) {
   }
   return {
     credits_required: model.credits_required,
-    estimated_revenue_usd:
-      typeof model.credits_required === "number"
-        ? model.credits_required * CREDIT_UNIT_USD
-        : null,
-    estimated_provider_cost_usd:
-      typeof model?.estimated_usd_per_image === "number"
-        ? model.estimated_usd_per_image
-        : null,
-    fallback_provider_cost_usd: null,
     credit_unit_usd: CREDIT_UNIT_USD,
+    estimated_charge_usd: roundUsd(model.credits_required * CREDIT_UNIT_USD),
     pricing_confidence:
       typeof model?.pricing_confidence === "string"
         ? model.pricing_confidence
@@ -4906,7 +4828,7 @@ async function assets(argv) {
   if (assetId === null) {
     return invalid(
       "luxin assets",
-      "assets currently supports Luxin asset ids and media.image-skill.com URLs",
+      `assets currently supports Luxin asset ids and ${ACCEPTED_PUBLIC_MEDIA_HOSTS.join(" or ")} URLs`,
     );
   }
   const token = await resolveToken(args);
@@ -7341,7 +7263,7 @@ function assetIdFromReference(reference) {
     const url = new URL(reference);
     if (
       url.protocol !== "https:" ||
-      url.hostname !== "media.image-skill.com" ||
+      !ACCEPTED_PUBLIC_MEDIA_HOSTS.includes(url.hostname.toLowerCase()) ||
       !url.pathname.startsWith("/a/")
     ) {
       return null;

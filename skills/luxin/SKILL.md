@@ -53,7 +53,7 @@ Minimum success envelope on a create or edit:
     "assets": [
       {
         "asset_id": "image_...",
-        "url": "https://media.image-skill.com/a/image_...png",
+        "url": "https://media.luxin.sh/a/image_...png",
         "mime_type": "image/png"
       }
     ],
