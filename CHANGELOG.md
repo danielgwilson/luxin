@@ -6,6 +6,22 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.8 - 2026-08-12
+
+- New command: `luxin skill` prints the full usage guidance from bundled
+  package bytes, so instructions always match the CLI you are running. The
+  installed SKILL.md is now a ~4KB discovery stub that points here; the full
+  body is also served at https://luxin.sh/skill-core.md.
+- Skill freshness handshake: export `LUXIN_SKILL_REVISION=<the revision in
+your stub's frontmatter>` and `create --guide`, `edit --guide`, and
+  `luxin skill` will return `data.skill_refresh` with the current revision and
+  the exact refresh command (`npx skills update luxin`) whenever your installed
+  copy no longer matches. The field is omitted entirely when you are current.
+  Nothing ever rewrites your files, config, or hooks — refresh is always an
+  explicit command you run.
+- `agent_skill.read_command` now points at `luxin skill --json` instead of
+  curling the stub.
+
 ## 0.2.7 - 2026-08-12
 
 - Release (pricing): the guide's local credit quoting for xAI models moved from

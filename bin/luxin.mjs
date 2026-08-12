@@ -15,7 +15,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import os from "node:os";
 
-const VERSION = "0.2.7";
+const VERSION = "0.2.8";
 // Content-derived identity of the guidance this package ships (#2302). Kept in
 // sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
 // gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
