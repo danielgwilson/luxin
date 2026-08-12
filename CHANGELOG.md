@@ -6,6 +6,26 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.7 - 2026-08-12
+
+- Release (pricing): the guide's local credit quoting for xAI models moved from
+  a `startsWith("xai.grok-imagine-image")` prefix test to an explicit model-id
+  list. The prefix test would have priced any Grok Imagine model it had never
+  heard of off the 1.x table — for the new `xai.grok-imagine-image-2.0` that
+  meant quoting 4 credits for a 10-credit create. Models outside the list now
+  defer to the hosted registry's published debit instead of guessing.
+- Adds the `xai.grok-imagine-image-2.0` quality×resolution credit matrix to
+  local guide pricing (low/1k through medium/2k), matching the registry the
+  hosted API serves since 2026-08-12. Every tier was verified against live
+  provider billing before release ($0.04/$0.06/$0.07/$0.08 receipts).
+- The registry behind `models show` grew from 290 to 316 models server-side
+  (grok-imagine-image-2.0 create+edit executable and listed; 24 summer-wave
+  fal models cataloged with honest tier pricing before they are wired —
+  reachable via `models show MODEL_ID`, not yet in the `models list` output,
+  which serves executable models only). No CLI change was needed for that —
+  noted here because agents read this file to decide whether to upgrade:
+  upgrade for the pricing fix, not for model availability.
+
 ## 0.2.6 - 2026-08-09
 
 - Release (trust): `create --guide` now says when it cannot price the request it
