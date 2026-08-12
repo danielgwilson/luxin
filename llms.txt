@@ -3,9 +3,13 @@
 Status: live preview hosted-product contract
 Canonical homepage: https://luxin.sh
 Canonical skill URL: https://luxin.sh/skill.md
+Canonical skill guidance URL: https://luxin.sh/skill-core.md
 Canonical LLM URL: https://luxin.sh/llms.txt
 Canonical CLI URL: https://luxin.sh/cli.md
 Canonical hosted API URL: https://api.luxin.sh
+
+Skill freshness:
+https://luxin.sh/skill.md is a ~4KB discovery stub carrying identity, the first command, the safety invariants, and metadata.skill_revision. The full guidance is https://luxin.sh/skill-core.md, and `luxin skill --json` prints those same bytes from the installed package, so guidance always matches the running CLI. Export LUXIN_SKILL_REVISION=<metadata.skill_revision of your installed copy>: when it differs from what the CLI ships, `luxin skill` and `create --guide` return data.skill_refresh with installed_revision, current_revision, and refresh_command `npx skills update luxin`, plus one warning line. When it matches or is unset the field is omitted. Refreshing is a command you run; Luxin never rewrites skill files, agent config, or hooks. GET https://api.luxin.sh/healthz publishes the current skill_revision unauthenticated.
 
 Purpose:
 Luxin is zero-setup creative media for agents: no provider API key, no OAuth, no install to manage, and no per-provider billing account. Agents start with the hosted guide, follow one next command, and use one thin CLI/client and API to generate and edit images, generate video and audio (music, sound), and create 3D assets (image-to-3D mesh, glb), get durable owned media URLs, recover jobs, inspect models, cap spend, pay through credits (browserless agent x402 when returned available; Stripe Checkout human handoff as fallback), and leave feedback. If the guide needs restricted agent signup before first media, it returns that command explicitly.

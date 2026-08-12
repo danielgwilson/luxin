@@ -7,6 +7,7 @@ docs: https://luxin.sh/llms.txt
 metadata:
   status: preview-contract
   cli: luxin
+  skill_revision: b1dc1284d18d
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
@@ -66,11 +67,34 @@ mkdir -p "$HOME" "$CODEX_HOME"
 npx skills add danielgwilson/luxin --full-depth --skill ai-audio-generation -g -a codex -y
 ```
 
+## Current Guidance And Refresh
+
+This file is a discovery stub, not the usage guide. Before relying on flags or
+workflows, load current guidance from the CLI, which serves guidance that always
+matches the installed version:
+
+```bash
+npm_config_update_notifier=false npx -y luxin-cli@latest skill
+```
+
+This copy is skill revision `b1dc1284d18d`. Export it so the CLI can say when
+the copy on disk no longer matches the guidance it ships, and refresh when it
+says so:
+
+```bash
+export LUXIN_SKILL_REVISION=b1dc1284d18d
+npx skills update luxin
+```
+
+Refreshing is always an explicit step you run. Nothing in Luxin rewrites this
+file, your agent config, or your hooks.
+
 ## Shared Contract
 
 All intent skills in this repo point to the same hosted contract:
 
 - Skill: https://luxin.sh/skill.md
+- Full guidance: https://luxin.sh/skill-core.md
 - LLM contract: https://luxin.sh/llms.txt
 - CLI contract: https://luxin.sh/cli.md
 - Hosted API: https://api.luxin.sh

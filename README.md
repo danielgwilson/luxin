@@ -85,9 +85,67 @@ Naming note: Luxin is a creative-media runtime for agents. It is unrelated to
 `luxon`, the datetime library; the npm package here is `luxin-cli` and the
 installed binary is `luxin`.
 
+## Keeping The Skill Current
+
+The installed `SKILL.md` is a ~4KB discovery stub. Everything volatile — flags,
+workflows, recovery, funding — lives in the guidance the CLI itself carries, so
+it always matches the code you are running:
+
+```bash
+npm_config_update_notifier=false npx -y luxin-cli@latest skill
+```
+
+Refresh the installed stub with the standard verb:
+
+```bash
+npx skills update luxin
+```
+
+The stub records its own identity as `metadata.skill_revision`. Export it and
+the CLI will say when your copy no longer matches the guidance it ships,
+returning `data.skill_refresh` plus one warning line on `luxin skill` and
+`create --guide`:
+
+```bash
+export LUXIN_SKILL_REVISION=<metadata.skill_revision from your installed SKILL.md>
+```
+
+Detection is remote; mutation stays local and explicit. Luxin prints the refresh
+command and never rewrites your skill files, agent config, or hook files.
+
+### Optional: refresh at session start (copy-paste, opt-in)
+
+Some runtimes can run a command when a session starts. If you want an automatic
+refresh, add it yourself — Luxin will not install it for you, and nothing below
+runs unless you put it there. For Claude Code, in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx skills update luxin",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Two things worth knowing before you adopt it: it adds a network call to every
+session start, and it applies updates without showing you a diff first. Running
+`npx skills update luxin` by hand when a nudge appears keeps the change
+reviewable.
+
 Agent-facing contracts:
 
 - [Hosted skill contract](https://luxin.sh/skill.md)
+- [Hosted skill guidance](https://luxin.sh/skill-core.md)
 - [Hosted LLM contract](https://luxin.sh/llms.txt)
 - [Hosted CLI contract](https://luxin.sh/cli.md)
 - [Public repo skill source](https://github.com/danielgwilson/luxin/tree/main/skills/luxin)

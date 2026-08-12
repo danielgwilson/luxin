@@ -21,6 +21,13 @@
       "spend": false
     },
     {
+      "id": "skill",
+      "docs_anchor": "luxin-skill",
+      "surface": "client",
+      "mutation": false,
+      "spend": false
+    },
+    {
       "id": "signup",
       "docs_anchor": "luxin-signup-agent",
       "surface": "hosted_cli",
@@ -148,13 +155,13 @@
       "key": "",
       "help": {
         "command": "help",
-        "usage": "luxin <doctor|trust|signup|claim|whoami|usage|quota|credits|capabilities|models|create|upload|edit|assets|jobs|activity|feedback> --json",
+        "usage": "luxin <doctor|trust|skill|signup|claim|whoami|usage|quota|credits|capabilities|models|create|upload|edit|assets|jobs|activity|feedback> --json",
         "docs_url": "https://luxin.sh/cli.md",
         "agent_skill": {
           "url": "https://luxin.sh/skill.md",
           "llms_url": "https://luxin.sh/llms.txt",
           "cli_docs_url": "https://luxin.sh/cli.md",
-          "read_command": "curl -fsSL https://luxin.sh/skill.md",
+          "read_command": "luxin skill --json",
           "recommended_start_command": "luxin create --guide --prompt PROMPT --json",
           "model_discovery_command": "luxin models list --available --operation image.generate --json",
           "model_inspection_command": "luxin models show MODEL_ID --json",
@@ -164,6 +171,7 @@
         "commands": [
           "doctor",
           "trust",
+          "skill",
           "signup --agent --agent-name NAME --runtime RUNTIME",
           "claim request --contact INBOX",
           "claim code",
@@ -218,6 +226,15 @@
         "usage": "luxin trust --json",
         "docs_url": "https://luxin.sh/cli.md#luxin-trust",
         "description": "Return npm provenance, hosted contract hashes, API health, and model availability evidence."
+      }
+    },
+    {
+      "key": "skill",
+      "help": {
+        "command": "luxin skill help",
+        "usage": "luxin skill --json",
+        "docs_url": "https://luxin.sh/cli.md#luxin-skill",
+        "description": "Print the full agent guidance bundled with this CLI version, so instructions always match the installed code. No network call, no auth, no spend."
       }
     },
     {

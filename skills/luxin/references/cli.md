@@ -93,6 +93,63 @@ verified, the command still returns a packet with explicit `unreachable`,
 `not_available_yet`, `inspect_only`, or `stale_or_mismatched` states rather
 than omitting the field.
 
+### `luxin skill`
+
+Prints the full agent guidance that shipped with this CLI version.
+
+```bash
+luxin skill --json
+```
+
+The published `SKILL.md` at `https://luxin.sh/skill.md` is a ~4KB discovery
+stub: it carries identity, the first command, the safety invariants, and a
+revision, and nothing else. Flags, workflows, model parameters, recovery, and
+funding details live here, because an installed skill file is a snapshot that
+never updates while `npx luxin-cli@latest` updates on every call.
+
+The body is read from the package this command is running from, not fetched, so
+the guidance always matches the installed code by construction. No network call,
+no auth, no spend. The same bytes are served at
+`https://luxin.sh/skill-core.md`.
+
+`data` uses `schema: "image-skill.skill-guidance.v1"` and carries `revision`
+(the 12-hex content-derived identity of the published skill), `source`,
+`format`, `bytes`, `canonical_url`, `refresh_command`, `mutation`, and
+`content`.
+
+#### Skill revision and staleness
+
+An installed skill file records its revision as `metadata.skill_revision` in its
+frontmatter. Export it so the CLI can tell you when your copy has fallen behind
+the guidance the CLI ships:
+
+```bash
+export LUXIN_SKILL_REVISION=<metadata.skill_revision from your installed SKILL.md>
+```
+
+When the value differs from what the running CLI ships, `luxin skill` and
+`create --guide` / `edit --guide` add `data.skill_refresh`:
+
+```json
+{
+  "skill_refresh": {
+    "installed_revision": "0123456789ab",
+    "current_revision": "b1dc1284d18d",
+    "refresh_command": "npx skills update luxin"
+  }
+}
+```
+
+They also emit one warning line naming the same command. When the revisions
+match, or when `LUXIN_SKILL_REVISION` is unset, the field is omitted entirely.
+
+Refreshing is always a command you choose to run. Luxin never rewrites your
+skill files, agent config, or hooks, and never fetches instructions to follow
+them. The revision is also forwarded to the hosted API as a non-secret
+`x-luxin-skill-revision` header and published unauthenticated on
+`GET /healthz` as `skill_revision`, so a client can compare without downloading
+any contract file.
+
 ### `luxin signup --agent`
 
 Bootstraps restricted agent access. Signup is anonymous by default: no contact
@@ -279,6 +336,13 @@ One exception keeps the funding path intact: when a pre-wall top-up is actually
 recommended (`data.self_fund_preparation.recommended` is `true`), the
 `data.self_fund_*` fields stay in the compact response and are not listed in
 `data.output_mode.omitted_fields`.
+
+`data.skill_refresh` is the other field that survives the compact response, for
+the same reason: an agent whose installed skill file has gone stale is usually
+an agent whose calls are otherwise succeeding. It appears only when
+`LUXIN_SKILL_REVISION` is exported and differs from the revision the running CLI
+ships, and carries `installed_revision`, `current_revision`, and
+`refresh_command`. See [`luxin skill`](#luxin-skill) for the full handshake.
 
 ```bash
 IMAGE_SKILL_DISCOVERY_SOURCE=cli-md luxin create --guide --prompt "a compact field camera on a stainless workbench"

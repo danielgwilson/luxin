@@ -16,6 +16,19 @@ import { pipeline } from "node:stream/promises";
 import os from "node:os";
 
 const VERSION = "0.2.7";
+// Content-derived identity of the guidance this package ships (#2302). Kept in
+// sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
+// gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
+const SKILL_REVISION = "b1dc1284d18d";
+// `luxin skill` prints these bundled bytes rather than fetching them, so the
+// guidance can never describe a CLI other than the one printing it. Packed by
+// public-cli/package.json `files`.
+const SKILL_GUIDANCE_FILE = "skill-core.md";
+const SKILL_GUIDANCE_SCHEMA = "image-skill.skill-guidance.v1";
+const SKILL_CORE_URL = "https://luxin.sh/skill-core.md";
+const SKILL_REFRESH_COMMAND = "npx skills update luxin";
+const INSTALLED_SKILL_REVISION_ENV = "LUXIN_SKILL_REVISION";
+const INSTALLED_SKILL_REVISION_HEADER = "x-luxin-skill-revision";
 const PACKAGE_NAME = "luxin";
 const DEFAULT_API_BASE_URL = "https://api.luxin.sh";
 const DEFAULT_DOCS_BASE_URL = "https://luxin.sh";
@@ -334,7 +347,8 @@ function agentSkillHint(commandPrefix = "luxin") {
     url: AGENT_SKILL_URL,
     llms_url: AGENT_LLMS_URL,
     cli_docs_url: AGENT_CLI_DOCS_URL,
-    read_command: "curl -fsSL https://luxin.sh/skill.md",
+    // #2302: point at the CLI-carried guidance, not the discovery stub.
+    read_command: "luxin skill --json",
     recommended_start_command: renderGuidePrefixedCommand(
       commandPrefix,
       "create --guide --prompt PROMPT --json",
@@ -387,6 +401,8 @@ async function main(rawArgv) {
         return await doctor(rest);
       case "trust":
         return await trust(rest);
+      case "skill":
+        return await skill(rest);
       case "signup":
         return await signup(rest);
       case "claim":
@@ -503,12 +519,13 @@ function commandHelpByKey(key) {
     "": {
       command: "help",
       usage:
-        "luxin <doctor|trust|signup|claim|whoami|usage|quota|credits|capabilities|models|create|upload|edit|assets|jobs|activity|feedback> --json",
+        "luxin <doctor|trust|skill|signup|claim|whoami|usage|quota|credits|capabilities|models|create|upload|edit|assets|jobs|activity|feedback> --json",
       docs_url: "https://luxin.sh/cli.md",
       agent_skill: agentSkillHint(),
       commands: [
         "doctor",
         "trust",
+        "skill",
         "signup --agent --agent-name NAME --runtime RUNTIME",
         "claim request --contact INBOX",
         "claim code",
@@ -559,6 +576,13 @@ function commandHelpByKey(key) {
       docs_url: "https://luxin.sh/cli.md#luxin-trust",
       description:
         "Return npm provenance, hosted contract hashes, API health, and model availability evidence.",
+    },
+    skill: {
+      command: "luxin skill help",
+      usage: "luxin skill --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-skill",
+      description:
+        "Print the full agent guidance bundled with this CLI version, so instructions always match the installed code. No network call, no auth, no spend.",
     },
     signup: {
       command: "luxin signup help",
@@ -878,6 +902,104 @@ function unsupportedFlagsMessage(command, flags) {
   return `unsupported flags for ${command}: ${flags
     .map((flag) => `--${flag}`)
     .join(", ")}`;
+}
+
+// #2302: the installed SKILL.md is a ~4KB discovery stub. Everything volatile
+// -- flags, workflows, recovery, funding -- lives in the guidance body this
+// command prints, so an agent working from a months-old install still reads
+// instructions that match the code it is about to run.
+//
+// Bundled, not fetched. A network fetch could serve prose this build does not
+// implement, which is the drift the split exists to remove.
+async function skill(argv) {
+  const args = parseArgs(argv);
+  const unsupportedFlags = [...args.flags.keys()].filter(
+    (flag) => !["json"].includes(flag),
+  );
+  if (args.positionals.length > 0 || unsupportedFlags.length > 0) {
+    return invalid(
+      "luxin skill",
+      unsupportedFlags.length > 0
+        ? unsupportedFlagsMessage("skill", unsupportedFlags)
+        : "skill does not accept positional arguments",
+    );
+  }
+
+  let content;
+  try {
+    content = await readFile(
+      new URL(`../${SKILL_GUIDANCE_FILE}`, import.meta.url),
+      "utf8",
+    );
+  } catch (error) {
+    return failure(
+      "luxin skill",
+      7,
+      "SKILL_GUIDANCE_UNAVAILABLE",
+      `bundled skill guidance could not be read: ${
+        error instanceof Error ? error.message : "unknown error"
+      }. Reinstall the CLI, or read ${SKILL_CORE_URL}`,
+      false,
+    );
+  }
+
+  const refresh = skillRefresh();
+  return success(
+    "luxin skill",
+    {
+      schema: SKILL_GUIDANCE_SCHEMA,
+      revision: SKILL_REVISION,
+      source: "bundled_cli_package",
+      format: "markdown",
+      bytes: Buffer.byteLength(content, "utf8"),
+      canonical_url: SKILL_CORE_URL,
+      refresh_command: SKILL_REFRESH_COMMAND,
+      mutation: {
+        provider_call: false,
+        credit_debit: false,
+        media_write: false,
+        local_file_write: false,
+      },
+      ...(refresh === null ? {} : { skill_refresh: refresh }),
+      content,
+    },
+    refresh === null ? [] : [skillRefreshWarning(refresh)],
+  );
+}
+
+/**
+ * Self-reported identity of the caller's installed skill copy. 12 lowercase hex
+ * or nothing: the value is echoed into a response field and forwarded as a
+ * header, so it must not become a channel for arbitrary text.
+ */
+function installedSkillRevision() {
+  const raw = process.env[INSTALLED_SKILL_REVISION_ENV];
+  if (typeof raw !== "string") {
+    return null;
+  }
+  const trimmed = raw.trim().toLowerCase();
+  return /^[0-9a-f]{12}$/.test(trimmed) ? trimmed : null;
+}
+
+/**
+ * The compact nudge, or nothing at all. Omitted when the caller reports nothing
+ * or reports the revision this CLI ships. Content hashes are unordered, so this
+ * says "differs", never "older".
+ */
+function skillRefresh() {
+  const installed = installedSkillRevision();
+  if (installed === null || installed === SKILL_REVISION) {
+    return null;
+  }
+  return {
+    installed_revision: installed,
+    current_revision: SKILL_REVISION,
+    refresh_command: SKILL_REFRESH_COMMAND,
+  };
+}
+
+function skillRefreshWarning(refresh) {
+  return `installed skill revision ${refresh.installed_revision} does not match the current revision ${refresh.current_revision} this CLI ships; refresh with: ${refresh.refresh_command}`;
 }
 
 async function trust(argv) {
@@ -2342,6 +2464,7 @@ async function createGuide(args, options = {}) {
       },
     ),
   };
+  const guideSkillRefresh = skillRefresh();
   const guideData = {
     schema:
       guideOperation === "edit"
@@ -2468,20 +2591,25 @@ async function createGuide(args, options = {}) {
       credit_debit: false,
       media_write: false,
     },
+    // #2302: present only when the caller self-reported a revision that is not
+    // the one this CLI ships. Survives ready_compact deliberately -- a nudge
+    // that only appears in the blocked stages would never reach the agents who
+    // are working fine on stale instructions, which is the whole failure mode.
+    ...(guideSkillRefresh === null ? {} : { skill_refresh: guideSkillRefresh }),
   };
   for (const field of compactOmittedFields) {
     delete guideData[field];
   }
-  return createGuideSuccess(
-    command,
-    quota?.envelope.actor ?? null,
-    guideData,
-    plannedDebitUnavailable
+  return createGuideSuccess(command, quota?.envelope.actor ?? null, guideData, [
+    ...(plannedDebitUnavailable
       ? [
           "create_credit_debit_unavailable: this hosted API does not publish per-aspect-ratio create debits, so the credits above are the model's default-shape quote and may not be what create debits. Run the dry_run command in escape_hatches for the exact figure before budgeting.",
         ]
-      : [],
-  );
+      : []),
+    ...(guideSkillRefresh === null
+      ? []
+      : [skillRefreshWarning(guideSkillRefresh)]),
+  ]);
 }
 
 function createGuideSuccess(command, actor, data, warnings = []) {
@@ -6869,6 +6997,12 @@ async function apiRequest(input) {
         ...(input.token === undefined
           ? {}
           : { authorization: `Bearer ${input.token}` }),
+        // #2302: self-reported identity of the installed skill copy, so the
+        // hosted side can measure how stale the installed base is. Non-secret,
+        // omitted entirely when unset, never guessed.
+        ...(installedSkillRevision() === null
+          ? {}
+          : { [INSTALLED_SKILL_REVISION_HEADER]: installedSkillRevision() }),
       },
       body: input.body === undefined ? undefined : JSON.stringify(input.body),
     });
