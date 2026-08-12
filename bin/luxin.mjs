@@ -101,12 +101,28 @@ const ACCEPTED_PUBLIC_MEDIA_HOSTS = [
 // price. These are prices, not costs: the CLI never computes or publishes
 // provider cost or margin.
 const XAI_IMAGE_CREDIT_PRICES = {
-  source_image: { standard: 1 / 3, quality: 5 / 3 },
+  source_image: { standard: 1 / 3, quality: 5 / 3, image_2: 5 / 3 },
   output_image: {
     standard: 10 / 3,
     quality: { "1k": 25 / 3, "2k": 35 / 3 },
+    image_2: {
+      low: { "1k": 20 / 3, "2k": 10 },
+      medium: { "1k": 10, "2k": 40 / 3 },
+    },
   },
 };
+// Mirrors src/credit-pricing.ts XAI_IMAGE_MODEL_IDS. This is an explicit list,
+// not a prefix test: a Grok Imagine image model this CLI has never heard of is
+// priced by the hosted registry's published debit, not by guessing it onto the
+// 1.x price table.
+const XAI_LOCALLY_PRICED_IMAGE_MODEL_IDS = new Set([
+  "xai.grok-imagine-image",
+  "xai.grok-imagine-image-edit",
+  "xai.grok-imagine-image-quality",
+  "xai.grok-imagine-image-quality-edit",
+  "xai.grok-imagine-image-2.0",
+  "xai.grok-imagine-image-2.0-edit",
+]);
 const MODALITY_COMMAND_ALIASES = new Map([
   ["image", { command: "create", intent: null }],
   ["video", { command: "create", intent: "video" }],
@@ -3039,14 +3055,16 @@ function createGuideAspectRatioCreditPricing(model, context) {
 }
 
 function createGuideCanPriceModelParameters(model) {
-  return String(model?.id ?? "").startsWith("xai.grok-imagine-image");
+  return XAI_LOCALLY_PRICED_IMAGE_MODEL_IDS.has(String(model?.id ?? ""));
 }
 
 function createGuideXaiImagePricing(model, modelParameters, context) {
   const modelId = String(model?.id ?? "");
   const quality = modelId.includes("-quality");
+  const image2 = modelId.startsWith("xai.grok-imagine-image-2.0");
   const edit = modelId.endsWith("-edit");
   const resolution = modelParameters?.resolution === "2k" ? "2k" : "1k";
+  const image2Quality = modelParameters?.quality === "low" ? "low" : "medium";
   const outputImageCount =
     Number.isInteger(context?.outputCount) && context.outputCount > 0
       ? context.outputCount
@@ -3057,12 +3075,16 @@ function createGuideXaiImagePricing(model, modelParameters, context) {
       ? context.referenceAssetCount
       : 0;
   const sourceImageCount = edit ? 1 + referenceAssetCount : 0;
-  const sourceCredits = quality
-    ? XAI_IMAGE_CREDIT_PRICES.source_image.quality
-    : XAI_IMAGE_CREDIT_PRICES.source_image.standard;
-  const outputCredits = quality
-    ? XAI_IMAGE_CREDIT_PRICES.output_image.quality[resolution]
-    : XAI_IMAGE_CREDIT_PRICES.output_image.standard;
+  const sourceCredits = image2
+    ? XAI_IMAGE_CREDIT_PRICES.source_image.image_2
+    : quality
+      ? XAI_IMAGE_CREDIT_PRICES.source_image.quality
+      : XAI_IMAGE_CREDIT_PRICES.source_image.standard;
+  const outputCredits = image2
+    ? XAI_IMAGE_CREDIT_PRICES.output_image.image_2[image2Quality][resolution]
+    : quality
+      ? XAI_IMAGE_CREDIT_PRICES.output_image.quality[resolution]
+      : XAI_IMAGE_CREDIT_PRICES.output_image.standard;
   const creditsRequired = Math.max(
     1,
     Math.ceil(
@@ -3075,8 +3097,14 @@ function createGuideXaiImagePricing(model, modelParameters, context) {
     modelParameters?.resolution === undefined ||
     modelParameters?.resolution === null ||
     modelParameters?.resolution === "1k";
+  const defaultQuality =
+    !image2 ||
+    modelParameters?.quality === undefined ||
+    modelParameters?.quality === null ||
+    modelParameters?.quality === "medium";
   const defaultShape =
     defaultResolution &&
+    defaultQuality &&
     outputImageCount === 1 &&
     sourceImageCount === (edit ? 1 : 0);
   return {
