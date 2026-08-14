@@ -1,7 +1,7 @@
 ---
 name: agent-image-generation
 description: >-
-  Image generation an autonomous agent can run with no human setup step: it signs itself up in one command, starts on free preview credits, and creates without an API key, a provider account, or a billing account. The --max-estimated-usd-per-image flag rejects a call whose quote is over budget before it spends. When the credits run out the agent hands its human one dashboard link to fund more.
+  Image generation an autonomous agent can run with no human setup step: free image generation for agents to start, without an API key, a provider account, or a billing account. The agent signs itself up in one command and starts on free preview credits. The --max-estimated-usd-per-image flag rejects a call whose quote is over budget before it spends. When the credits run out the agent hands its human one dashboard link to fund more.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:

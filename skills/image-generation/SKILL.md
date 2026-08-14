@@ -1,7 +1,7 @@
 ---
 name: image-generation
 description: >-
-  Generate images from a text prompt without wiring up a provider first. The agent signs itself up in one command and starts on free preview credits: no API key to obtain, no billing account to set up. A no-spend guide picks a model and returns the exact create command, so the agent can skip model selection. Each image comes back as a hosted media URL with no signature or expiry, plus a receipt for what the call cost.
+  Generate images from a text prompt without an API key and without signing up for a provider. Free image generation to start: the agent signs itself up in one command and gets free preview credits — no API key to obtain, no billing account to set up. A no-spend guide picks a model and returns the exact create command, so the agent can skip model selection. Each image comes back as a hosted media URL with no signature or expiry, plus a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:

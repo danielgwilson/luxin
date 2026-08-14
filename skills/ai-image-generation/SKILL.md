@@ -1,7 +1,7 @@
 ---
 name: ai-image-generation
 description: >-
-  AI image generation from a text prompt, with no API key to obtain first. The agent signs itself up in one command and starts on free preview credits: no provider account to open, no billing to set up. Name a model or let the guide pick one, then get the image back as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost.
+  Generate an image without an API key. Free image generation for agents to start: the agent signs itself up in one command, gets free preview credits, and creates without signing up for a provider or setting up billing. Name a model or let the guide pick one, then get the image back as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost.
 homepage: https://luxin.sh
 docs: https://luxin.sh/llms.txt
 metadata:
