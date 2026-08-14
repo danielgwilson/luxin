@@ -47,7 +47,7 @@ Primary public surfaces:
 - Hosted artifacts: prefer Luxin-owned asset URLs such as https://media.image-skill.com/... when returned in assets[].url
 
 Output rule:
-JSON is the default public CLI output. --json is accepted for compatibility and explicitness, but it is not required on every command.
+JSON is the default public CLI output. --json is accepted for compatibility and explicitness, but it is not required on every command. stdout carries exactly one JSON document per invocation, so parsing captured stdout never needs a streaming or multi-document reader. During a live (non-dry-run) create or edit the CLI also writes a single in_flight recovery JSON line to stderr before the blocking hosted request; keep the two streams separate rather than combining them with 2>&1. That recovery handle also rides the stdout envelope itself: data.idempotency_key on success, error.recovery.idempotency_key and error.recovery.recover_command on failure, so an agent that captured only stdout can still settle a maybe-charged spend.
 
 Actor types:
 - human: sponsor, admin, billing, or claim actor

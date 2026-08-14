@@ -1631,10 +1631,14 @@ the blocking hosted request:
 }
 ```
 
-stdout remains the command JSON envelope. If an agent combines streams with
-`2>&1`, split stderr diagnostics from the stdout envelope before parsing. The
-same recovery breadcrumb is stored under `<config-dir>/in-flight/` and appears
-in `luxin doctor --json` at `data.in_flight`. Keep the in-flight
+stdout carries exactly one JSON document per invocation — the command envelope
+— so `JSON.parse` of captured stdout always works. If an agent combines streams
+with `2>&1`, split stderr diagnostics from the stdout envelope before parsing.
+An agent that captured only stdout still gets the handle: a live create or edit
+returns `data.idempotency_key` on success, and `error.recovery.idempotency_key`
+plus `error.recovery.recover_command` on any failure. The same recovery
+breadcrumb is stored under `<config-dir>/in-flight/` and appears in
+`luxin doctor --json` at `data.in_flight`. Keep the in-flight
 `idempotency_key` and `recover_command` inside the agent workflow unless a
 failed or uncertain operation needs user-visible recovery.
 
@@ -1898,7 +1902,9 @@ reuses the same key does not create a second credit reservation, so a transient
 edit error returns an `error.recovery.idempotency_key` and an
 `error.recovery.suggested_command` that re-runs the same edit with that key.
 Live non-dry-run edit emits the same stderr `in_flight` diagnostic and local
-doctor-visible recovery breadcrumb as create.
+doctor-visible recovery breadcrumb as create, and carries the same
+`data.idempotency_key` / `error.recovery.recover_command` handle on the stdout
+envelope.
 
 ### `luxin assets show`
 

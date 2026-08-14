@@ -6,32 +6,32 @@
   "public_repo": "danielgwilson/luxin",
   "package_name": "luxin-cli",
   "package_version": "0.2.8",
-  "skill_revision": "b1dc1284d18d",
+  "skill_revision": "4c0efd5753fa",
   "note": "Generated from private upstream public contracts. Do not edit by hand.",
   "files": [
     {
       "source_path": "docs/public-contract/skill.md",
       "public_paths": ["skill.md", "skills/luxin/SKILL.md"],
       "bytes": 4020,
-      "sha256": "4a5694542241d2d3367975bef15847fd209bcadef64abfe2e260d620b50f7b24"
+      "sha256": "2d04ff67ea1b51b5e72a622bb73028e10a285201eb41332c51da6049f5e235a7"
     },
     {
       "source_path": "docs/public-contract/skill-core.md",
       "public_paths": ["skill-core.md"],
-      "bytes": 32968,
-      "sha256": "8dfbe18035e0012668f15acff430b3f19f4e575443703ca0bbcc0f28b8c19470"
+      "bytes": 33525,
+      "sha256": "5239f1b2cdd81f979089ea9fc66e7427b97f225ceafaeeeb7618dfe0e1d6d94e"
     },
     {
       "source_path": "docs/public-contract/cli.md",
       "public_paths": ["cli.md", "skills/luxin/references/cli.md"],
-      "bytes": 96797,
-      "sha256": "dc190cccffb74b59bc92ae1142e88f19d68f4839e955d7025c716bee11e14d4b"
+      "bytes": 97213,
+      "sha256": "a7f6f7f065a7483c147735911a03d165a047311dd7eafdc35d48f0ecc16aa7cf"
     },
     {
       "source_path": "docs/public-contract/llms.txt",
       "public_paths": ["llms.txt", "skills/luxin/references/llms.txt"],
-      "bytes": 43977,
-      "sha256": "09c977930dceec594fd6753d86d27d2b253264a0a7c610185f85095c2a52eb68"
+      "bytes": 44575,
+      "sha256": "d5b53c60e659c5a216239b178bd83ec1f0f53a92b662c0c106887702772b06a9"
     },
     {
       "source_path": "docs/public-contract/commands.json",

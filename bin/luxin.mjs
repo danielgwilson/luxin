@@ -19,7 +19,7 @@ const VERSION = "0.2.8";
 // Content-derived identity of the guidance this package ships (#2302). Kept in
 // sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
 // gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
-const SKILL_REVISION = "b1dc1284d18d";
+const SKILL_REVISION = "4c0efd5753fa";
 // `luxin skill` prints these bundled bytes rather than fetching them, so the
 // guidance can never describe a CLI other than the one printing it. Packed by
 // public-cli/package.json `files`.
@@ -5443,7 +5443,10 @@ async function create(argv) {
     commandPrefix,
   );
   await clearInFlightSpendForResult(inFlight, result);
-  return result;
+  return withLiveSpendRecoveryHandle(result, {
+    operation: "create",
+    idempotencyKey: isLiveSpend ? idempotencyKey : null,
+  });
 }
 
 async function upload(argv) {
@@ -5597,7 +5600,10 @@ async function edit(argv) {
     commandPrefix,
   );
   await clearInFlightSpendForResult(inFlight, result);
-  return result;
+  return withLiveSpendRecoveryHandle(result, {
+    operation: "edit",
+    idempotencyKey: isLiveSpend ? idempotencyKey : null,
+  });
 }
 
 async function assets(argv) {
@@ -6725,6 +6731,68 @@ function recoverCommandFor(operation, idempotencyKey) {
   return `luxin ${operation} --idempotency-key ${idempotencyKey} <same arguments> --json`;
 }
 
+// #2240/#2311: stdout carries exactly one JSON document per invocation, so the
+// live-spend `in_flight` diagnostic goes to stderr -- which an agent that
+// captured only stdout never sees. Fold the same handle into the envelope it
+// does parse: the dedupe key on success, and the key plus a re-runnable
+// recover command on every failure, which is the case where a maybe-charged
+// spend still needs settling. The hosted envelope already carries these on the
+// paths it knows about, so both surfaces fill only what is missing.
+function withLiveSpendRecoveryHandle(result, input) {
+  const { operation, idempotencyKey } = input;
+  if (typeof idempotencyKey !== "string" || idempotencyKey.length === 0) {
+    return result;
+  }
+  const envelope = result.envelope;
+  if (envelope === null || typeof envelope !== "object") {
+    return result;
+  }
+  if (envelope.ok === true) {
+    const data = envelope.data;
+    if (
+      data === null ||
+      typeof data !== "object" ||
+      Array.isArray(data) ||
+      data.idempotency_key !== undefined
+    ) {
+      return result;
+    }
+    return {
+      ...result,
+      envelope: {
+        ...envelope,
+        data: { ...data, idempotency_key: idempotencyKey },
+      },
+    };
+  }
+  const error = envelope.error;
+  if (error === null || typeof error !== "object" || Array.isArray(error)) {
+    return result;
+  }
+  const recovery =
+    error.recovery !== null &&
+    typeof error.recovery === "object" &&
+    !Array.isArray(error.recovery)
+      ? error.recovery
+      : {};
+  return {
+    ...result,
+    envelope: {
+      ...envelope,
+      error: {
+        ...error,
+        recovery: {
+          ...recovery,
+          idempotency_key: recovery.idempotency_key ?? idempotencyKey,
+          recover_command:
+            recovery.recover_command ??
+            recoverCommandFor(operation, idempotencyKey),
+        },
+      },
+    },
+  };
+}
+
 // The breadcrumb filename derives from the (possibly agent-supplied)
 // idempotency key; keep it to a safe charset so a hostile or accidental key
 // like "../config" can never escape the in-flight directory or collide with
@@ -6934,7 +7002,8 @@ async function recordInFlightSpend(input) {
     // The stderr notice below is the primary handle; a filesystem failure must
     // not block the create/edit.
   }
-  // stderr only — the stdout JSON envelope contract is unchanged. Even a killed
+  // stderr only — stdout carries exactly one JSON document per invocation
+  // (#2240/#2311), so this diagnostic must never join it. Even a killed
   // process leaves this line in the agent's captured transcript.
   try {
     process.stderr.write(

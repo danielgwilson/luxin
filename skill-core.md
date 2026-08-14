@@ -13,6 +13,8 @@ Luxin is a hosted creative-media runtime: image, video, audio, and 3D generation
 
 JSON is the default. Do not add `--json` to examples.
 
+stdout carries exactly one JSON document per invocation, so `JSON.parse` of captured stdout always works. A live (non-dry-run) `create` or `edit` also writes a single `in_flight` recovery JSON line to stderr before the blocking hosted request — keep the streams separate rather than combining them with `2>&1`. The same recovery handle rides the stdout envelope too: `data.idempotency_key` on success, and `error.recovery.idempotency_key` plus `error.recovery.recover_command` on failure, so a stdout-only capture can still settle a maybe-charged spend.
+
 ```bash
 npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "a compact field camera on a stainless workbench"
 ```
