@@ -19,7 +19,7 @@ const VERSION = "0.2.8";
 // Content-derived identity of the guidance this package ships (#2302). Kept in
 // sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
 // gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
-const SKILL_REVISION = "4c0efd5753fa";
+const SKILL_REVISION = "797cc6fe6289";
 // `luxin skill` prints these bundled bytes rather than fetching them, so the
 // guidance can never describe a CLI other than the one printing it. Packed by
 // public-cli/package.json `files`.
@@ -34,6 +34,47 @@ const DEFAULT_API_BASE_URL = "https://api.luxin.sh";
 const DEFAULT_DOCS_BASE_URL = "https://luxin.sh";
 const DEFAULT_NPM_REGISTRY_BASE_URL = "https://registry.npmjs.org";
 const PUBLIC_REPO_URL = "https://github.com/danielgwilson/luxin";
+// #2114 Tier 1. Flags are parsed and rejected here rather than forwarded
+// blindly: a flag the CLI accepts and silently ignores is the #2274 failure,
+// and every one of these changes which models come back. The hosted-API
+// plumbing flags (--api-base-url/--token/--token-stdin) are allowlisted like
+// every sibling read command (#2316 review finding 4).
+const MODEL_FIND_FLAGS = [
+  "json",
+  "available",
+  "executable",
+  "operation",
+  "modality",
+  "provider",
+  "query",
+  "max-credits",
+  "sort",
+  "limit",
+  "api-base-url",
+  "token",
+  "token-stdin",
+];
+
+// The models flags that never take a value, parsed as value-less so
+// `models find --available ideogram` means "--available plus the QUERY
+// positional ideogram" — never `available="ideogram"` with the query dropped
+// (#2316 review finding 2). src/commands.ts pins the identical set for the
+// shared discovery flags; --token-stdin is mirror-only hosted plumbing and is
+// value-less by definition (the token arrives on stdin).
+const MODELS_BOOLEAN_FLAGS = new Set([
+  "json",
+  "summary",
+  "details",
+  "available",
+  "executable",
+  "catalog-only",
+  "token-stdin",
+]);
+
+const MODEL_FIND_DEFAULT_LIMIT = 10;
+const MODEL_FIND_MAX_LIMIT = 50;
+const MODEL_FIND_DEFAULT_SORT = "credits";
+
 const IN_FLIGHT_RESERVATION_TTL_MS = 15 * 60 * 1000;
 const IN_FLIGHT_SWEEP_AFTER_MS = 24 * 60 * 60 * 1000;
 const PROMPTLESS_EDIT_MODEL_IDS = new Set([
@@ -362,7 +403,7 @@ function agentSkillHint(commandPrefix = "luxin") {
     ),
     model_discovery_command: renderGuidePrefixedCommand(
       commandPrefix,
-      "models list --available --operation image.generate --json",
+      "models find --operation image.generate --max-credits 2 --json",
     ),
     model_inspection_command: renderGuidePrefixedCommand(
       commandPrefix,
@@ -548,6 +589,8 @@ function commandHelpByKey(key) {
         "capabilities list",
         "capabilities show",
         "models",
+        "models overview",
+        "models find --operation image.generate --max-credits 2",
         "models list",
         "models show",
         "create --guide",
@@ -708,9 +751,31 @@ function commandHelpByKey(key) {
     },
     models: {
       command: "luxin models help",
-      usage: "luxin models <list|show> --json",
+      usage: "luxin models <overview|find|list|show> --json",
       docs_url: "https://luxin.sh/cli.md#luxin-models",
-      subcommands: ["list", "show"],
+      subcommands: ["overview", "find", "list", "show"],
+    },
+    "models overview": {
+      command: "luxin models overview help",
+      usage: "luxin models overview --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-models",
+    },
+    "models find": {
+      command: "luxin models find help",
+      usage:
+        "luxin models find --operation image.generate --max-credits 2 --json",
+      docs_url: "https://luxin.sh/cli.md#luxin-models",
+      optional_flags: [
+        "--available",
+        "--executable",
+        "--operation",
+        "--modality",
+        "--provider",
+        "--query",
+        "--max-credits",
+        "--sort",
+        "--limit",
+      ],
     },
     "models list": {
       command: "luxin models list help",
@@ -724,6 +789,9 @@ function commandHelpByKey(key) {
         "--modality",
         "--provider",
         "--query",
+        "--max-credits",
+        "--sort",
+        "--limit",
         "--summary",
         "--details",
       ],
@@ -1740,8 +1808,15 @@ async function acceptNoAuthTokenHandoff(args, command) {
 
 async function models(argv) {
   const [subcommand, ...rest] = argv;
+  if (subcommand === "find") {
+    return modelsFind(rest);
+  }
+  if (subcommand === "overview") {
+    return modelsOverview(rest);
+  }
   const args = parseArgs(
     subcommand === "list" || subcommand === "show" ? rest : argv,
+    { booleanFlags: MODELS_BOOLEAN_FLAGS },
   );
   if (subcommand === "show") {
     if (args.positionals.length !== 1) {
@@ -1763,7 +1838,10 @@ async function models(argv) {
     subcommand !== "list" &&
     !subcommand.startsWith("--")
   ) {
-    return invalid("luxin models", "models supports list or show");
+    return invalid(
+      "luxin models",
+      "models supports overview, find, list, or show",
+    );
   }
   const query = modelListQuery(args);
   if (!query.ok) {
@@ -1778,7 +1856,8 @@ async function models(argv) {
     apiBaseUrl: apiBase(args),
     path: query.path,
   });
-  return flagBool(args, "details") ? result : withModelSummary(result);
+  const listed = flagBool(args, "details") ? result : withModelSummary(result);
+  return withModelListNarrowing(listed, query.narrowing);
 }
 
 function modelListQuery(args) {
@@ -1787,6 +1866,25 @@ function modelListQuery(args) {
   const catalogOnly = flagBool(args, "catalog-only");
   const summary = flagBool(args, "summary");
   const details = flagBool(args, "details");
+  const valuelessMessage = valuelessValueFlagMessage(args, "models list", [
+    "max-credits",
+    "sort",
+    "limit",
+    "query",
+  ]);
+  if (valuelessMessage !== null) {
+    return { ok: false, message: valuelessMessage };
+  }
+  // #2114 gave `models list` the same narrowing controls as `models find`.
+  const narrowing = {
+    maxCredits: optionalNumberFlag(args, "max-credits"),
+    sort: flagString(args, "sort"),
+    limit: optionalNumberFlag(args, "limit"),
+  };
+  const narrowingMessage = modelNarrowingMessage(narrowing, "models list");
+  if (narrowingMessage !== null) {
+    return { ok: false, message: narrowingMessage };
+  }
   if (summary && details) {
     return {
       ok: false,
@@ -1817,11 +1915,812 @@ function modelListQuery(args) {
   addQueryValue(params, "modality", flagString(args, "modality"));
   addQueryValue(params, "provider", flagString(args, "provider"));
   addQueryValue(params, "query", flagString(args, "query"));
+  if (narrowing.maxCredits !== null) {
+    params.set("max_credits", String(narrowing.maxCredits));
+  }
+  if (narrowing.sort !== null) {
+    params.set("sort", narrowing.sort);
+  }
+  if (narrowing.limit !== null) {
+    params.set("limit", String(narrowing.limit));
+  }
   const query = params.toString();
   return {
     ok: true,
+    narrowing,
     path: query.length === 0 ? "/v1/models" : `/v1/models?${query}`,
   };
+}
+
+/**
+ * Shared by `models find` and the narrowing half of `models list`, so both
+ * surfaces reject the same inputs with the same words — parameterized by the
+ * command label the way `src/`'s `validatePublicModelNarrowing` is (#2316
+ * round 2), instead of maintaining two diverging copies.
+ */
+function modelNarrowingMessage(narrowing, commandLabel) {
+  if (
+    narrowing.maxCredits !== null &&
+    (!Number.isFinite(narrowing.maxCredits) || narrowing.maxCredits < 0)
+  ) {
+    return `${commandLabel} --max-credits must be a non-negative number`;
+  }
+  if (
+    narrowing.sort !== null &&
+    narrowing.sort !== "credits" &&
+    narrowing.sort !== "usd"
+  ) {
+    return `${commandLabel} --sort must be credits or usd`;
+  }
+  if (
+    narrowing.limit !== null &&
+    (!Number.isInteger(narrowing.limit) ||
+      narrowing.limit < 1 ||
+      narrowing.limit > MODEL_FIND_MAX_LIMIT)
+  ) {
+    return `${commandLabel} --limit must be an integer between 1 and ${MODEL_FIND_MAX_LIMIT}`;
+  }
+  return null;
+}
+
+/**
+ * The `models list` half of the deploy-skew fallback. A server that predates
+ * #2114 ignores `max_credits`/`sort`/`limit` and returns the full match set; a
+ * caller that asked for ten rows must not silently receive two hundred.
+ * Works on both row shapes -- compact summary rows and `--details` records --
+ * because either can come back here.
+ */
+function withModelListNarrowing(result, narrowing) {
+  if (
+    narrowing === undefined ||
+    (narrowing.maxCredits === null &&
+      narrowing.sort === null &&
+      narrowing.limit === null)
+  ) {
+    return result;
+  }
+  const data = result.envelope.data;
+  if (!result.envelope.ok || !isRecord(data) || !Array.isArray(data.models)) {
+    return result;
+  }
+  if (isRecord(data.summary) && isRecord(data.summary.narrowing)) {
+    return result;
+  }
+
+  const matched = data.models.filter(
+    (model) =>
+      narrowing.maxCredits === null ||
+      (modelRowCredits(model) !== null &&
+        modelRowCredits(model) <= narrowing.maxCredits),
+  );
+  const sorted =
+    narrowing.sort === null
+      ? matched
+      : [...matched].sort((left, right) =>
+          compareModelRowsByCost(left, right, narrowing.sort),
+        );
+  const models =
+    narrowing.limit === null ? sorted : sorted.slice(0, narrowing.limit);
+
+  return {
+    ...result,
+    envelope: {
+      ...result.envelope,
+      data: {
+        ...data,
+        summary: {
+          // The server's summary described ITS match set. This CLI just
+          // filtered rows out of it, so the counters it can recompute must
+          // follow — the server semantics (#2316 review finding 5) are
+          // "summary covers the full filtered set, only models[] is paged"
+          // (#2316 round 2).
+          ...narrowedListSummaryCounters(data.summary, sorted, models.length),
+          narrowing: {
+            max_credits: narrowing.maxCredits,
+            sort: narrowing.sort,
+            limit: narrowing.limit,
+            total_matched: matched.length,
+            returned_count: models.length,
+            narrow_hint: modelNarrowHint(
+              matched.length,
+              models.length,
+              "luxin models list",
+            ),
+          },
+        },
+        models,
+      },
+      warnings: [
+        ...result.envelope.warnings,
+        "hosted API does not narrow models list yet; --max-credits/--sort/--limit were applied to the returned rows by this CLI",
+      ],
+    },
+  };
+}
+
+/**
+ * Recompute the summary counters the fallback CAN compute over its filtered
+ * pre-limit set, the same scope the server's own summary covers (#2316 round
+ * 2): totals, per-status counts, per-provider counts, runnable/inspect-only,
+ * `returned` as the page size, and `first_actionable_model_ids` rebuilt so it
+ * never names a row the narrowing removed. Blocks the compact rows cannot
+ * re-derive (discovery groups, alias hints, provider reachability) keep the
+ * server's values.
+ */
+function narrowedListSummaryCounters(baseSummary, rows, pageSize) {
+  const summary = { ...(isRecord(baseSummary) ? baseSummary : {}) };
+  const counters = {
+    total: 0,
+    returned: pageSize,
+    available: 0,
+    unavailable: 0,
+    executable: 0,
+    cataloged_not_wired: 0,
+  };
+  let runnable = 0;
+  let inspectOnly = 0;
+  const providers = {};
+  const firstActionable = [];
+  for (const model of rows) {
+    const available = model?.status === "available";
+    const executionStatus =
+      model?.model_execution_status ?? model?.execution?.model_execution_status;
+    const executable = executionStatus === "executable";
+    counters.total += 1;
+    if (available) {
+      counters.available += 1;
+    } else {
+      counters.unavailable += 1;
+    }
+    if (executable) {
+      counters.executable += 1;
+    } else {
+      counters.cataloged_not_wired += 1;
+    }
+    if (available && executable) {
+      runnable += 1;
+      if (firstActionable.length < 10 && typeof model?.id === "string") {
+        firstActionable.push(model.id);
+      }
+    }
+    if (
+      executionStatus === "cataloged_not_wired" ||
+      model?.catalog?.execution_status === "cataloged_not_wired"
+    ) {
+      inspectOnly += 1;
+    }
+    if (typeof model?.provider_id === "string") {
+      const provider = (providers[model.provider_id] ??= {
+        total: 0,
+        available: 0,
+        unavailable: 0,
+        executable: 0,
+        cataloged_not_wired: 0,
+      });
+      provider.total += 1;
+      if (available) {
+        provider.available += 1;
+      } else {
+        provider.unavailable += 1;
+      }
+      if (executable) {
+        provider.executable += 1;
+      } else {
+        provider.cataloged_not_wired += 1;
+      }
+    }
+  }
+  Object.assign(summary, counters);
+  summary.providers = providers;
+  summary.first_actionable_model_ids = firstActionable;
+  if (isRecord(summary.execution_availability)) {
+    summary.execution_availability = {
+      ...summary.execution_availability,
+      runnable,
+      inspect_only: inspectOnly,
+    };
+  }
+  return summary;
+}
+
+/** Credits from either row shape: compact summary or full `--details` record. */
+function modelRowCredits(model) {
+  const compact = model?.credits_required;
+  if (typeof compact === "number") {
+    return compact;
+  }
+  const nested = model?.economics?.credit_pricing?.credits_required;
+  return typeof nested === "number" ? nested : null;
+}
+
+function modelRowEstimatedUsd(model) {
+  const compact = model?.estimated_usd_per_image;
+  if (typeof compact === "number") {
+    return compact;
+  }
+  const nested = model?.economics?.estimated_usd_per_image;
+  return typeof nested === "number" ? nested : null;
+}
+
+/**
+ * Rank first, cost second — the same ordering the server applies
+ * (`comparePublicModelsByCost` ranks available+executable rows ahead of
+ * everything else before comparing price). A pure-cost sort here made the
+ * old-server fallback lead with rows the caller cannot run (#2316 review
+ * finding 6). Reads both row shapes: compact summary and `--details` records.
+ */
+function modelRowDiscoveryRank(model) {
+  const available = model?.status === "available";
+  const executable =
+    (model?.model_execution_status ??
+      model?.execution?.model_execution_status) === "executable";
+  if (available && executable) {
+    return 0;
+  }
+  if (available) {
+    return 1;
+  }
+  if (executable) {
+    return 2;
+  }
+  return 3;
+}
+
+function compareModelRowsByCost(left, right, sort) {
+  const rankDelta = modelRowDiscoveryRank(left) - modelRowDiscoveryRank(right);
+  if (rankDelta !== 0) {
+    return rankDelta;
+  }
+  const costDelta =
+    sort === "usd"
+      ? compareNullableAscending(
+          modelRowEstimatedUsd(left),
+          modelRowEstimatedUsd(right),
+        )
+      : compareNullableAscending(modelRowCredits(left), modelRowCredits(right));
+  if (costDelta !== 0) {
+    return costDelta;
+  }
+  return String(left?.id).localeCompare(String(right?.id));
+}
+
+/**
+ * One hint, parameterized by the command it names — the same shape as
+ * `src/`'s `narrowHint` (#2316 round 2).
+ */
+function modelNarrowHint(totalMatched, returnedCount, command) {
+  if (totalMatched <= returnedCount) {
+    return null;
+  }
+  return `${totalMatched} models matched and ${returnedCount} are shown; raise --limit or narrow with --max-credits/--modality/--operation/--provider (${command} --help)`;
+}
+
+async function modelsFind(argv) {
+  const command = "luxin models find";
+  // JSON is the default output, exactly like `models list`: the shipped
+  // guidance teaches bare `luxin models find ...`, so requiring --json here
+  // exit-2'd every reader who followed it (#2316 review finding 1). --json
+  // stays accepted as a no-op.
+  const args = parseArgs(argv, { booleanFlags: MODELS_BOOLEAN_FLAGS });
+  const unknownFlags = [...args.flags.keys()].filter(
+    (flag) => !MODEL_FIND_FLAGS.includes(flag),
+  );
+  if (unknownFlags.length > 0) {
+    return invalid(
+      command,
+      unsupportedFlagsMessage("models find", unknownFlags),
+    );
+  }
+  if (args.positionals.length > 1) {
+    return invalid(
+      command,
+      "models find accepts at most one free-text QUERY positional",
+    );
+  }
+  const tokenHandoff = await acceptNoAuthTokenHandoff(args, command);
+  if (tokenHandoff !== null) {
+    return tokenHandoff;
+  }
+
+  const valuelessMessage = valuelessValueFlagMessage(args, "models find", [
+    "max-credits",
+    "sort",
+    "limit",
+    "query",
+  ]);
+  if (valuelessMessage !== null) {
+    return invalid(command, valuelessMessage);
+  }
+
+  const filters = {
+    query: args.positionals[0] ?? flagString(args, "query"),
+    operation: flagString(args, "operation"),
+    modality: flagString(args, "modality"),
+    provider: flagString(args, "provider"),
+    available: flagBool(args, "available"),
+    executable: flagBool(args, "executable"),
+    maxCredits: optionalNumberFlag(args, "max-credits"),
+    sort: flagString(args, "sort"),
+    limit: optionalNumberFlag(args, "limit"),
+  };
+  const invalidMessage = modelFindValidationMessage(filters);
+  if (invalidMessage !== null) {
+    return invalid(command, invalidMessage);
+  }
+
+  const params = new URLSearchParams();
+  params.set("view", "find");
+  if (filters.available) {
+    params.set("available", "true");
+  }
+  if (filters.executable) {
+    params.set("executable", "true");
+  }
+  addQueryValue(params, "operation", filters.operation);
+  addQueryValue(params, "modality", filters.modality);
+  addQueryValue(params, "provider", filters.provider);
+  addQueryValue(params, "query", filters.query);
+  if (filters.maxCredits !== null) {
+    params.set("max_credits", String(filters.maxCredits));
+  }
+  if (filters.sort !== null) {
+    params.set("sort", filters.sort);
+  }
+  if (filters.limit !== null) {
+    params.set("limit", String(filters.limit));
+  }
+
+  const result = await apiRequest({
+    command,
+    method: "GET",
+    apiBaseUrl: apiBase(args),
+    path: `/v1/models?${params.toString()}`,
+  });
+  return withTerseModelFind(result, filters);
+}
+
+async function modelsOverview(argv) {
+  const command = "luxin models overview";
+  // JSON is the default output, exactly like `models list` (#2316 review
+  // finding 1); --json stays accepted as a no-op.
+  const args = parseArgs(argv, { booleanFlags: MODELS_BOOLEAN_FLAGS });
+  const unknownFlags = [...args.flags.keys()].filter(
+    (flag) => !["json", "api-base-url", "token", "token-stdin"].includes(flag),
+  );
+  if (unknownFlags.length > 0) {
+    return invalid(
+      command,
+      unsupportedFlagsMessage("models overview", unknownFlags),
+    );
+  }
+  if (args.positionals.length > 0) {
+    return invalid(
+      command,
+      "models overview does not accept positional arguments",
+    );
+  }
+  const tokenHandoff = await acceptNoAuthTokenHandoff(args, command);
+  if (tokenHandoff !== null) {
+    return tokenHandoff;
+  }
+
+  const result = await apiRequest({
+    command,
+    method: "GET",
+    apiBaseUrl: apiBase(args),
+    path: "/v1/models?view=overview",
+  });
+  return withModelOverview(result);
+}
+
+function modelFindValidationMessage(filters) {
+  if (
+    filters.modality !== null &&
+    !["image", "video", "audio", "3d"].includes(filters.modality)
+  ) {
+    return "models find --modality must be image, video, audio, or 3d";
+  }
+  return modelNarrowingMessage(
+    {
+      maxCredits: filters.maxCredits,
+      sort: filters.sort,
+      limit: filters.limit,
+    },
+    "models find",
+  );
+}
+
+function optionalNumberFlag(args, name) {
+  const raw = flagString(args, name);
+  if (raw === null || raw.trim().length === 0) {
+    return null;
+  }
+  return Number(raw);
+}
+
+/**
+ * A value flag that is present but has no value — bare `--max-credits` at the
+ * end of the argv, `--max-credits=`, or an explicit empty string — would
+ * otherwise read as "flag absent" and be silently ignored, the
+ * accepted-and-ignored class #2274 exists to kill. Reject it by name instead,
+ * with the same words as src/ (#2316 round 2).
+ */
+function valuelessValueFlagMessage(args, commandLabel, names) {
+  for (const name of names) {
+    const values = args.flags.get(name);
+    if (values === undefined) {
+      continue;
+    }
+    const value = values.at(-1);
+    if (
+      value === true ||
+      (typeof value === "string" && value.trim().length === 0)
+    ) {
+      return `${commandLabel} --${name} requires a value`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Deploy-skew belt and suspenders, the same shape as `withModelSummary` above.
+ *
+ * The CLI and the hosted API ship independently, so a `models find` released
+ * today runs against yesterday's server for as long as the rollout takes. A
+ * server that predates `view=find` ignores the parameter and answers with the
+ * compact model list, which still honours operation/modality/provider/query --
+ * so the honest recovery is to apply the parts it could not (max-credits, sort,
+ * limit, the terse projection) here.
+ *
+ * Two things degrade and both are stated rather than papered over:
+ * `aspect_ratios` becomes null, because `GET /v1/models` drops `media.*` and
+ * inventing ratios would be worse than admitting we do not know; and
+ * cataloged-not-wired models are absent, because the old list excludes them.
+ */
+function withTerseModelFind(result, filters) {
+  const data = result.envelope.data;
+  if (!result.envelope.ok || !isRecord(data) || !Array.isArray(data.models)) {
+    return result;
+  }
+  if (data.result_shape === "terse_model_find") {
+    return result;
+  }
+
+  const sort = filters.sort ?? MODEL_FIND_DEFAULT_SORT;
+  const limit = filters.limit ?? MODEL_FIND_DEFAULT_LIMIT;
+  const matched = data.models
+    .filter(
+      (model) =>
+        filters.maxCredits === null ||
+        (typeof model?.credits_required === "number" &&
+          model.credits_required <= filters.maxCredits),
+    )
+    .map(modelFindRowFromSummary)
+    .sort((left, right) => compareModelFindRows(left, right, sort));
+  const models = matched.slice(0, limit);
+
+  return {
+    ...result,
+    envelope: {
+      ...result.envelope,
+      // The old server echoed its own verb ("luxin models"). This CLI answered
+      // a `models find`, and the echo is what consumers key on across deploy
+      // skew (#2316 round 2).
+      command: "luxin models find",
+      data: {
+        registry_version: data.registry_version ?? null,
+        registry_mode: data.registry_mode ?? "preview_registry",
+        result_shape: "terse_model_find",
+        filters: {
+          query: filters.query,
+          operation: filters.operation,
+          modality: filters.modality,
+          provider: filters.provider,
+          available: filters.available,
+          executable: filters.executable,
+          max_credits: filters.maxCredits,
+          sort,
+          limit,
+          cataloged_not_wired_included: false,
+        },
+        total_matched: matched.length,
+        returned_count: models.length,
+        narrow_hint: modelNarrowHint(
+          matched.length,
+          models.length,
+          "luxin models find",
+        ),
+        models,
+        commands: {
+          overview: "luxin models overview --json",
+          show: "luxin models show MODEL_ID --json",
+          full_list: "luxin models list --json",
+        },
+      },
+      warnings: [
+        ...result.envelope.warnings,
+        "hosted API does not serve models find yet; rows were projected from the compact model list, so aspect_ratios is null and cataloged-not-wired models are not included",
+      ],
+    },
+  };
+}
+
+function modelFindRowFromSummary(model) {
+  const executable = model?.model_execution_status === "executable";
+  const available = model?.status === "available";
+  return {
+    id: model?.id ?? null,
+    display_name: model?.display_name ?? null,
+    provider_id: model?.provider_id ?? null,
+    modality: model?.modality ?? "image",
+    operations: Array.isArray(model?.operations) ? [...model.operations] : [],
+    credits_required: model?.credits_required ?? null,
+    estimated_usd_per_image: model?.estimated_usd_per_image ?? null,
+    pricing_confidence: model?.pricing_confidence ?? null,
+    // Never fabricated: the compact list does not publish media.input.
+    aspect_ratios: null,
+    max_resolution: model?.max_resolution ?? null,
+    status: executable ? "executable" : "not_yet_wired",
+    // Wiring is not availability (#2316 round 2): a wired model whose
+    // provider key is unconfigured must say so, exactly like the server row.
+    available,
+    ...(executable && available
+      ? {}
+      : { availability_reason: model?.availability_reason ?? null }),
+    show_command:
+      typeof model?.id === "string"
+        ? `luxin models show ${model.id} --json`
+        : "luxin models show MODEL_ID --json",
+  };
+}
+
+/**
+ * The server's `findRowRank` (#2316 round 2): available executable rows
+ * first, wired-but-unavailable second, cataloged-not-wired last.
+ */
+function modelFindRowRank(row) {
+  if (row.status !== "executable") {
+    return 2;
+  }
+  return row.available ? 0 : 1;
+}
+
+function compareModelFindRows(left, right, sort) {
+  const rankDelta = modelFindRowRank(left) - modelFindRowRank(right);
+  if (rankDelta !== 0) {
+    return rankDelta;
+  }
+  const costDelta =
+    sort === "usd"
+      ? compareNullableAscending(
+          left.estimated_usd_per_image,
+          right.estimated_usd_per_image,
+        )
+      : compareNullableAscending(left.credits_required, right.credits_required);
+  if (costDelta !== 0) {
+    return costDelta;
+  }
+  return String(left.id).localeCompare(String(right.id));
+}
+
+/** Unknown prices sort last: a null is not cheap, it is unpriced. */
+function compareNullableAscending(left, right) {
+  if (left === right) {
+    return 0;
+  }
+  if (left === null || left === undefined) {
+    return 1;
+  }
+  if (right === null || right === undefined) {
+    return -1;
+  }
+  return left - right;
+}
+
+/**
+ * Overview equivalent of the fallback above. The compact list already carries
+ * the counts and the per-row credits, so a server that predates `view=overview`
+ * can still be reduced to the same orientation shape; what it cannot supply is
+ * the cataloged-not-wired half of the catalog, which its list omits.
+ */
+function withModelOverview(result) {
+  const data = result.envelope.data;
+  if (!result.envelope.ok || !isRecord(data) || !Array.isArray(data.models)) {
+    return result;
+  }
+  if (data.result_shape === "model_discovery_overview") {
+    return result;
+  }
+
+  const summary = isRecord(data.summary) ? data.summary : {};
+  const catalog =
+    typeof summary.unfiltered_total === "number"
+      ? summary.unfiltered_total
+      : data.models.length;
+  const executableCount =
+    typeof summary.executable === "number"
+      ? summary.executable
+      : data.models.length;
+  const membersByCategory = new Map();
+  for (const model of data.models) {
+    const category = modelOverviewCategory(model);
+    const members = membersByCategory.get(category) ?? [];
+    members.push(model);
+    membersByCategory.set(category, members);
+  }
+  const groups = new Map();
+  for (const [category, members] of membersByCategory) {
+    const group = {
+      category,
+      operation: modelOverviewGroupOperation(category, members),
+      total: 0,
+      executable: 0,
+      cheapest: null,
+    };
+    for (const model of members) {
+      group.total += 1;
+      if (model?.model_execution_status === "executable") {
+        group.executable += 1;
+        const credits = model?.credits_required;
+        if (
+          typeof credits === "number" &&
+          (group.cheapest === null ||
+            credits < group.cheapest.credits_required ||
+            (credits === group.cheapest.credits_required &&
+              // Same tie-break comparator as the find rows and the server's
+              // cheaperExemplar (#2316 round 2).
+              String(model.id).localeCompare(group.cheapest.model_id) < 0))
+        ) {
+          group.cheapest = { model_id: model.id, credits_required: credits };
+        }
+      }
+    }
+    groups.set(category, group);
+  }
+  const aliases = {};
+  for (const hint of Array.isArray(summary.discovery?.model_aliases)
+    ? summary.discovery.model_aliases
+    : []) {
+    if (typeof hint?.alias === "string") {
+      aliases[hint.alias] = hint.resolves_to ?? null;
+    }
+  }
+
+  return {
+    ...result,
+    envelope: {
+      ...result.envelope,
+      // Same echo rule as the find fallback (#2316 round 2).
+      command: "luxin models overview",
+      data: {
+        registry_version: data.registry_version ?? null,
+        registry_mode: data.registry_mode ?? "preview_registry",
+        result_shape: "model_discovery_overview",
+        totals: {
+          catalog,
+          executable: executableCount,
+          cataloged_not_wired: Math.max(catalog - executableCount, 0),
+          providers: Array.isArray(data.providers) ? data.providers.length : 0,
+        },
+        groups: [...groups.values()].sort((left, right) =>
+          left.category.localeCompare(right.category),
+        ),
+        aliases,
+        next_commands: {
+          find_by_operation:
+            "luxin models find --operation OPERATION --max-credits CREDITS --json",
+          cheapest:
+            "luxin models find --available --sort credits --limit 5 --json",
+          show: "luxin models show MODEL_ID --json",
+          full_list: "luxin models list --json",
+        },
+      },
+      warnings: [
+        ...result.envelope.warnings,
+        "hosted API does not serve models overview yet; totals and groups were derived from the compact model list. Two divergences from the server's overview are unavoidable from compact rows: cataloged-not-wired models are absent (per-category totals count executable models only, and a category whose models are all cataloged-not-wired is missing entirely), and a model whose only required input is a reference image cannot be detected, so its image-to-* placement may differ",
+      ],
+    },
+  };
+}
+
+/**
+ * The category derivation the hosted projection does from `media.input`,
+ * redone from what a compact row publishes, following the server taxonomy
+ * branch for branch (#2316 review finding 7): video splits into
+ * image-to-video/text-to-video, supports-based edit/variation models join the
+ * image-to-image/image-edit split instead of falling through to "other". The
+ * `task_tags` "input-image" tag stands in for `media.input.images.required`;
+ * what it cannot see is `media.input.references.required`, which the warning
+ * above states.
+ */
+function modelOverviewCategory(model) {
+  const modality = model?.modality ?? "image";
+  const operations = Array.isArray(model?.operations) ? model.operations : [];
+  const supports = Array.isArray(model?.supports) ? model.supports : [];
+  const requiresInputImage =
+    Array.isArray(model?.task_tags) && model.task_tags.includes("input-image");
+  if (modality === "video") {
+    return requiresInputImage ? "image-to-video" : "text-to-video";
+  }
+  if (modality === "audio") {
+    return "text-to-audio";
+  }
+  if (modality === "3d") {
+    return "image-to-3d";
+  }
+  if (operations.includes("image.vision")) {
+    return "vision";
+  }
+  if (operations.includes("image.utility")) {
+    return "utility";
+  }
+  if (
+    operations.includes("image.edit") ||
+    supports.includes("edit") ||
+    supports.includes("variation")
+  ) {
+    return requiresInputImage ? "image-to-image" : "image-edit";
+  }
+  if (operations.includes("image.generate")) {
+    return "text-to-image";
+  }
+  return "other";
+}
+
+/**
+ * The operation token a fallback group publishes, or null when the token does
+ * not round-trip — the same rule the server's overview applies (#2316 review
+ * finding 3): a published token must retrieve every member of the group via
+ * `models find --operation TOKEN`, otherwise the honest value is null and
+ * guidance narrows with free-text find instead.
+ */
+function modelOverviewGroupOperation(category, members) {
+  const candidate = modelOverviewOperationCandidate(category);
+  return members.every((model) => compactRowMatchesOperation(model, candidate))
+    ? candidate
+    : null;
+}
+
+function modelOverviewOperationCandidate(category) {
+  if (category === "text-to-video" || category === "image-to-video") {
+    return "video.generate";
+  }
+  if (category === "text-to-audio") {
+    return "audio.generate";
+  }
+  if (category === "image-to-3d") {
+    return "3d.generate";
+  }
+  if (category === "vision") {
+    return "image.vision";
+  }
+  if (category === "utility") {
+    return "image.utility";
+  }
+  if (category === "image-edit" || category === "image-to-image") {
+    return "image.edit";
+  }
+  return "image.generate";
+}
+
+/** The compact-row projection of the server's operation matcher. */
+function compactRowMatchesOperation(model, operation) {
+  const operations = Array.isArray(model?.operations) ? model.operations : [];
+  const supports = Array.isArray(model?.supports) ? model.supports : [];
+  if (operations.includes(operation)) {
+    return true;
+  }
+  return (
+    (operation === "video.generate" &&
+      model?.modality === "video" &&
+      supports.includes("create")) ||
+    (operation === "audio.generate" &&
+      model?.modality === "audio" &&
+      supports.includes("create")) ||
+    (operation === "3d.generate" &&
+      model?.modality === "3d" &&
+      supports.includes("variation"))
+  );
 }
 
 function withModelSummary(result) {
@@ -4976,9 +5875,10 @@ function createGuideNextCommand(stage, input) {
     });
   }
   if (stage === "no_executable_model" || stage === "service_unreachable") {
+    // #2114: bounded, cheapest-first candidates instead of the full list.
     return renderGuidePrefixedCommand(
       input.commandPrefix,
-      "models list --json",
+      "models find --available --json",
     );
   }
   if (stage === "auth_required") {
@@ -5027,7 +5927,10 @@ function createGuideEscapeHatches(input) {
     doctor: renderGuidePrefixedCommand(input.commandPrefix, "doctor --json"),
     model_inspection:
       input.selected === null
-        ? renderGuidePrefixedCommand(input.commandPrefix, "models list --json")
+        ? renderGuidePrefixedCommand(
+            input.commandPrefix,
+            "models find --available --json",
+          )
         : renderGuidePrefixedCommand(
             input.commandPrefix,
             `models show ${shellQuote(input.selected.id)} --json`,
@@ -7582,7 +8485,7 @@ function configWriteFailure(command, error) {
   );
 }
 
-function parseArgs(argv) {
+function parseArgs(argv, options = {}) {
   const flags = new Map();
   const positionals = [];
   for (let index = 0; index < argv.length; index += 1) {
@@ -7592,6 +8495,12 @@ function parseArgs(argv) {
       const equalIndex = raw.indexOf("=");
       if (equalIndex !== -1) {
         pushFlag(flags, raw.slice(0, equalIndex), raw.slice(equalIndex + 1));
+        continue;
+      }
+      // A declared value-less flag never eats the next token as its value:
+      // `--available ideogram` is the flag plus a positional (#2316 review).
+      if (options.booleanFlags?.has(raw)) {
+        pushFlag(flags, raw, true);
         continue;
       }
       const next = argv[index + 1];

@@ -1140,10 +1140,18 @@ IDs, and `idempotency_key`.
 
 ### `luxin models`
 
-First-run creative discovery. Lists public models and shows the full
-capability-preserving schema for one model.
+First-run creative discovery, in three tiers: `models overview` orients,
+`models find` narrows, `models show` goes deep. Start at the tier that matches
+what you do not know yet.
 
 ```bash
+luxin models overview --json
+luxin models find --operation image.generate --max-credits 2 --json
+luxin models find "seedream" --limit 5 --json
+luxin models find --modality video --available --sort credits --json
+luxin models show MODEL_ID --json
+luxin models show nano-banana --json
+luxin models show default --json
 luxin models --json
 luxin models list --json
 luxin models list --details --json
@@ -1152,19 +1160,49 @@ luxin models list --available --operation image.edit --json
 luxin models list --available --modality video --operation video.generate --json
 luxin models list --query nano-banana --json
 luxin models list --catalog-only --provider fal --json
-luxin models show MODEL_ID --json
-luxin models show nano-banana --json
-luxin models show default --json
+luxin models list --operation image.generate --sort credits --limit 10 --json
 ```
 
 Hosted API equivalents:
 
 ```bash
+curl -sS 'https://api.luxin.sh/v1/models?view=overview'
+curl -sS 'https://api.luxin.sh/v1/models?view=find&operation=image.generate&max_credits=2'
 curl -sS https://api.luxin.sh/v1/models
 curl -sS 'https://api.luxin.sh/v1/models?available=true&modality=video&operation=video.generate'
 curl -sS 'https://api.luxin.sh/v1/models?query=nano-banana'
 curl -sS https://api.luxin.sh/v1/models/xai.grok-imagine-image
 ```
+
+`models overview` is the orientation payload and the cheapest thing to read:
+catalog totals (`totals.catalog`, `totals.executable`,
+`totals.cataloged_not_wired`, `totals.providers`), one `groups` row per
+category with its `operation` token, its `total`/`executable` counts and the
+`cheapest` executable model in it, the model alias map, and `next_commands`.
+`result_shape` is `model_discovery_overview`. It takes no filters; narrow with
+`models find`.
+
+`models find` is the workhorse. It accepts one optional free-text QUERY
+positional (equivalently `--query QUERY`) plus `--operation`, `--modality`,
+`--provider`, `--available`, `--executable`, `--max-credits N`,
+`--sort credits|usd` (default `credits`, ascending), and `--limit N` (default
+10, maximum 50). `result_shape` is `terse_model_find` and each row carries only
+what a choice needs: `id`, `display_name`, `provider_id`, `modality`,
+`operations`, `credits_required`, `estimated_usd_per_image`,
+`pricing_confidence`, `aspect_ratios`, `max_resolution`, `status`, and
+`show_command`. The response also carries `total_matched`, `returned_count`,
+and a `narrow_hint` when the limit truncated the match set, so a caller always
+knows how much it did not see.
+
+`aspect_ratios` is derived from the full registry server-side. The compact
+`models list` row does not publish `media.*` at all, so a client that has to
+rebuild find rows from a compact list (an older hosted API) reports
+`aspect_ratios: null` and says so in `warnings` rather than guessing.
+
+Unlike `models list`, `models find` INCLUDES cataloged-but-not-yet-wired models.
+They are marked `status: "not_yet_wired"`, carry an `availability_reason`, and
+sort after every executable row. This is deliberate: discovery is where a
+catalog entry earns its wiring. Pass `--executable` to exclude them.
 
 `models show` exposes operation support, media input/output types, parameter
 schemas, defaults and fixed controls, cost and latency class, safety behavior,
@@ -1207,6 +1245,12 @@ runnable choices require both `status:"available"` and
 runnable model for the requested operation, `summary.execution_availability`
 says so directly and includes the fastest `--available --operation ...`
 recovery command.
+
+`models list` also accepts `--max-credits N`, `--sort credits|usd`, and
+`--limit N` (maximum 50) for callers whose filter still matches a hundred rows.
+Using any of them adds `summary.narrowing` with the echoed controls plus
+`total_matched`, `returned_count`, and a `narrow_hint`; without them the payload
+is byte-for-byte what it has always been.
 
 Luxin standardizes common controls so agents can work quickly, but it
 must not flatten rich model capabilities into coarse universal categories.

@@ -86,7 +86,7 @@
       "surface": "hosted_cli",
       "mutation": false,
       "spend": false,
-      "subcommands": ["list", "show"]
+      "subcommands": ["overview", "find", "list", "show"]
     },
     {
       "id": "create",
@@ -163,7 +163,7 @@
           "cli_docs_url": "https://luxin.sh/cli.md",
           "read_command": "luxin skill --json",
           "recommended_start_command": "luxin create --guide --prompt PROMPT --json",
-          "model_discovery_command": "luxin models list --available --operation image.generate --json",
+          "model_discovery_command": "luxin models find --operation image.generate --max-credits 2 --json",
           "model_inspection_command": "luxin models show MODEL_ID --json",
           "no_spend": true,
           "purpose": "Read the agent skill before paid media work; it explains model discovery, guide flow, model parameters, quota, and self-fund recovery."
@@ -187,6 +187,8 @@
           "capabilities list",
           "capabilities show",
           "models",
+          "models overview",
+          "models find --operation image.generate --max-credits 2",
           "models list",
           "models show",
           "create --guide",
@@ -398,9 +400,36 @@
       "key": "models",
       "help": {
         "command": "luxin models help",
-        "usage": "luxin models <list|show> --json",
+        "usage": "luxin models <overview|find|list|show> --json",
         "docs_url": "https://luxin.sh/cli.md#luxin-models",
-        "subcommands": ["list", "show"]
+        "subcommands": ["overview", "find", "list", "show"]
+      }
+    },
+    {
+      "key": "models overview",
+      "help": {
+        "command": "luxin models overview help",
+        "usage": "luxin models overview --json",
+        "docs_url": "https://luxin.sh/cli.md#luxin-models"
+      }
+    },
+    {
+      "key": "models find",
+      "help": {
+        "command": "luxin models find help",
+        "usage": "luxin models find --operation image.generate --max-credits 2 --json",
+        "docs_url": "https://luxin.sh/cli.md#luxin-models",
+        "optional_flags": [
+          "--available",
+          "--executable",
+          "--operation",
+          "--modality",
+          "--provider",
+          "--query",
+          "--max-credits",
+          "--sort",
+          "--limit"
+        ]
       }
     },
     {
@@ -417,6 +446,9 @@
           "--modality",
           "--provider",
           "--query",
+          "--max-credits",
+          "--sort",
+          "--limit",
           "--summary",
           "--details"
         ]

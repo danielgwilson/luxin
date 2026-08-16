@@ -14,7 +14,7 @@ docs: https://luxin.sh/llms.txt
 metadata:
   status: preview-contract
   cli: luxin
-  skill_revision: 4c0efd5753fa
+  skill_revision: 797cc6fe6289
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
@@ -51,10 +51,10 @@ The CLI serves guidance that always matches the installed version, so instructio
 
 ## Say which revision you have
 
-This copy is skill revision `4c0efd5753fa`. Export it so the CLI can say when the copy on disk no longer matches the guidance it ships:
+This copy is skill revision `797cc6fe6289`. Export it so the CLI can say when the copy on disk no longer matches the guidance it ships:
 
 ```bash
-export LUXIN_SKILL_REVISION=4c0efd5753fa
+export LUXIN_SKILL_REVISION=797cc6fe6289
 ```
 
 When the revision is stale, `create --guide` returns `data.skill_refresh` with `installed_revision`, `current_revision`, and this refresh command:

@@ -224,16 +224,22 @@ Best moment: right after a create or edit produced real media, where the success
 
 ## Models and capability-preserving parameters
 
-`models show MODEL_ID` is the first detailed discovery surface for agents. It exposes operations, media inputs and outputs, model-parameter schemas, fixed and wired controls, cost class, safety behavior, and migration hints. Treat its output as the source of truth for what a model supports. Do not infer one model's parameter surface from another model.
+Model discovery is tiered. Start narrow and go deeper only when the answer is not there yet: `models overview` to orient, `models find` to choose, `models show MODEL_ID` for the full schema of the one you picked.
 
 ```bash
-luxin models list --available --operation image.generate
-luxin models list --available --operation image.edit
-luxin models list --available --modality video --operation video.generate
+luxin models overview
+luxin models find --operation image.generate --max-credits 2
+luxin models find "video" --available --sort credits --limit 5
 luxin models show openai.gpt-image-2
 ```
 
-`models list` is the compact, summary-first action menu. Use `models show MODEL_ID` for one model's full capability schema, or `models list --details` only when you intentionally need every model's full schema at once.
+`models find` is the workhorse. It takes an optional free-text query plus `--operation`, `--modality`, `--provider`, `--available`, `--executable`, `--max-credits N`, `--sort credits|usd`, and `--limit N` (default 10, max 50), and returns terse decision rows (id, provider, operations, credits, USD, aspect ratios, max resolution, status), cheapest first. It reports `total_matched` alongside `returned_count`, so you always know how much you did not see. Cataloged-but-not-yet-wired models are included and marked `status: "not_yet_wired"`; pass `--executable` to exclude them.
+
+`models overview` is the orientation payload: catalog totals, one row per category with the cheapest executable model in it, and the alias hints. It is a few kilobytes, so reading it costs nothing.
+
+`models show MODEL_ID` is the deep surface. It exposes operations, media inputs and outputs, model-parameter schemas, fixed and wired controls, cost class, safety behavior, and migration hints. Treat its output as the source of truth for what a model supports. Do not infer one model's parameter surface from another model.
+
+`models list` remains the full compact action menu and takes the same `--max-credits`, `--sort`, and `--limit` controls. Use `models list --details` only when you intentionally need every model's full schema at once.
 
 `--available` filters to runnable rows (`status:"available"` and `execution.model_execution_status:"executable"`). Do not treat provider-level `status:"available"` as runnable. `--catalog-only` exposes research rows that are not runnable yet; inspect them, do not pass them to create or edit.
 
