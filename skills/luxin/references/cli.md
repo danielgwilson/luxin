@@ -1581,6 +1581,9 @@ Minimum success data:
       "model_parameters": {
         "keys": ["resolution"],
         "defaults_applied": ["resolution=2k"],
+        "effective_parameters": [
+          { "name": "resolution", "value": "2k", "source": "default_policy" }
+        ],
         "source": "default_policy"
       },
       "output": {
@@ -1596,6 +1599,15 @@ Minimum success data:
   }
 }
 ```
+
+`request.selection.model_parameters.effective_parameters` is the resolved
+configuration the request actually ran at. Each entry names one parameter and
+where its value came from: `explicit` is a value you passed, `default_policy` is
+one Luxin filled in, and `provider_default` is a knob nobody sent that the
+provider applies for itself. `keys` and `defaults_applied` only ever described
+the first two, so a request that omitted a parameter had no way to report which
+tier it landed on. Use `effective_parameters` to self-audit the tier and to log
+a reproducible configuration.
 
 When hosted artifact storage is configured, `url` is an Luxin-owned URL.
 Agents should prefer `assets[].url` over provider-origin URLs and should not

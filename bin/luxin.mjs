@@ -136,6 +136,13 @@ const XAI_LOCALLY_PRICED_IMAGE_MODEL_IDS = new Set([
   "xai.grok-imagine-image-2.0",
   "xai.grok-imagine-image-2.0-edit",
 ]);
+// Mirrors PROVIDER_TIER_PINNED_MODEL_IDS in src/hosted-create-policy.ts:
+// models where naming one half of a priced tier leaves the other half on a
+// provider default the caller never chose (#2310).
+const PROVIDER_TIER_PINNED_MODEL_IDS = new Set([
+  "xai.grok-imagine-image-2.0",
+  "xai.grok-imagine-image-2.0-edit",
+]);
 const MODALITY_COMMAND_ALIASES = new Map([
   ["image", { command: "create", intent: null }],
   ["video", { command: "create", intent: "video" }],
@@ -3108,6 +3115,21 @@ function createGuideDefaultModelParameters(input) {
       modelParameters.quality = "medium";
       defaultsApplied.push("quality=medium");
     }
+  }
+
+  // Mirrors pinProviderTierModelParameters in src/hosted-create-policy.ts
+  // (#2310). On grok-imagine-image-2.0 `quality` and `resolution` price as one
+  // tier, so a brief that pins resolution and leaves quality unset used to hand
+  // half the tier to xAI's own default. The guide names the same pinned tier
+  // the hosted planner will send, so its quote and its next_command agree with
+  // the debit the create actually takes.
+  if (
+    PROVIDER_TIER_PINNED_MODEL_IDS.has(String(input.model?.id ?? "")) &&
+    modelParameters.resolution !== undefined &&
+    modelParameters.quality === undefined
+  ) {
+    modelParameters.quality = "medium";
+    defaultsApplied.push("quality=medium");
   }
 
   return { modelParameters, defaultsApplied };
