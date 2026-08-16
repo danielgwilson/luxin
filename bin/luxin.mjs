@@ -2480,9 +2480,15 @@ function modelFindRowFromSummary(model) {
  */
 function modelFindRowRank(row) {
   if (row.status !== "executable") {
-    return 2;
+    return 3;
   }
-  return row.available ? 0 : 1;
+  // Mock-provider rows run but never produce media bytes; rank them after
+  // every real available model so cheapest-first cannot promote the dry-run
+  // planning model into the candidates an agent actually wants.
+  if (row.provider_id === "mock") {
+    return row.available ? 1 : 2;
+  }
+  return row.available ? 0 : 2;
 }
 
 function compareModelFindRows(left, right, sort) {
@@ -2557,10 +2563,20 @@ function withModelOverview(result) {
       executable: 0,
       cheapest: null,
     };
+    const onlyMock = members.every(
+      (model) =>
+        model?.model_execution_status !== "executable" ||
+        model?.provider_id === "mock",
+    );
     for (const model of members) {
       group.total += 1;
       if (model?.model_execution_status === "executable") {
         group.executable += 1;
+        // Mock rows can only be a category's advertised cheapest when
+        // nothing real exists — same rule as the server's cheaperExemplar.
+        if (model?.provider_id === "mock" && !onlyMock) {
+          continue;
+        }
         const credits = model?.credits_required;
         if (
           typeof credits === "number" &&
