@@ -6,6 +6,46 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.9 - 2026-08-17
+
+Discovery, batch work, and recovery — the release for agents doing real
+multi-image jobs.
+
+- New command: `luxin models overview` — a ~2KB orientation payload with
+  category groups and counts, the cheapest executable model per category,
+  alias hints, and runnable next commands. Read this instead of the full list.
+- New command: `luxin models find` — terse, cost-sorted decision rows with
+  `--max-credits`, `--limit` (default 10), `--sort credits|usd`, a free-text
+  query, and the existing filters. Rows carry aspect-ratio support and honest
+  availability, include cataloged-but-not-yet-wired models (clearly marked,
+  ranked last), and report `total_matched` with a narrowing hint. The query
+  that used to return 4,000+ lines now answers in ~130. (#2114)
+- `models list` gains the same `--limit` / `--sort` / `--max-credits` flags
+  and is byte-identical when you don't use them. Against an older hosted API,
+  find/overview/narrowing degrade honestly client-side and say so in
+  `warnings`.
+- New: `luxin create --batch items.json` (or `--batch -`) — sequential
+  multi-image work as one command: shared defaults plus per-item prompts,
+  whole-document validation before any spend. `--dry-run` prices the whole
+  job with the same debit math the live run charges, checks your credits AND
+  the daily job cap, and answers "your credits cover K of N; the batch stops
+  at item K+1" with the top-up sized to the actual need. At any wall the
+  completed items are delivered and the batch stops cleanly with one digest
+  and one recovery block; re-running with the same `--batch-id` skips
+  completed, unchanged items. `seed_policy: fixed | increment | random` where
+  the model supports a seed. (#2304)
+- Recovery handle in the envelope: live create/edit responses now carry
+  `data.idempotency_key` on success and `error.recovery.idempotency_key` plus
+  a re-runnable `error.recovery.recover_command` on failure, so an
+  interrupted spend is recoverable from the envelope alone. stdout is exactly
+  one JSON document per invocation — now stated plainly in the contract; the
+  in-flight recovery line stays on stderr. (#2240)
+- Hosted-side, already live and noted for completeness: create/edit responses
+  echo `effective_parameters` (each knob tagged explicit / default_policy /
+  provider_default) so you can see the configuration that actually ran, and
+  `resolution` without `quality` on xai.grok-imagine-image-2.0 now sends the
+  medium tier you were already being quoted. (#2310)
+
 ## 0.2.8 - 2026-08-12
 
 - New command: `luxin skill` prints the full usage guidance from bundled
