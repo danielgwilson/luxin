@@ -1726,6 +1726,101 @@ one `assets[]` entry per output with `assets[].url` under
 `https://media.image-skill.com/...` URLs remain valid and are still accepted
 wherever an asset URL is an input.
 
+#### `luxin create --batch`
+
+Sequential multi-image work — storyboards, animatics, icon and asset packs,
+character sheets — as one command instead of one `create` round trip per frame.
+The batch runs client-side through the same hosted `create` call, so a batch
+item is priced, charged, capped, and recovered exactly like a single create.
+
+The batch document is JSON, read from a file or from stdin with `--batch -`:
+shared defaults at the top level, one object per item under `items`.
+
+```json
+{
+  "model": "fal.bitdance",
+  "aspect_ratio": "16:9",
+  "seed": 1200,
+  "seed_policy": "increment",
+  "model_parameters": { "output_format": "png" },
+  "items": [
+    { "prompt": "panel 1: a compact field camera on a stainless workbench" },
+    { "prompt": "panel 2: the same camera, lens detail" },
+    { "prompt": "panel 3: hands lifting the camera", "aspect_ratio": "1:1" }
+  ]
+}
+```
+
+Shared keys: `model`, `aspect_ratio`, `intent`, `reference_images`, `seed`,
+`seed_policy`, `model_parameters`, `max_estimated_usd_per_image`,
+`accept_unknown_cost`, `output_count`. Every shared key except `seed_policy` and
+`accept_unknown_cost` can be overridden per item, and each item requires a
+non-empty `prompt`. `model_parameters` merges per item over the shared object.
+The whole document is validated before anything spends; an invalid item is
+rejected by index (`batch item 3: prompt must be a non-empty string`) with exit
+code 2 and no hosted create call. Maximum 200 items.
+
+`seed_policy` is `fixed` (every item gets the shared seed), `increment` (shared
+seed plus the item offset), or `random`. It threads the seed into
+`model_parameters.seed` and only works on a model whose `models show` entry
+publishes a `seed` parameter; on any other model the batch fails before spending
+and names the model. Every seeded item must name its model (per item or via the
+shared `model`): an item that would fall back to server-side model selection
+cannot be seed-checked upfront, so the batch refuses it before anything spends.
+Per-item `seed` always wins over the policy.
+
+Price the whole sequence first. `--dry-run` makes no spend and no writes:
+
+```bash
+luxin create --batch items.json --dry-run --json
+```
+
+It returns `schema: image-skill.create-batch.v1` with per-item quotes in
+`items[]`, `totals.credits`, and an `affordability` block:
+`total_credits`, `remaining_credits`, `covers_items`, `stops_at_item`,
+`shortfall_credits`, `daily_jobs_remaining`, `limiting_factor`, a plain
+`summary` (`"4 items cost 20 credits; your 12 remaining credits cover 2 of 4;
+the batch stops at item 3"`), a `daily_cap_summary` when the item count exceeds
+today's remaining jobs, and `top_up.quote_command` sized to the shortfall. When
+the job does not fit, `next_actions.self_fund` carries the one funding path for
+the whole batch. An item with no published credit quote is reported in
+`unpriced_items`: the batch cannot be priced past it, and when the file sets
+`accept_unknown_cost` the dry run says a live run will still attempt it at
+unknown cost instead of claiming a stop (and mints no top-up for that case).
+When the open question is which cheap model fits the brief, answer it with
+`luxin models find --available --operation image.generate --max-credits N
+--json` before pricing the batch.
+
+A live run executes items in order and reports one digest:
+
+```bash
+luxin create --batch items.json --batch-id storyboard-a1 --json
+```
+
+Each item carries an idempotency key derived from the `batch_id`, the item
+index, and a short hash of the resolved item content
+(`storyboard-a1.item-3.4f8a01c2b9de`), so re-running the same file with the
+same `--batch-id` after funding skips the items that already completed — they
+come back as `status: "skipped_completed"` with their original `job_id` and
+zero new credits — while an item you edited between runs gets a fresh key and
+re-executes instead of returning the stale asset. `--batch-id` is optional; a
+generated one is echoed in `batch_id` and in `resume_command`. For a batch
+piped through `--batch -`, `resume_command` uses a `<your-batch-file>`
+placeholder and a `resume_note` explains to save or re-pipe the same document
+— it is never a bare `--batch -` that would hang waiting on stdin.
+
+At any wall the batch stops cleanly: completed items stay in `data.items` with
+their `asset_url`, remaining items are `not_attempted`, `stop_reason` is
+`credits_depleted`, `daily_job_cap_reached`, or `item_failed`, and the envelope
+carries exactly ONE recovery block — the hosted funding apparatus plus
+`error.recovery.batch` with `delivered_items`, `remaining_items`,
+`resume_command`, and `price_remaining_command`. Exit code is the wall's own
+(5 for quota). Progress lines, one JSON object per item, go to stderr; stdout
+stays exactly one JSON document.
+
+`--batch` accepts only `--dry-run`, `--batch-id`, `--json`, and the hosted auth
+flags; shared defaults belong in the file, not on the command line.
+
 ### `luxin upload`
 
 Normalizes a local image path or remote image URL into an Luxin-owned

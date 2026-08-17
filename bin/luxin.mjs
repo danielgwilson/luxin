@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import {
   chmod,
@@ -19,7 +19,7 @@ const VERSION = "0.2.8";
 // Content-derived identity of the guidance this package ships (#2302). Kept in
 // sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
 // gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
-const SKILL_REVISION = "797cc6fe6289";
+const SKILL_REVISION = "259c47afaeae";
 // `luxin skill` prints these bundled bytes rather than fetching them, so the
 // guidance can never describe a CLI other than the one printing it. Packed by
 // public-cli/package.json `files`.
@@ -390,6 +390,59 @@ const ORIENTATION_RULES = [
 
 const GUIDE_ASPECT_RATIO_PROBE_LIMIT = 8;
 
+const CREATE_BATCH_SCHEMA = "image-skill.create-batch.v1";
+const MAX_BATCH_ITEMS = 200;
+const MAX_BATCH_ID_LENGTH = 100;
+const MAX_BATCH_DOCUMENT_BYTES = 2 * 1024 * 1024;
+const BATCH_ID_PATTERN = /^[A-Za-z0-9._:-]+$/;
+const BATCH_CREDIT_QUOTE_MIN_CREDITS = 1;
+const BATCH_CREDIT_QUOTE_MAX_CREDITS = 5000;
+const BATCH_TOP_UP_PAYMENT_METHOD = "stripe_x402.exact.usdc";
+const BATCH_TOP_UP_DOCS_URL = "https://luxin.sh/cli.md#luxin-credits-quote";
+// Dry-run pricing calls are read-only, so they run with bounded concurrency;
+// the LIVE run stays strictly sequential (order is the product contract).
+const BATCH_DRY_RUN_PRICING_CONCURRENCY = 5;
+// Stands in for the batch file in resume commands when the batch arrived on
+// stdin: a literal `--batch -` would hang forever if executed without
+// re-piping the document.
+const BATCH_STDIN_SOURCE_PLACEHOLDER = "<your-batch-file>";
+const IDEMPOTENT_REPLAY_WARNING_PREFIX = "idempotent replay:";
+const BATCH_SHARED_KEYS = new Set([
+  "model",
+  "aspect_ratio",
+  "intent",
+  "reference_images",
+  "seed",
+  "seed_policy",
+  "model_parameters",
+  "max_estimated_usd_per_image",
+  "accept_unknown_cost",
+  "output_count",
+  "items",
+]);
+const BATCH_ITEM_KEYS = new Set([
+  "prompt",
+  "model",
+  "aspect_ratio",
+  "intent",
+  "reference_images",
+  "seed",
+  "model_parameters",
+  "max_estimated_usd_per_image",
+  "output_count",
+]);
+// The batch file is the single source of shared defaults, so the same knob must
+// not also arrive on the command line where it could silently disagree.
+const CREATE_BATCH_ALLOWED_FLAGS = new Set([
+  "json",
+  "dry-run",
+  "batch",
+  "batch-id",
+  "api-base-url",
+  "token",
+  "token-stdin",
+]);
+
 function agentSkillHint(commandPrefix = "luxin") {
   return {
     url: AGENT_SKILL_URL,
@@ -599,6 +652,7 @@ function commandHelpByKey(key) {
         "audio create --guide",
         "3d create --guide",
         "create --dry-run",
+        "create --batch items.json --dry-run",
         "create",
         "image edit",
         "upload",
@@ -835,6 +889,8 @@ function commandHelpByKey(key) {
         "--reference-image",
         "--model-parameters-json",
         "--idempotency-key",
+        "--batch",
+        "--batch-id",
       ],
     },
     upload: {
@@ -6259,6 +6315,9 @@ function quotaRemainingCredits(data) {
 
 async function create(argv) {
   const args = parseArgs(argv);
+  if (args.flags.has("batch") || args.flags.has("batch-id")) {
+    return createBatch(args);
+  }
   if (flagBool(args, "guide")) {
     return createGuide(args);
   }
@@ -6388,6 +6447,1376 @@ async function create(argv) {
     operation: "create",
     idempotencyKey: isLiveSpend ? idempotencyKey : null,
   });
+}
+
+// ---------------------------------------------------------------------------
+// `create --batch` (#2304): sequential multi-image work — storyboards,
+// animatics, icon/asset packs — as one command instead of N round trips.
+//
+// Client-side only, built on the existing hosted create call: the dry run
+// prices the whole job with the same request the live run makes (#2259), and a
+// live run stops at the first wall and delivers what completed with ONE
+// recovery block rather than one per item (#2246/#2264). Mirrors
+// `src/create-batch.ts` and `src/create-batch-run.ts`; keep the three in step.
+// ---------------------------------------------------------------------------
+async function createBatch(args) {
+  const command = "luxin create --batch";
+  const dryRun = flagBool(args, "dry-run");
+
+  const rejected = [...args.flags.keys()].filter(
+    (flag) => !CREATE_BATCH_ALLOWED_FLAGS.has(flag),
+  );
+  if (rejected.length > 0) {
+    return invalid(
+      command,
+      `create --batch does not accept ${rejected
+        .sort()
+        .map((flag) => `--${flag}`)
+        .join(
+          ", ",
+        )}; put shared defaults at the top level of the batch file and per-item values on each item`,
+    );
+  }
+  if (args.positionals.length > 0) {
+    return invalid(
+      command,
+      "create --batch does not accept a positional prompt; every prompt lives in the batch file items array",
+    );
+  }
+
+  const batchSource = flagString(args, "batch");
+  if (batchSource === null || batchSource.trim().length === 0) {
+    return invalid(
+      command,
+      "create --batch requires a batch JSON file path, or - to read the batch from stdin",
+    );
+  }
+  if (batchSource.trim() === "-" && flagBool(args, "token-stdin")) {
+    return invalid(
+      command,
+      "create --batch - reads the batch from stdin, so it cannot be combined with --token-stdin; pass the token in IMAGE_SKILL_TOKEN instead",
+    );
+  }
+
+  const explicitBatchId = flagString(args, "batch-id");
+  if (explicitBatchId !== null) {
+    const validated = validateBatchId(explicitBatchId);
+    if (!validated.ok) {
+      return invalid(command, validated.message);
+    }
+  }
+  const batchId = explicitBatchId ?? `batch_${randomBytes(6).toString("hex")}`;
+
+  const document = await readBatchDocument(batchSource.trim());
+  if (!document.ok) {
+    return failure(command, 9, "FILESYSTEM_FAILURE", document.message, true);
+  }
+
+  const parsed = parseBatchDocument(document.text, {
+    randomSeed: () => randomInt(0, 2147483647),
+  });
+  if (!parsed.ok) {
+    return invalid(command, parsed.message);
+  }
+
+  // Even a dry run authenticates: the load-bearing output is what THIS
+  // identity's credits and daily jobs cover, which anonymous pricing cannot
+  // answer.
+  const token = await resolveToken(args);
+  if (!token.ok) {
+    return withCommand(token.result, command);
+  }
+
+  const request = (input) =>
+    apiRequest({
+      command,
+      method: input.method,
+      apiBaseUrl: apiBase(args),
+      path: input.path,
+      token: token.token,
+      ...(input.body === undefined ? {} : { body: input.body }),
+    });
+
+  return runCreateBatch({
+    plan: parsed.plan,
+    batchId,
+    batchSource: batchSource.trim(),
+    dryRun,
+    command,
+    commandPrefix: createGuideCommandPrefix(),
+    request,
+    onProgress: (line) => {
+      process.stderr.write(`${JSON.stringify(line)}\n`);
+    },
+  });
+}
+
+async function readBatchDocument(source) {
+  if (source === "-") {
+    let text;
+    try {
+      text = await readStdin();
+    } catch (error) {
+      return {
+        ok: false,
+        message: `create --batch - could not read the batch from stdin: ${
+          error instanceof Error ? error.message : "read failed"
+        }`,
+      };
+    }
+    if (text.trim().length === 0) {
+      return {
+        ok: false,
+        message: `create --batch - read an empty batch from stdin; pipe a JSON document with up to ${MAX_BATCH_ITEMS} items`,
+      };
+    }
+    if (text.length > MAX_BATCH_DOCUMENT_BYTES) {
+      return { ok: false, message: "batch document exceeds 2MB" };
+    }
+    return { ok: true, text };
+  }
+  try {
+    // Same cap as stdin, checked before the bytes are pulled into memory.
+    const stats = await stat(source);
+    if (stats.size > MAX_BATCH_DOCUMENT_BYTES) {
+      return { ok: false, message: "batch document exceeds 2MB" };
+    }
+    const text = await readFile(source, "utf8");
+    return { ok: true, text };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `create --batch could not read ${source}: ${
+        error instanceof Error ? error.message : "read failed"
+      }`,
+    };
+  }
+}
+
+function validateBatchId(value) {
+  if (value.length === 0 || value.length > MAX_BATCH_ID_LENGTH) {
+    return {
+      ok: false,
+      message: `--batch-id must be 1-${MAX_BATCH_ID_LENGTH} characters`,
+    };
+  }
+  if (!BATCH_ID_PATTERN.test(value)) {
+    return {
+      ok: false,
+      message:
+        "--batch-id must use letters, numbers, dot, underscore, colon, or hyphen",
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Per-item idempotency key: batch id, item index, and a short hash of the
+ * resolved item payload. Re-running the same batch file with the same
+ * `--batch-id` after a wall dedupes every already completed item through the
+ * existing hosted idempotency machinery — while an item whose content changed
+ * since the last run gets a fresh key and re-executes instead of silently
+ * returning the stale asset as `skipped_completed`.
+ */
+function batchIdempotencyKey(batchId, item, seedPolicy) {
+  return `${batchId}.item-${item.index}.${batchItemContentHash(item, seedPolicy)}`;
+}
+
+/**
+ * Content identity of one resolved batch item. `seed_policy: "random"` draws a
+ * fresh seed every parse, so the drawn seed is excluded there — otherwise an
+ * unchanged file could never replay as `skipped_completed`.
+ */
+function batchItemContentHash(item, seedPolicy) {
+  const modelParameters = {};
+  for (const key of Object.keys(item.modelParameters).sort()) {
+    if (seedPolicy === "random" && key === "seed") {
+      continue;
+    }
+    modelParameters[key] = item.modelParameters[key];
+  }
+  const basis = JSON.stringify({
+    prompt: item.prompt,
+    model: item.model,
+    aspect_ratio: item.aspectRatio,
+    intent: item.intent,
+    model_parameters: modelParameters,
+    reference_images: item.referenceImages,
+    max_estimated_usd_per_image: item.maxEstimatedUsdPerImage,
+    output_count: item.outputCount,
+    accept_unknown_cost: item.acceptUnknownCost,
+  });
+  return createHash("sha256").update(basis).digest("hex").slice(0, 12);
+}
+
+function parseBatchDocument(text, options) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    return {
+      ok: false,
+      message: `batch file is not valid JSON: ${
+        error instanceof Error ? error.message : "parse failed"
+      }`,
+    };
+  }
+
+  if (Array.isArray(parsed)) {
+    return {
+      ok: false,
+      message:
+        'batch file must be a JSON object with an "items" array; wrap a bare array as {"items": [...]}',
+    };
+  }
+  if (!isRecord(parsed)) {
+    return {
+      ok: false,
+      message: 'batch file must be a JSON object with an "items" array',
+    };
+  }
+
+  const unknownShared = Object.keys(parsed).filter(
+    (key) => !BATCH_SHARED_KEYS.has(key),
+  );
+  if (unknownShared.length > 0) {
+    return {
+      ok: false,
+      message: `batch file has unknown shared field(s): ${unknownShared
+        .sort()
+        .join(", ")}; allowed: ${[...BATCH_SHARED_KEYS].sort().join(", ")}`,
+    };
+  }
+
+  const sharedModel = batchOptionalNonEmptyString(parsed.model, "model");
+  if (!sharedModel.ok) {
+    return { ok: false, message: `batch file ${sharedModel.message}` };
+  }
+  const sharedAspectRatio = batchOptionalNonEmptyString(
+    parsed.aspect_ratio,
+    "aspect_ratio",
+  );
+  if (!sharedAspectRatio.ok) {
+    return { ok: false, message: `batch file ${sharedAspectRatio.message}` };
+  }
+  const sharedIntent = batchOptionalNonEmptyString(parsed.intent, "intent");
+  if (!sharedIntent.ok) {
+    return { ok: false, message: `batch file ${sharedIntent.message}` };
+  }
+  const sharedReferences = batchOptionalStringArray(
+    parsed.reference_images,
+    "reference_images",
+  );
+  if (!sharedReferences.ok) {
+    return { ok: false, message: `batch file ${sharedReferences.message}` };
+  }
+  const sharedModelParameters = batchOptionalObject(
+    parsed.model_parameters,
+    "model_parameters",
+  );
+  if (!sharedModelParameters.ok) {
+    return {
+      ok: false,
+      message: `batch file ${sharedModelParameters.message}`,
+    };
+  }
+  const sharedBudget = batchOptionalNonNegativeNumber(
+    parsed.max_estimated_usd_per_image,
+    "max_estimated_usd_per_image",
+  );
+  if (!sharedBudget.ok) {
+    return { ok: false, message: `batch file ${sharedBudget.message}` };
+  }
+  const sharedOutputCount = batchOptionalPositiveInteger(
+    parsed.output_count,
+    "output_count",
+  );
+  if (!sharedOutputCount.ok) {
+    return { ok: false, message: `batch file ${sharedOutputCount.message}` };
+  }
+  const acceptUnknownCost = batchOptionalBoolean(
+    parsed.accept_unknown_cost,
+    "accept_unknown_cost",
+  );
+  if (!acceptUnknownCost.ok) {
+    return { ok: false, message: `batch file ${acceptUnknownCost.message}` };
+  }
+  const sharedSeed = batchOptionalSeed(parsed.seed, "seed");
+  if (!sharedSeed.ok) {
+    return { ok: false, message: `batch file ${sharedSeed.message}` };
+  }
+  const seedPolicy = batchOptionalSeedPolicy(parsed.seed_policy);
+  if (!seedPolicy.ok) {
+    return { ok: false, message: `batch file ${seedPolicy.message}` };
+  }
+
+  if (sharedSeed.value !== null && seedPolicy.value === null) {
+    return {
+      ok: false,
+      message:
+        'batch file sets seed without seed_policy; add "seed_policy": "fixed" or "increment"',
+    };
+  }
+  if (seedPolicy.value === "random" && sharedSeed.value !== null) {
+    return {
+      ok: false,
+      message:
+        "batch file seed_policy random draws its own seeds and does not accept a shared seed",
+    };
+  }
+  if (
+    seedPolicy.value !== null &&
+    seedPolicy.value !== "random" &&
+    sharedSeed.value === null
+  ) {
+    return {
+      ok: false,
+      message: `batch file seed_policy ${seedPolicy.value} requires a shared seed`,
+    };
+  }
+  if (
+    seedPolicy.value !== null &&
+    sharedModelParameters.value !== null &&
+    sharedModelParameters.value.seed !== undefined
+  ) {
+    return {
+      ok: false,
+      message:
+        "batch file sets both seed_policy and model_parameters.seed; keep the seed in one place",
+    };
+  }
+
+  const rawItems = parsed.items;
+  if (!Array.isArray(rawItems)) {
+    return { ok: false, message: 'batch file requires an "items" array' };
+  }
+  if (rawItems.length === 0) {
+    return { ok: false, message: "batch file items array is empty" };
+  }
+  if (rawItems.length > MAX_BATCH_ITEMS) {
+    return {
+      ok: false,
+      message: `batch file has ${rawItems.length} items; the maximum is ${MAX_BATCH_ITEMS}`,
+    };
+  }
+
+  const items = [];
+  const models = [];
+  for (let position = 0; position < rawItems.length; position += 1) {
+    const index = position + 1;
+    const raw = rawItems[position];
+    if (!isRecord(raw)) {
+      return {
+        ok: false,
+        message: `batch item ${index}: must be a JSON object with a prompt`,
+      };
+    }
+    const unknownKeys = Object.keys(raw).filter(
+      (key) => !BATCH_ITEM_KEYS.has(key),
+    );
+    if (unknownKeys.length > 0) {
+      return {
+        ok: false,
+        message: `batch item ${index}: unknown field(s) ${unknownKeys
+          .sort()
+          .join(", ")}; allowed: ${[...BATCH_ITEM_KEYS].sort().join(", ")}`,
+      };
+    }
+    if (typeof raw.prompt !== "string" || raw.prompt.trim().length === 0) {
+      return {
+        ok: false,
+        message: `batch item ${index}: prompt must be a non-empty string`,
+      };
+    }
+    const itemModel = batchOptionalNonEmptyString(raw.model, "model");
+    if (!itemModel.ok) {
+      return {
+        ok: false,
+        message: `batch item ${index}: ${itemModel.message}`,
+      };
+    }
+    const itemAspectRatio = batchOptionalNonEmptyString(
+      raw.aspect_ratio,
+      "aspect_ratio",
+    );
+    if (!itemAspectRatio.ok) {
+      return {
+        ok: false,
+        message: `batch item ${index}: ${itemAspectRatio.message}`,
+      };
+    }
+    const itemIntent = batchOptionalNonEmptyString(raw.intent, "intent");
+    if (!itemIntent.ok) {
+      return {
+        ok: false,
+        message: `batch item ${index}: ${itemIntent.message}`,
+      };
+    }
+    const itemReferences = batchOptionalStringArray(
+      raw.reference_images,
+      "reference_images",
+    );
+    if (!itemReferences.ok) {
+      return {
+        ok: false,
+        message: `batch item ${index}: ${itemReferences.message}`,
+      };
+    }
+    const itemModelParameters = batchOptionalObject(
+      raw.model_parameters,
+      "model_parameters",
+    );
+    if (!itemModelParameters.ok) {
+      return {
+        ok: false,
+        message: `batch item ${index}: ${itemModelParameters.message}`,
+      };
+    }
+    const itemBudget = batchOptionalNonNegativeNumber(
+      raw.max_estimated_usd_per_image,
+      "max_estimated_usd_per_image",
+    );
+    if (!itemBudget.ok) {
+      return {
+        ok: false,
+        message: `batch item ${index}: ${itemBudget.message}`,
+      };
+    }
+    const itemOutputCount = batchOptionalPositiveInteger(
+      raw.output_count,
+      "output_count",
+    );
+    if (!itemOutputCount.ok) {
+      return {
+        ok: false,
+        message: `batch item ${index}: ${itemOutputCount.message}`,
+      };
+    }
+    const itemSeed = batchOptionalSeed(raw.seed, "seed");
+    if (!itemSeed.ok) {
+      return { ok: false, message: `batch item ${index}: ${itemSeed.message}` };
+    }
+    const mergedModelParameters = {
+      ...(sharedModelParameters.value ?? {}),
+      ...(itemModelParameters.value ?? {}),
+    };
+    if (
+      itemSeed.value !== null &&
+      itemModelParameters.value?.seed !== undefined
+    ) {
+      return {
+        ok: false,
+        message: `batch item ${index}: sets both seed and model_parameters.seed; keep the seed in one place`,
+      };
+    }
+    // The same conflict as the shared-level check above: a shared seed_policy
+    // would silently clobber this item's explicit model_parameters.seed.
+    if (
+      seedPolicy.value !== null &&
+      itemModelParameters.value?.seed !== undefined
+    ) {
+      return {
+        ok: false,
+        message: `batch item ${index}: sets model_parameters.seed while the batch file sets seed_policy; keep the seed in one place`,
+      };
+    }
+
+    const seed = resolveBatchItemSeed({
+      itemSeed: itemSeed.value,
+      sharedSeed: sharedSeed.value,
+      seedPolicy: seedPolicy.value,
+      position,
+      randomSeed: options.randomSeed,
+    });
+    if (seed !== null) {
+      mergedModelParameters.seed = seed;
+    }
+
+    const model = itemModel.value ?? sharedModel.value;
+    if (model !== null && !models.includes(model)) {
+      models.push(model);
+    }
+
+    items.push({
+      index,
+      prompt: raw.prompt.trim(),
+      model,
+      aspectRatio: itemAspectRatio.value ?? sharedAspectRatio.value,
+      intent: itemIntent.value ?? sharedIntent.value,
+      modelParameters: mergedModelParameters,
+      referenceImages: itemReferences.value ?? sharedReferences.value ?? [],
+      maxEstimatedUsdPerImage: itemBudget.value ?? sharedBudget.value,
+      outputCount: itemOutputCount.value ?? sharedOutputCount.value,
+      acceptUnknownCost: acceptUnknownCost.value ?? false,
+      seed,
+    });
+  }
+
+  return {
+    ok: true,
+    plan: {
+      seedPolicy: seedPolicy.value,
+      seedRequested:
+        seedPolicy.value !== null ||
+        items.some((item) => item.seed !== null) ||
+        sharedSeed.value !== null,
+      items,
+      models,
+    },
+  };
+}
+
+function resolveBatchItemSeed(input) {
+  if (input.itemSeed !== null) {
+    return input.itemSeed;
+  }
+  if (input.seedPolicy === "fixed") {
+    return input.sharedSeed;
+  }
+  if (input.seedPolicy === "increment") {
+    return input.sharedSeed === null ? null : input.sharedSeed + input.position;
+  }
+  if (input.seedPolicy === "random") {
+    return input.randomSeed();
+  }
+  return null;
+}
+
+/**
+ * The hosted request body for one batch item, built from the same fields the
+ * single-item create sends so the batch cannot drift into a different request
+ * shape than the one that gets priced.
+ */
+function batchCreateRequestBody(input) {
+  const item = input.item;
+  return {
+    prompt: item.prompt,
+    ...(item.model === null ? {} : { model: item.model }),
+    ...(item.intent === null ? {} : { intent: item.intent }),
+    aspect_ratio: item.aspectRatio ?? "1:1",
+    ...(input.references.length === 0 ? {} : { references: input.references }),
+    ...(item.outputCount === null ? {} : { output_count: item.outputCount }),
+    ...(item.maxEstimatedUsdPerImage === null
+      ? {}
+      : { max_estimated_usd_per_image: item.maxEstimatedUsdPerImage }),
+    ...(Object.keys(item.modelParameters).length === 0
+      ? {}
+      : { model_parameters: item.modelParameters }),
+    ...(input.idempotencyKey === null
+      ? {}
+      : { idempotency_key: input.idempotencyKey }),
+    dry_run: input.dryRun,
+    accept_unknown_cost: item.acceptUnknownCost,
+  };
+}
+
+async function runCreateBatch(input) {
+  const seedSupport = await assertBatchSeedSupport(input);
+  if (seedSupport !== null) {
+    return seedSupport;
+  }
+  return input.dryRun ? runBatchDryRun(input) : runBatchLive(input);
+}
+
+/**
+ * Seed policy is pass-through (#2304 section 3): it only reaches models whose
+ * registry entry accepts a seed parameter, and the batch says so before it
+ * spends anything rather than letting the provider reject item 1.
+ */
+async function assertBatchSeedSupport(input) {
+  if (!input.plan.seedRequested) {
+    return null;
+  }
+  // Every seeded item must name its model explicitly: a seeded item without
+  // one resolves server-side (intent-aware selection), which this client
+  // cannot faithfully predict — so the batch refuses upfront instead of
+  // pretending a "default" registry entry stands in for the real selection.
+  const seededItems = input.plan.items.filter((item) => item.seed !== null);
+  const missingModelIndexes = seededItems
+    .filter((item) => item.model === null)
+    .map((item) => item.index);
+  if (missingModelIndexes.length > 0) {
+    return batchFailure({
+      command: input.command,
+      exitCode: 2,
+      code: "INVALID_ARGUMENTS",
+      message: `batch seed/seed_policy requires an explicit model on every seeded item so seed support can be verified before anything spends; item${
+        missingModelIndexes.length === 1 ? "" : "s"
+      } ${missingModelIndexes.join(", ")} would fall back to server-side model selection. Name a model on each item or set a shared model at the top level of the batch file.`,
+    });
+  }
+  const modelIds = [];
+  for (const item of seededItems) {
+    if (item.model !== null && !modelIds.includes(item.model)) {
+      modelIds.push(item.model);
+    }
+  }
+  for (const modelId of modelIds) {
+    const result = await input.request({
+      method: "GET",
+      path: `/v1/models/${encodeURIComponent(modelId)}`,
+    });
+    if (result.envelope.ok !== true) {
+      return batchFailure({
+        command: input.command,
+        exitCode: result.exitCode,
+        code: batchErrorCode(result.envelope) ?? "MODEL_LOOKUP_FAILED",
+        message: `batch seed policy needs the model registry entry for ${modelId}: ${
+          batchErrorMessage(result.envelope) ?? "model lookup failed"
+        }`,
+        retryable: batchErrorRetryable(result.envelope),
+        recovery: batchErrorRecovery(result.envelope),
+      });
+    }
+    if (!modelSupportsSeed(result.envelope.data)) {
+      return batchFailure({
+        command: input.command,
+        exitCode: 2,
+        code: "INVALID_ARGUMENTS",
+        message: `batch seed policy requires a model whose registry entry accepts a seed parameter; ${modelId} does not. Inspect it with ${input.commandPrefix} models show ${modelId} --json, or drop seed/seed_policy from the batch file.`,
+      });
+    }
+  }
+  return null;
+}
+
+async function runBatchDryRun(input) {
+  const quota = await input.request({ method: "GET", path: "/v1/quota" });
+  if (quota.envelope.ok !== true) {
+    return batchFailure({
+      command: input.command,
+      exitCode: quota.exitCode,
+      code: batchErrorCode(quota.envelope) ?? "QUOTA_LOOKUP_FAILED",
+      message: `batch dry run needs current quota before it can price the job: ${
+        batchErrorMessage(quota.envelope) ?? "quota lookup failed"
+      }`,
+      retryable: batchErrorRetryable(quota.envelope),
+      recovery: batchErrorRecovery(quota.envelope),
+    });
+  }
+
+  // Per-item pricing calls are read-only hosted dry runs, so they run with
+  // bounded concurrency instead of one round trip per item in series. The
+  // reported failure (if any) is the lowest-index one, so the surface stays
+  // deterministic; the live loop below remains strictly sequential.
+  const priced = await batchMapWithBoundedConcurrency(
+    input.plan.items,
+    BATCH_DRY_RUN_PRICING_CONCURRENCY,
+    (item) =>
+      input.request({
+        method: "POST",
+        path: "/v1/create",
+        body: batchCreateRequestBody({
+          item,
+          references: item.referenceImages,
+          idempotencyKey: null,
+          dryRun: true,
+        }),
+      }),
+  );
+  const items = [];
+  const perItemCredits = [];
+  for (const [position, item] of input.plan.items.entries()) {
+    const result = priced[position];
+    if (result.envelope.ok !== true) {
+      return batchFailure({
+        command: input.command,
+        exitCode: result.exitCode,
+        code: batchErrorCode(result.envelope) ?? "BATCH_ITEM_DRY_RUN_FAILED",
+        message: `batch item ${item.index}: ${
+          batchErrorMessage(result.envelope) ?? "dry run failed"
+        }`,
+        retryable: batchErrorRetryable(result.envelope),
+        recovery: batchErrorRecovery(result.envelope),
+      });
+    }
+    const credits = batchItemCredits(result.envelope.data);
+    perItemCredits.push(credits);
+    items.push({
+      index: item.index,
+      status: "planned",
+      asset_url: null,
+      job_id: null,
+      credits,
+      model: batchItemModelId(result.envelope.data) ?? item.model,
+      idempotency_key: batchIdempotencyKey(
+        input.batchId,
+        item,
+        input.plan.seedPolicy,
+      ),
+    });
+  }
+
+  const affordability = batchAffordability({
+    perItemCredits,
+    remainingCredits: batchRemainingCredits(quota.envelope.data),
+    dailyJobsRemaining: batchDailyJobsRemaining(quota.envelope.data),
+    commandPrefix: input.commandPrefix,
+    acceptUnknownCost: input.plan.items.every((item) => item.acceptUnknownCost),
+  });
+
+  const resumeNote = batchResumeNote(input.batchSource);
+  const data = {
+    schema: CREATE_BATCH_SCHEMA,
+    batch_id: input.batchId,
+    dry_run: true,
+    resume_command: batchResumeCommand({
+      commandPrefix: input.commandPrefix,
+      batchSource: input.batchSource,
+      batchId: input.batchId,
+      dryRun: false,
+    }),
+    ...(resumeNote === null ? {} : { resume_note: resumeNote }),
+    items,
+    totals: batchTotals(items),
+    stop_reason: null,
+    stopped_at_item: null,
+    affordability,
+  };
+  // One funding apparatus, and only when the job does not fit: the quota
+  // response already carries the account's own top-up path, so the batch does
+  // not mint a second one (#2246/#2264).
+  const nextActions = affordability.covers_all
+    ? null
+    : batchQuotaNextActions(quota.envelope.data);
+  if (nextActions !== null) {
+    data.next_actions = nextActions;
+  }
+
+  return success(input.command, data);
+}
+
+async function runBatchLive(input) {
+  const items = [];
+  let stopReason = null;
+  let stoppedAtItem = null;
+  let stopError = null;
+
+  for (const item of input.plan.items) {
+    const idempotencyKey = batchIdempotencyKey(
+      input.batchId,
+      item,
+      input.plan.seedPolicy,
+    );
+    if (stopReason !== null) {
+      items.push({
+        index: item.index,
+        status: "not_attempted",
+        asset_url: null,
+        job_id: null,
+        credits: null,
+        model: item.model,
+        idempotency_key: idempotencyKey,
+      });
+      continue;
+    }
+    // The pre-spend breadcrumb rides stderr so stdout stays exactly one JSON
+    // document (#2240/#2314).
+    input.onProgress?.({
+      batch_progress: {
+        batch_id: input.batchId,
+        index: item.index,
+        total: input.plan.items.length,
+        idempotency_key: idempotencyKey,
+        status: "started",
+      },
+    });
+    const result = await input.request({
+      method: "POST",
+      path: "/v1/create",
+      body: batchCreateRequestBody({
+        item,
+        references: item.referenceImages,
+        idempotencyKey,
+        dryRun: false,
+      }),
+    });
+    if (result.envelope.ok === true) {
+      const replay = isBatchIdempotentReplay(result.envelope);
+      items.push({
+        index: item.index,
+        status: replay ? "skipped_completed" : "completed",
+        asset_url: batchItemAssetUrl(result.envelope.data),
+        job_id: batchItemJobId(result.envelope.data),
+        credits: replay ? 0 : batchItemCredits(result.envelope.data),
+        model: batchItemModelId(result.envelope.data) ?? item.model,
+        idempotency_key: idempotencyKey,
+      });
+      continue;
+    }
+
+    const code = batchErrorCode(result.envelope) ?? "CREATE_FAILED";
+    const message = batchErrorMessage(result.envelope) ?? "create failed";
+    stopReason =
+      batchWallReason({ code, message, data: result.envelope.data }) ??
+      "item_failed";
+    stoppedAtItem = item.index;
+    stopError = {
+      code,
+      message,
+      retryable: batchErrorRetryable(result.envelope),
+      recovery: batchErrorRecovery(result.envelope),
+      exitCode: result.exitCode,
+    };
+    items.push({
+      index: item.index,
+      status: "failed",
+      asset_url: null,
+      job_id: null,
+      credits: null,
+      model: item.model,
+      idempotency_key: idempotencyKey,
+    });
+  }
+
+  const totals = batchTotals(items);
+  const resumeNote = batchResumeNote(input.batchSource);
+  const data = {
+    schema: CREATE_BATCH_SCHEMA,
+    batch_id: input.batchId,
+    dry_run: false,
+    resume_command: batchResumeCommand({
+      commandPrefix: input.commandPrefix,
+      batchSource: input.batchSource,
+      batchId: input.batchId,
+      dryRun: false,
+    }),
+    ...(resumeNote === null ? {} : { resume_note: resumeNote }),
+    items,
+    totals,
+    stop_reason: stopReason,
+    stopped_at_item: stoppedAtItem,
+  };
+
+  if (stopReason === null || stopError === null) {
+    return success(input.command, data);
+  }
+
+  // One digest, one recovery block. The completed items are delivered in
+  // `data`; the funding apparatus stays exactly where the hosted wall put it
+  // rather than being repeated per item (#2246/#2264).
+  return {
+    exitCode: stopError.exitCode,
+    envelope: {
+      ok: false,
+      command: input.command,
+      trace_id: traceId(),
+      actor: null,
+      data,
+      warnings: [],
+      error: {
+        code: stopError.code,
+        message: `${stopError.message} Batch ${input.batchId} delivered ${
+          totals.completed + totals.skipped_completed
+        } of ${totals.items} items and stopped at item ${stoppedAtItem ?? 0}.`,
+        retryable: stopError.retryable,
+        recovery: {
+          ...(stopError.recovery ?? {}),
+          batch: {
+            batch_id: input.batchId,
+            delivered_items: totals.completed + totals.skipped_completed,
+            remaining_items: totals.not_attempted + totals.failed,
+            stopped_at_item: stoppedAtItem,
+            // Same batch id, same file: already completed items dedupe through
+            // the hosted idempotency machinery instead of being paid for twice.
+            resume_command: data.resume_command,
+            ...(resumeNote === null ? {} : { resume_note: resumeNote }),
+            price_remaining_command: batchResumeCommand({
+              commandPrefix: input.commandPrefix,
+              batchSource: input.batchSource,
+              batchId: input.batchId,
+              dryRun: true,
+            }),
+          },
+        },
+      },
+    },
+  };
+}
+
+function batchFailure(input) {
+  return failure(
+    input.command,
+    input.exitCode,
+    input.code,
+    input.message,
+    input.retryable ?? false,
+    input.recovery === undefined || input.recovery === null
+      ? undefined
+      : input.recovery,
+  );
+}
+
+/**
+ * Order-preserving bounded-concurrency map for read-only pricing calls.
+ * Workers pull the next index off a shared cursor, so at most `limit` calls
+ * are in flight; results land at their item's position regardless of
+ * completion order.
+ */
+async function batchMapWithBoundedConcurrency(items, limit, run) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= items.length) {
+          return;
+        }
+        results[index] = await run(items[index]);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Whole-job affordability (#2304 section 2): what the batch costs, how much of
+ * it this identity can actually pay for today, and the exact top-up sized to
+ * the shortfall. Both walls are upfront information — the daily job cap (#2307)
+ * lands here rather than as a surprise at item 51.
+ */
+function batchAffordability(input) {
+  const itemCount = input.perItemCredits.length;
+  const unpricedItems = [];
+  let totalCredits = 0;
+  for (const [position, credits] of input.perItemCredits.entries()) {
+    if (credits === null) {
+      unpricedItems.push(position + 1);
+      continue;
+    }
+    totalCredits += credits;
+  }
+
+  const firstUnpriced = unpricedItems[0] ?? null;
+  let creditCoveredItems = itemCount;
+  if (input.remainingCredits !== null) {
+    creditCoveredItems = 0;
+    let spent = 0;
+    for (const credits of input.perItemCredits) {
+      if (credits === null) {
+        break;
+      }
+      if (spent + credits > input.remainingCredits) {
+        break;
+      }
+      spent += credits;
+      creditCoveredItems += 1;
+    }
+  }
+  if (firstUnpriced !== null) {
+    creditCoveredItems = Math.min(creditCoveredItems, firstUnpriced - 1);
+  }
+
+  const dailyCoveredItems =
+    input.dailyJobsRemaining === null
+      ? null
+      : Math.min(itemCount, Math.max(0, input.dailyJobsRemaining));
+  const coversItems =
+    dailyCoveredItems === null
+      ? creditCoveredItems
+      : Math.min(creditCoveredItems, dailyCoveredItems);
+  const coversAll = coversItems >= itemCount;
+  const shortfallCredits =
+    input.remainingCredits === null
+      ? 0
+      : Math.max(0, totalCredits - input.remainingCredits);
+
+  const limitingFactor = coversAll
+    ? "none"
+    : firstUnpriced !== null && coversItems === firstUnpriced - 1
+      ? "unpriced_item"
+      : dailyCoveredItems !== null && dailyCoveredItems <= creditCoveredItems
+        ? "daily_job_cap"
+        : "credits";
+
+  // With accept_unknown_cost set, the live run proceeds past an unpriced item
+  // (the unknown cost was explicitly accepted), so the dry run reports the item
+  // as unpriceable — it cannot sum past it — without a stop claim or a top-up
+  // sized from a total it could not compute.
+  const unpricedButAttempted =
+    limitingFactor === "unpriced_item" && input.acceptUnknownCost;
+
+  const summary = batchAffordabilitySummary({
+    itemCount,
+    coversItems,
+    coversAll,
+    limitingFactor,
+    remainingCredits: input.remainingCredits,
+    totalCredits,
+    firstUnpriced,
+    unpricedButAttempted,
+  });
+
+  const dailyCapSummary =
+    dailyCoveredItems === null || dailyCoveredItems >= itemCount
+      ? null
+      : `${itemCount} items exceeds today's remaining ${input.dailyJobsRemaining} ${
+          input.dailyJobsRemaining === 1 ? "job" : "jobs"
+        }; the batch stops at item ${dailyCoveredItems + 1}. Funded usage has no daily job cap.`;
+
+  return {
+    total_credits: totalCredits,
+    remaining_credits: input.remainingCredits,
+    covers_items: coversItems,
+    covers_all: coversAll,
+    stops_at_item: coversAll || unpricedButAttempted ? null : coversItems + 1,
+    shortfall_credits: shortfallCredits,
+    daily_jobs_remaining: input.dailyJobsRemaining,
+    daily_jobs_cover_items: dailyCoveredItems,
+    limiting_factor: limitingFactor,
+    unpriced_items: unpricedItems,
+    summary,
+    daily_cap_summary: dailyCapSummary,
+    top_up:
+      shortfallCredits > 0 && !unpricedButAttempted
+        ? {
+            credits: batchTopUpCredits(shortfallCredits),
+            quote_command: batchTopUpQuoteCommand(
+              shortfallCredits,
+              input.commandPrefix,
+            ),
+            docs_url: BATCH_TOP_UP_DOCS_URL,
+          }
+        : null,
+  };
+}
+
+function batchAffordabilitySummary(input) {
+  const itemWord = input.itemCount === 1 ? "item" : "items";
+  if (input.coversAll) {
+    return input.remainingCredits === null
+      ? `${input.itemCount} ${itemWord} cost ${input.totalCredits} credits`
+      : `${input.itemCount} ${itemWord} cost ${input.totalCredits} credits; your ${input.remainingCredits} remaining credits cover all ${input.itemCount}`;
+  }
+  if (
+    input.limitingFactor === "unpriced_item" &&
+    input.firstUnpriced !== null
+  ) {
+    return input.unpricedButAttempted
+      ? `item ${input.firstUnpriced} has no published credit quote, so the batch cannot be priced past it; accept_unknown_cost is set, so a live run will still attempt it at unknown cost`
+      : `item ${input.firstUnpriced} has no published credit quote, so the batch cannot be priced past it; credits cover ${input.coversItems} of ${input.itemCount} ${itemWord}`;
+  }
+  if (input.limitingFactor === "daily_job_cap") {
+    return `today's remaining job cap covers ${input.coversItems} of ${input.itemCount} ${itemWord}; the batch stops at item ${input.coversItems + 1}`;
+  }
+  return `${input.itemCount} ${itemWord} cost ${input.totalCredits} credits; your ${
+    input.remainingCredits ?? 0
+  } remaining credits cover ${input.coversItems} of ${input.itemCount}; the batch stops at item ${input.coversItems + 1}`;
+}
+
+function batchTopUpQuoteCommand(shortfallCredits, commandPrefix) {
+  return `${commandPrefix} credits quote --credits ${batchTopUpCredits(
+    shortfallCredits,
+  )} --payment-method ${BATCH_TOP_UP_PAYMENT_METHOD} --json`;
+}
+
+function batchTopUpCredits(shortfallCredits) {
+  return Math.min(
+    BATCH_CREDIT_QUOTE_MAX_CREDITS,
+    Math.max(BATCH_CREDIT_QUOTE_MIN_CREDITS, Math.ceil(shortfallCredits)),
+  );
+}
+
+function batchResumeCommand(input) {
+  return [
+    input.commandPrefix,
+    "create --batch",
+    input.batchSource === "-"
+      ? BATCH_STDIN_SOURCE_PLACEHOLDER
+      : batchShellQuote(input.batchSource),
+    "--batch-id",
+    input.batchId,
+    ...(input.dryRun ? ["--dry-run"] : []),
+    "--json",
+  ].join(" ");
+}
+
+/** Non-null only for stdin batches: how to make the resume command runnable. */
+function batchResumeNote(batchSource) {
+  return batchSource === "-"
+    ? `this batch was read from stdin; save the same JSON document to a file and replace ${BATCH_STDIN_SOURCE_PLACEHOLDER} with its path (or re-pipe the document with --batch -) before running the resume command`
+    : null;
+}
+
+/** Shell-quote a batch file path so paths with spaces survive copy-paste. */
+function batchShellQuote(value) {
+  return /^[A-Za-z0-9_@%+=:,./-]+$/.test(value)
+    ? value
+    : `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function batchTotals(items) {
+  return {
+    items: items.length,
+    completed: items.filter((item) => item.status === "completed").length,
+    skipped_completed: items.filter(
+      (item) => item.status === "skipped_completed",
+    ).length,
+    failed: items.filter((item) => item.status === "failed").length,
+    not_attempted: items.filter((item) => item.status === "not_attempted")
+      .length,
+    credits: items.reduce(
+      (total, item) => total + (item.credits === null ? 0 : item.credits),
+      0,
+    ),
+  };
+}
+
+/**
+ * Both hosted walls arrive as one code (`QUOTA_EXCEEDED`); the two have
+ * different recovery stories (#2307). The hosted wall body publishes a
+ * structured discriminator (`data.wall.reason` / `data.recovery_reason`, from
+ * the server's quota-topup-recovery block), which is read first so the two
+ * separately-deployed surfaces stay in step even when the prose changes; the
+ * message prefix stays as a fallback for older server deploys.
+ */
+function batchWallReason(input) {
+  if (input.code !== "QUOTA_EXCEEDED") {
+    return null;
+  }
+  const structured = batchWallReasonFromErrorData(input.data);
+  if (structured !== null) {
+    return structured;
+  }
+  return (input.message ?? "").startsWith("daily job limit reached")
+    ? "daily_job_cap_reached"
+    : "credits_depleted";
+}
+
+function batchWallReasonFromErrorData(data) {
+  if (!isRecord(data)) {
+    return null;
+  }
+  const wall = data.wall;
+  const reason =
+    isRecord(wall) && typeof wall.reason === "string"
+      ? wall.reason
+      : typeof data.recovery_reason === "string"
+        ? data.recovery_reason
+        : null;
+  return reason === "daily_job_cap_reached" || reason === "credits_depleted"
+    ? reason
+    : null;
+}
+
+/** `parameters.model_parameters.schema.properties.seed` on a models show payload. */
+function modelSupportsSeed(modelShowData) {
+  if (!isRecord(modelShowData)) {
+    return false;
+  }
+  const model = modelShowData.model;
+  if (!isRecord(model)) {
+    return false;
+  }
+  const parameters = model.parameters;
+  if (!isRecord(parameters)) {
+    return false;
+  }
+  const modelParameters = parameters.model_parameters;
+  if (!isRecord(modelParameters)) {
+    return false;
+  }
+  const schema = modelParameters.schema;
+  if (!isRecord(schema)) {
+    return false;
+  }
+  const properties = schema.properties;
+  return isRecord(properties) && properties.seed !== undefined;
+}
+
+function isBatchIdempotentReplay(envelope) {
+  return (
+    Array.isArray(envelope.warnings) &&
+    envelope.warnings.some(
+      (warning) =>
+        typeof warning === "string" &&
+        warning.startsWith(IDEMPOTENT_REPLAY_WARNING_PREFIX),
+    )
+  );
+}
+
+function batchItemCredits(data) {
+  if (!isRecord(data) || !isRecord(data.cost)) {
+    return null;
+  }
+  const creditPricing = data.cost.credit_pricing;
+  if (!isRecord(creditPricing)) {
+    return null;
+  }
+  const credits = creditPricing.credits_required;
+  return typeof credits === "number" && Number.isFinite(credits)
+    ? credits
+    : null;
+}
+
+function batchItemJobId(data) {
+  return isRecord(data) && typeof data.job_id === "string" ? data.job_id : null;
+}
+
+function batchItemAssetUrl(data) {
+  if (!isRecord(data) || !Array.isArray(data.assets)) {
+    return null;
+  }
+  for (const asset of data.assets) {
+    if (isRecord(asset) && typeof asset.url === "string") {
+      return asset.url;
+    }
+  }
+  return null;
+}
+
+function batchItemModelId(data) {
+  if (!isRecord(data) || !isRecord(data.model)) {
+    return null;
+  }
+  return typeof data.model.id === "string" ? data.model.id : null;
+}
+
+function batchRemainingCredits(data) {
+  if (!isRecord(data) || !isRecord(data.limits)) {
+    return null;
+  }
+  const free = data.limits.remaining_credits;
+  if (typeof free !== "number") {
+    return null;
+  }
+  const paid =
+    typeof data.limits.payment_backed_remaining_credits === "number"
+      ? data.limits.payment_backed_remaining_credits
+      : 0;
+  return free + paid;
+}
+
+function batchDailyJobsRemaining(data) {
+  if (!isRecord(data) || !isRecord(data.daily_jobs)) {
+    return null;
+  }
+  return typeof data.daily_jobs.remaining === "number"
+    ? data.daily_jobs.remaining
+    : null;
+}
+
+function batchQuotaNextActions(data) {
+  if (!isRecord(data)) {
+    return null;
+  }
+  return isRecord(data.next_actions) ? data.next_actions : null;
+}
+
+function batchErrorCode(envelope) {
+  return isRecord(envelope.error) && typeof envelope.error.code === "string"
+    ? envelope.error.code
+    : null;
+}
+
+function batchErrorMessage(envelope) {
+  return isRecord(envelope.error) && typeof envelope.error.message === "string"
+    ? envelope.error.message
+    : null;
+}
+
+function batchErrorRetryable(envelope) {
+  return isRecord(envelope.error) && envelope.error.retryable === true;
+}
+
+function batchErrorRecovery(envelope) {
+  return isRecord(envelope.error) && isRecord(envelope.error.recovery)
+    ? envelope.error.recovery
+    : null;
+}
+
+function batchOptionalNonEmptyString(value, field) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return { ok: false, message: `${field} must be a non-empty string` };
+  }
+  return { ok: true, value: value.trim() };
+}
+
+function batchOptionalStringArray(value, field) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (!Array.isArray(value)) {
+    return { ok: false, message: `${field} must be an array of strings` };
+  }
+  const entries = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      return { ok: false, message: `${field} must be an array of strings` };
+    }
+    entries.push(entry.trim());
+  }
+  return { ok: true, value: entries };
+}
+
+function batchOptionalObject(value, field) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (!isRecord(value)) {
+    return { ok: false, message: `${field} must be a JSON object` };
+  }
+  return { ok: true, value };
+}
+
+function batchOptionalNonNegativeNumber(value, field) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return { ok: false, message: `${field} must be a non-negative number` };
+  }
+  return { ok: true, value };
+}
+
+function batchOptionalPositiveInteger(value, field) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (!Number.isInteger(value) || value < 1) {
+    return { ok: false, message: `${field} must be a positive integer` };
+  }
+  return { ok: true, value };
+}
+
+function batchOptionalBoolean(value, field) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (typeof value !== "boolean") {
+    return { ok: false, message: `${field} must be true or false` };
+  }
+  return { ok: true, value };
+}
+
+function batchOptionalSeed(value, field) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (!Number.isInteger(value) || value < 0) {
+    return { ok: false, message: `${field} must be a non-negative integer` };
+  }
+  return { ok: true, value };
+}
+
+function batchOptionalSeedPolicy(value) {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+  if (value === "fixed" || value === "increment" || value === "random") {
+    return { ok: true, value };
+  }
+  return {
+    ok: false,
+    message: "seed_policy must be fixed, increment, or random",
+  };
 }
 
 async function upload(argv) {

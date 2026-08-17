@@ -96,7 +96,7 @@ edit        many assets  x     video     -> luxin create --model fal.ltx-video-1
 ```
 
 - **Generate vs edit.** If the user wants to modify an existing image while preserving parts of it, that is `edit`. If images are only references for style, composition, mood, or subject, that is `generate`. No input images means `generate`.
-- **Single vs many.** For variants of one prompt use `--output-count N` only after `models show` confirms `max_outputs_per_request > 1` on the selected model. For distinct assets, issue one create call per asset; do not abuse `--output-count` as a multi-prompt batch.
+- **Single vs many.** For variants of one prompt use `--output-count N` only after `models show` confirms `max_outputs_per_request > 1` on the selected model. For distinct assets (storyboard panels, animatic frames, icon packs), put one prompt per item in a batch file and run `create --batch items.json`, with `--dry-run` first: it prices the whole sequence against your remaining credits and today's remaining jobs and tells you where it would stop. Do not abuse `--output-count` as a multi-prompt batch.
 - **Modality.** Image is the default. Video, audio, and 3D run through the same `create` / `edit` loop and return the same envelope shape with the right asset prefix (`image_...`, `video_...`, `audio_...`, mesh under `assets[].url`). Plain `create` without a model still defaults to image; pass `--model` or use `--guide` for non-image modalities.
 
 ## First real run

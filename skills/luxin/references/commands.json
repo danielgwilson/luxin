@@ -197,6 +197,7 @@
           "audio create --guide",
           "3d create --guide",
           "create --dry-run",
+          "create --batch items.json --dry-run",
           "create",
           "image edit",
           "upload",
@@ -480,7 +481,9 @@
           "--element-reference",
           "--reference-image",
           "--model-parameters-json",
-          "--idempotency-key"
+          "--idempotency-key",
+          "--batch",
+          "--batch-id"
         ]
       }
     },
