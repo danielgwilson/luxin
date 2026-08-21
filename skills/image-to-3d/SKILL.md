@@ -31,13 +31,13 @@ Do not bring provider API keys, create provider accounts, run a local model serv
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "turn one product photo into a textured 3d mesh"
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-image-to-3d npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "turn one product photo into a textured 3d mesh"
 ```
 
 ## Main Runtime Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest edit --input image_... --model fal.trellis-image-to-3d --max-estimated-usd-per-image 0.04 --json
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-image-to-3d npm_config_update_notifier=false npx -y luxin-cli@latest edit --input image_... --model fal.trellis-image-to-3d --max-estimated-usd-per-image 0.04 --json
 ```
 
 ## Install This Intent Skill

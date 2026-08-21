@@ -31,13 +31,13 @@ Do not bring provider API keys, create provider accounts, run a local model serv
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model openai.gpt-image-2 --prompt "a compact field camera on a stainless workbench"
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-agent-image-generation npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model openai.gpt-image-2 --prompt "a compact field camera on a stainless workbench"
 ```
 
 ## Main Runtime Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --model openai.gpt-image-2 --prompt "PROMPT" --intent explore --max-estimated-usd-per-image 0.07
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-agent-image-generation npm_config_update_notifier=false npx -y luxin-cli@latest create --model openai.gpt-image-2 --prompt "PROMPT" --intent explore --max-estimated-usd-per-image 0.07
 ```
 
 ## Install This Intent Skill

@@ -31,13 +31,13 @@ Do not bring provider API keys, create provider accounts, run a local model serv
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model openai.gpt-image-2-edit --prompt "replace the background but keep the subject"
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-image-edit npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model openai.gpt-image-2-edit --prompt "replace the background but keep the subject"
 ```
 
 ## Main Runtime Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest edit --input image_... --model openai.gpt-image-2-edit --prompt "EDIT_PROMPT" --max-estimated-usd-per-image 0.25 --json
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-image-edit npm_config_update_notifier=false npx -y luxin-cli@latest edit --input image_... --model openai.gpt-image-2-edit --prompt "EDIT_PROMPT" --max-estimated-usd-per-image 0.25 --json
 ```
 
 ## Install This Intent Skill

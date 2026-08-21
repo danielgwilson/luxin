@@ -31,13 +31,13 @@ Do not bring provider API keys, create provider accounts, run a local model serv
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model fal.ltx-video-13b-distilled --prompt "a ten second handheld product reveal"
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-ai-video-generation npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --model fal.ltx-video-13b-distilled --prompt "a ten second handheld product reveal"
 ```
 
 ## Main Runtime Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --model fal.ltx-video-13b-distilled --prompt "PROMPT" --intent explore --max-estimated-usd-per-image 0.25
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-ai-video-generation npm_config_update_notifier=false npx -y luxin-cli@latest create --model fal.ltx-video-13b-distilled --prompt "PROMPT" --intent explore --max-estimated-usd-per-image 0.25
 ```
 
 ## Install This Intent Skill

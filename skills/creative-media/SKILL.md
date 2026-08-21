@@ -31,13 +31,13 @@ Do not bring provider API keys, create provider accounts, run a local model serv
 ## First Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "a compact field camera on a stainless workbench"
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-creative-media npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "a compact field camera on a stainless workbench"
 ```
 
 ## Main Runtime Command
 
 ```bash
-npm_config_update_notifier=false npx -y luxin-cli@latest models list --available --json
+IMAGE_SKILL_DISCOVERY_SOURCE=skills-sh-creative-media npm_config_update_notifier=false npx -y luxin-cli@latest models list --available --json
 ```
 
 ## Install This Intent Skill
