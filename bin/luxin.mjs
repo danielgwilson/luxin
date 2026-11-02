@@ -473,6 +473,10 @@ const OUTPUT_EXTENSION_BY_MIME_TYPE = new Map([
 
 const CLI_DOWNLOAD_USER_AGENT = `luxin-cli/${VERSION} (+https://luxin.sh/cli.md)`;
 
+// Every alias must resolve to an executable row; a retired target makes
+// `--model ALIAS` select nothing. The imagen4 trio was dropped when #2384
+// retired those Fal endpoints: redirecting a named Google model to another
+// vendor would be a silent substitution. tests/model-alias-rules.test.ts.
 const MODEL_ALIAS_RULES = [
   {
     alias: "nano-banana",
@@ -510,19 +514,24 @@ const MODEL_ALIAS_RULES = [
     ],
   },
   {
-    alias: "imagen4",
-    modelId: "fal.imagen4-preview",
-    synonyms: ["imagen 4", "fal-ai/imagen4/preview"],
+    alias: "grok-imagine-image-2",
+    modelId: "xai.grok-imagine-image-2.0",
+    synonyms: [
+      "grok imagine image 2",
+      "grok-imagine-image-2.0",
+      "grok-imagine-2",
+      "xai/grok-imagine-image-2.0",
+    ],
   },
   {
-    alias: "imagen4-fast",
-    modelId: "fal.imagen4-preview-fast",
-    synonyms: ["imagen 4 fast", "fal-ai/imagen4/preview/fast"],
-  },
-  {
-    alias: "imagen4-ultra",
-    modelId: "fal.imagen4-preview-ultra",
-    synonyms: ["imagen 4 ultra", "fal-ai/imagen4/preview/ultra"],
+    alias: "grok-imagine-image-2-edit",
+    modelId: "xai.grok-imagine-image-2.0-edit",
+    synonyms: [
+      "grok imagine image 2 edit",
+      "grok-imagine-image-2.0-edit",
+      "grok-imagine-image-2.0/edit",
+      "xai/grok-imagine-image-2.0/edit",
+    ],
   },
 ];
 
