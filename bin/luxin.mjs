@@ -74,6 +74,15 @@ const MODELS_BOOLEAN_FLAGS = new Set([
   "token-stdin",
 ]);
 
+// Mirrors OPENAI_QUALITY_MEDIUM_DEFAULT_MODEL_IDS in src/hosted-create-policy.ts.
+const CREATE_GUIDE_OPENAI_QUALITY_MEDIUM_DEFAULT_MODEL_IDS = new Set([
+  "openai.gpt-image-2",
+  "openai.gpt-image-2.5-flare",
+  "openai.gpt-image-2.5-flare-2026-09-08",
+  "openai.gpt-image-2.5-sunburst",
+  "openai.gpt-image-2.5-sunburst-2026-09-08",
+]);
+
 const MODEL_FIND_DEFAULT_LIMIT = 10;
 const MODEL_FIND_MAX_LIMIT = 50;
 const MODEL_FIND_DEFAULT_SORT = "credits";
@@ -4247,7 +4256,7 @@ function createGuideDefaultModelParameters(input) {
   }
 
   if (
-    input.model?.id === "openai.gpt-image-2" &&
+    CREATE_GUIDE_OPENAI_QUALITY_MEDIUM_DEFAULT_MODEL_IDS.has(input.model?.id) &&
     modelParameters.quality === undefined
   ) {
     const mediumPricing = createGuidePricingForModel(
