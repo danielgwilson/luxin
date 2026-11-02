@@ -474,9 +474,12 @@
           "--no-spend",
           "--explain",
           "--dry-run",
+          "--prompt-file",
           "--model",
           "--aspect-ratio",
           "--output-count",
+          "--output",
+          "--overwrite",
           "--element-frontal",
           "--element-reference",
           "--reference-image",
@@ -506,13 +509,16 @@
           "--guide",
           "--dry-run",
           "--prompt",
+          "--prompt-file",
           "--model",
           "--mask",
           "--element-reference",
           "--element-frontal",
           "--reference-image",
           "--model-parameters-json",
-          "--idempotency-key"
+          "--idempotency-key",
+          "--output",
+          "--overwrite"
         ]
       }
     },

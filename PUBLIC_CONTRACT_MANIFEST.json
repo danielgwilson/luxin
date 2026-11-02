@@ -24,8 +24,8 @@
     {
       "source_path": "docs/public-contract/cli.md",
       "public_paths": ["cli.md", "skills/luxin/references/cli.md"],
-      "bytes": 106636,
-      "sha256": "7a74555b03b3a3d250d4ed47bf9701c12bb6bee4dfcc32b8a40bcca6462c6ed5"
+      "bytes": 110109,
+      "sha256": "cb75a70e5e00127a59283fb122245a458c7ae0d8f5492c73b6571da16a12c6cc"
     },
     {
       "source_path": "docs/public-contract/llms.txt",
@@ -39,8 +39,8 @@
         "commands.json",
         "skills/luxin/references/commands.json"
       ],
-      "bytes": 18373,
-      "sha256": "71ed9c9485e1e1413170122b86546afc5829c9054d22ccf89e41834975c8f1cd"
+      "bytes": 18521,
+      "sha256": "d057e41740c7b94a791752f7f51d1cf1c547d8c150ccb1efa03e3696a4ac2a72"
     }
   ]
 }

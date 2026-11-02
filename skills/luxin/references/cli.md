@@ -98,8 +98,14 @@ than omitting the field.
 Prints the full agent guidance that shipped with this CLI version.
 
 ```bash
-luxin skill --json
+luxin skill          # the guidance markdown, nothing to unwrap
+luxin skill --json   # the same bytes in a JSON envelope with revision fields
 ```
+
+Without `--json`, stdout is the markdown itself. When the installed skill
+revision differs from the one this CLI ships, the markdown starts with a
+one-line `> Note:` naming the refresh command. Failures still print a JSON
+envelope.
 
 The published `SKILL.md` at `https://luxin.sh/skill.md` is a ~4KB discovery
 stub: it carries identity, the first command, the safety invariants, and a
@@ -135,12 +141,15 @@ When the value differs from what the running CLI ships, `luxin skill` and
   "skill_refresh": {
     "installed_revision": "0123456789ab",
     "current_revision": "b1dc1284d18d",
-    "refresh_command": "npx skills update luxin"
+    "refresh_command": "npx skills update"
   }
 }
 ```
 
-They also emit one warning line naming the same command. When the revisions
+`refresh_command` carries no skill name because `skills update NAME` filters by
+the installed skill name, and the CLI cannot see which name (`luxin`,
+`image-skill`, or another alias) presented the revision. Unfiltered, it updates
+every installed skill. They also emit one warning line naming the same command. When the revisions
 match, or when `LUXIN_SKILL_REVISION` is unset, the field is omitted entirely.
 
 Refreshing is always a command you choose to run. Luxin never rewrites your
@@ -1423,7 +1432,13 @@ budget guards.
 Generate video through the same `create` command and durable-media loop. For
 video prompts, run `luxin create --guide --prompt "..." --json`; the guide
 can select the executable video model, suggest `--aspect-ratio 16:9`, and emit
-the next create command. Plain `create` without a model still defaults to an
+the next create command. The guide uploads nothing, so for a prompt-only brief
+it picks a text-to-video model. Image-to-video models need a starting image:
+when one is selected (by `--model`, or because no text-to-video model fits),
+`next_command` carries `--reference-image IMAGE_PATH` and
+`next_command_missing_inputs` names it. `create --dry-run` with an
+image-to-video model and no `--reference-image` fails with `BAD_REQUEST`, the
+same answer the live call gives. Plain `create` without a model still defaults to an
 image model, so use the guide or pass the video model id directly. The response
 returns a durable owned `video_...` mp4 asset URL, a `job_id`, and a
 `cost.credit_pricing` receipt just like an image create.
@@ -1562,12 +1577,17 @@ exact no-spend command behavior is exposed as
 as `data.no_spend_evaluation` when the guide is blocked or run with `--explain`.
 
 While the agent can still create, hosted `create` / `edit` responses no longer
-repeat the browserless top-up step tree. `data.next_actions.self_fund` keeps its
-recommendation, urgency, and command fields, but its `workflow` is replaced by
-`workflow_field: "quota.top_up.workflow"`, which points at the copy still
-carried in the same response. Once credits are exhausted and the agent is at the
-wall, `data.next_actions.self_fund.workflow` is inlined again, because that is
-the block the agent has to act on.
+repeat the browserless top-up step tree. With more than 5 credits left and
+nothing blocked, `data.quota.top_up` is the compact shape dry runs use
+(`compacted: true`, every decision field such as `recommended`, `urgency`, and
+both payment methods, plus `detail_command: "luxin quota --json"` and
+`detail_fields` naming what was left out), and `data.next_actions.self_fund`
+keeps its recommendation, urgency, and copy-runnable command fields without a
+workflow. With 5 or fewer credits left, `data.quota.top_up` is the full object
+and `data.next_actions.self_fund` carries
+`workflow_field: "quota.top_up.workflow"`, pointing at that copy. Once credits
+are exhausted and the agent is at the wall, `data.next_actions.self_fund.workflow`
+is inlined, because that is the block the agent has to act on.
 
 Every hosted `create` / `edit` response carries `data.mutation`, so a no-spend
 evaluator reads the proof instead of inferring it from `dry_run` plus a
@@ -1648,7 +1668,9 @@ Minimum success data:
 configuration the request actually ran at. Each entry names one parameter and
 where its value came from: `explicit` is a value you passed, `default_policy` is
 one Luxin filled in, and `provider_default` is a knob nobody sent that the
-provider applies for itself. `keys` and `defaults_applied` only ever described
+provider applies for itself. On Fal image models, `image_size` is translated
+from `--aspect-ratio` when you do not pass it, so it is reported as
+`default_policy` with the preset actually sent (`landscape_16_9` for `16:9`). `keys` and `defaults_applied` only ever described
 the first two, so a request that omitted a parameter had no way to report which
 tier it landed on. Use `effective_parameters` to self-audit the tier and to log
 a reproducible configuration.
@@ -1657,9 +1679,41 @@ When hosted artifact storage is configured, `url` is an Luxin-owned URL.
 Agents should prefer `assets[].url` over provider-origin URLs and should not
 need provider account access to fetch outputs.
 
-Hosted create does not accept `--output-dir`. A future download/fetch command
-may add CLI-side local file convenience while preserving hosted artifact URLs as
-the source of truth.
+Hosted create does not accept `--output-dir`. To save the produced file, pass
+`--output PATH`:
+
+```bash
+luxin create --prompt "a wide hero banner for a coffee shop" \
+  --aspect-ratio 16:9 --output ./hero.png --json
+```
+
+After a successful create or edit the CLI downloads each produced asset to
+PATH (a second and later output get `-2`, `-3` before the extension) and adds
+`data.downloads[]`: `asset_id`, `url`, `requested_output_path`, `output_path`,
+`status` (`written` or `failed`), `bytes`, `content_type`,
+`extension_corrected`, `error`, and `recovery_command`.
+
+The written extension always matches the bytes. If the model returns JPEG and
+PATH ends in `.png`, the file is written as `./hero.jpg`,
+`extension_corrected` is true, and a warning says so. The CLI does not convert
+formats. An existing file is refused before any spend unless `--overwrite` is
+passed. A download that fails after the media was created leaves the paid
+result intact and carries `recovery_command`, a copy-runnable
+`luxin assets get ID --output PATH --json`. With `--dry-run`, `--output` writes
+nothing and `data.downloads` is empty. `--output` and `--prompt-file` use the
+caller's filesystem, so they run only in the CLI client; the hosted
+`POST /v1/cli` refuses them with `DIRECT_CLIENT_REQUIRED`.
+
+`--prompt-file PATH` reads the prompt from a file instead of `--prompt` (pass
+one, not both). It works with `create`, `edit`, and their `--guide` modes, and
+the guide's emitted commands replay `--prompt-file PATH` instead of inlining
+the text. A guide run with `--output PATH` emits a `next_command` that saves to
+the same PATH.
+
+When `--aspect-ratio` is omitted, create plans `1:1` and adds a warning naming
+that default. If the prompt itself asks for a shape ("16:9", "a wide hero
+banner", "an instagram story"), the warning names that ratio and the flag to
+pass.
 
 If provider generation succeeds but artifact storage fails, the command returns
 `ARTIFACT_STORAGE_WRITE_FAILED` with exit `9` and `retryable: false`. Agents
@@ -1688,8 +1742,11 @@ the blocking hosted request:
 ```
 
 stdout carries exactly one JSON document per invocation — the command envelope
-— so `JSON.parse` of captured stdout always works. If an agent combines streams
-with `2>&1`, split stderr diagnostics from the stdout envelope before parsing.
+— so `JSON.parse` of captured stdout always works. When stdout and stderr are
+the same pipe or file and not a terminal (`luxin create --json 2>&1 | ...`),
+the CLI skips this stderr line, so the merged stream is still one JSON
+document. Other stderr output, such as an `npx` notice, can still appear in a
+merged stream; capture stdout alone when parsing.
 An agent that captured only stdout still gets the handle: a live create or edit
 returns `data.idempotency_key` on success, and `error.recovery.idempotency_key`
 plus `error.recovery.recover_command` on any failure. The same recovery

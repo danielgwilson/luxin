@@ -6,6 +6,35 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+Saving files, reading prompts from files, and guides that do not pick a model
+you cannot run.
+
+- New: `--output PATH` (with `--overwrite`) on `create` and `edit` downloads
+  the produced asset to your disk and reports it in `data.downloads[]`. The
+  extension always matches the bytes: ask for `hero.png`, get JPEG, and the
+  file is written as `hero.jpg` with `extension_corrected: true`. An existing
+  file is refused before any spend. CLI downloads now send a `luxin-cli/...`
+  User-Agent.
+- `--prompt-file PATH` works with `create`, `edit`, and their `--guide` modes;
+  the guide's commands replay `--prompt-file` instead of inlining the text.
+  (#2371)
+- `video create --guide` picks a text-to-video model for a prompt-only brief.
+  When an image-to-video model is chosen, `next_command` carries
+  `--reference-image IMAGE_PATH` and `next_command_missing_inputs` names it.
+  (#2357)
+- The guide reads more shape phrasing: "a wide landscape hero banner",
+  "a wide cinematic composition", "hero image", "website banner", "youtube
+  thumbnail" are 16:9; "instagram story", "phone wallpaper", "tiktok video" are
+  9:16. A create without `--aspect-ratio` now warns that it planned the 1:1
+  default and names the ratio the prompt asked for. (#2358)
+- `luxin skill` prints the guidance markdown by default; `luxin skill --json`
+  keeps the envelope.
+- Under `2>&1` a live create/edit no longer adds the stderr `in_flight` line,
+  so the merged stream is one JSON document. Separate stderr still gets it.
+  (#2376)
+- Fixed: `create --guide --model nano-banana` (any model alias) failed with
+  "Cannot access 'MODEL_ALIAS_RULES' before initialization".
+
 ## 0.2.9 - 2026-08-17
 
 Discovery, batch work, and recovery — the release for agents doing real

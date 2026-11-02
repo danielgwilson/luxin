@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomBytes, randomInt } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, fstatSync } from "node:fs";
 import {
   chmod,
   mkdir,
@@ -26,7 +26,10 @@ const SKILL_REVISION = "d79348f396c6";
 const SKILL_GUIDANCE_FILE = "skill-core.md";
 const SKILL_GUIDANCE_SCHEMA = "image-skill.skill-guidance.v1";
 const SKILL_CORE_URL = "https://luxin.sh/skill-core.md";
-const SKILL_REFRESH_COMMAND = "npx skills update luxin";
+// Unfiltered on purpose: `skills update NAME` matches the installed skill
+// name, and most installs carry an alias name (`image-skill`, ...) the CLI
+// cannot see, so a filtered command updated nothing for them.
+const SKILL_REFRESH_COMMAND = "npx skills update";
 const INSTALLED_SKILL_REVISION_ENV = "LUXIN_SKILL_REVISION";
 const INSTALLED_SKILL_REVISION_HEADER = "x-luxin-skill-revision";
 const PACKAGE_NAME = "luxin";
@@ -283,7 +286,16 @@ const GUIDE_NEXT_COMMAND_PLACEHOLDERS = [
     effect_description: "Luxin input asset id",
     example: null,
   },
+  {
+    placeholder: "IMAGE_PATH",
+    flag: "--reference-image",
+    value_description:
+      "Starting image this model animates or builds from: a local file path, an https URL, or a Luxin image_... asset id. Without one, pick a text-to-video model instead.",
+    effect_description: "starting image the model requires",
+    example: "./first-frame.png",
+  },
 ];
+const START_IMAGE_PLACEHOLDER = "IMAGE_PATH";
 
 // ---------------------------------------------------------------------------
 // Explicit aspect-ratio intent (#2213/#2203/#2209, hardened by #2243/#2252).
@@ -375,20 +387,159 @@ function boundOrientationRe(adjective) {
   );
 }
 
+// "wide" is bound like the others, but may skip one descriptive word ("a wide
+// cinematic composition"). It must not fire on "wide-angle" (a lens, not a
+// frame), on "ultra-wide" (handled as 21:9 below), or inside another word.
+const WIDE_BOUND_RE = new RegExp(
+  `(?<!ultra[\\s-]?)(?<![\\w-])wide(?![\\s-]+angle)(?:[\\s-]+[a-z]+)?[\\s-]+(?:${ORIENTATION_NOUN})\\b`,
+  "i",
+);
+
+// `tier`: `orientation` means the brief names the shape ("vertical video",
+// "wide composition"); `usage` means it names a placement whose shape is
+// conventional ("hero banner", "instagram story"). A stated orientation wins
+// over a usage convention, so "a hero image in portrait orientation" is 9:16.
 const ORIENTATION_RULES = [
   // "widescreen" and "ultrawide" are unambiguous on their own -- they have no
   // competing subject/genre meaning.
-  { re: /\bultra[\s-]?wide(?:screen)?\b/i, ratio: "21:9" },
-  { re: /\bwide[\s-]?screen\b/i, ratio: "16:9" },
-  // These four need an orientation noun to bind to.
-  { re: boundOrientationRe("portrait"), ratio: "9:16" },
-  { re: boundOrientationRe("vertical"), ratio: "9:16" },
-  { re: boundOrientationRe("landscape"), ratio: "16:9" },
-  { re: boundOrientationRe("horizontal"), ratio: "16:9" },
-  { re: boundOrientationRe("square"), ratio: "1:1" },
+  { re: /\bultra[\s-]?wide(?:screen)?\b/i, ratio: "21:9", tier: "orientation" },
+  { re: /\bwide[\s-]?screen\b/i, ratio: "16:9", tier: "orientation" },
+  // These need an orientation noun to bind to.
+  { re: WIDE_BOUND_RE, ratio: "16:9", tier: "orientation" },
+  { re: boundOrientationRe("portrait"), ratio: "9:16", tier: "orientation" },
+  { re: boundOrientationRe("vertical"), ratio: "9:16", tier: "orientation" },
+  { re: boundOrientationRe("landscape"), ratio: "16:9", tier: "orientation" },
+  { re: boundOrientationRe("horizontal"), ratio: "16:9", tier: "orientation" },
+  { re: boundOrientationRe("square"), ratio: "1:1", tier: "orientation" },
+  // #2358: placements whose shape is conventional. "a wide landscape hero
+  // banner" stated a wide frame three ways and matched none of the rules
+  // above. Each phrase is a placement, never a bare subject word: bare
+  // "banner" (heraldic banners are tall) and bare "story" (a narrative) stay
+  // out.
+  {
+    re: /\bhero[\s-]+(?:banner|image|section|header|graphic|background)\b/i,
+    ratio: "16:9",
+    tier: "usage",
+  },
+  {
+    re: /\b(?:web(?:site)?|site|page|blog)[\s-]+(?:banner|header)\b/i,
+    ratio: "16:9",
+    tier: "usage",
+  },
+  { re: /\byoutube[\s-]+thumbnail\b/i, ratio: "16:9", tier: "usage" },
+  {
+    re: /\bdesktop[\s-]+(?:wallpaper|background)\b/i,
+    ratio: "16:9",
+    tier: "usage",
+  },
+  {
+    re: /\b(?:phone|mobile|lock[\s-]?screen)[\s-]+(?:wallpaper|background)\b/i,
+    ratio: "9:16",
+    tier: "usage",
+  },
+  {
+    re: /\b(?:instagram|insta|ig|facebook|snapchat|whatsapp|social(?:[\s-]+media)?)[\s-]+(?:story|stories|reels?)\b/i,
+    ratio: "9:16",
+    tier: "usage",
+  },
+  {
+    re: /\b(?:tiktok|youtube[\s-]+shorts?)[\s-]+(?:video|clip|format|post)\b/i,
+    ratio: "9:16",
+    tier: "usage",
+  },
+  {
+    re: /\bstor(?:y|ies)[\s-]+(?:format|size|dimensions|aspect(?:\s+ratio)?|ratio|orientation)\b/i,
+    ratio: "9:16",
+    tier: "usage",
+  },
 ];
 
 const GUIDE_ASPECT_RATIO_PROBE_LIMIT = 8;
+
+const OUTPUT_EXTENSION_BY_MIME_TYPE = new Map([
+  ["image/png", ".png"],
+  ["image/jpeg", ".jpg"],
+  ["image/webp", ".webp"],
+  ["image/gif", ".gif"],
+  ["image/avif", ".avif"],
+  ["video/mp4", ".mp4"],
+  ["video/webm", ".webm"],
+  ["video/quicktime", ".mov"],
+  ["audio/mpeg", ".mp3"],
+  ["audio/wav", ".wav"],
+  ["audio/x-wav", ".wav"],
+  ["model/gltf-binary", ".glb"],
+]);
+
+const CLI_DOWNLOAD_USER_AGENT = `luxin-cli/${VERSION} (+https://luxin.sh/cli.md)`;
+
+const MODEL_ALIAS_RULES = [
+  {
+    alias: "nano-banana",
+    modelId: "fal.nano-banana-2",
+    synonyms: [
+      "nano banana",
+      "fal/nano-banana",
+      "fal-ai/nano-banana",
+      "fal-ai/nano-banana-2",
+    ],
+  },
+  {
+    alias: "nano-banana-edit",
+    modelId: "fal.nano-banana-2-edit",
+    synonyms: [
+      "nano banana edit",
+      "nano-banana-2/edit",
+      "fal/nano-banana/edit",
+      "fal-ai/nano-banana/edit",
+      "fal-ai/nano-banana-2/edit",
+    ],
+  },
+  {
+    alias: "nano-banana-pro",
+    modelId: "fal.nano-banana-pro",
+    synonyms: ["nano banana pro", "fal-ai/nano-banana-pro"],
+  },
+  {
+    alias: "nano-banana-pro-edit",
+    modelId: "fal.nano-banana-pro-edit",
+    synonyms: [
+      "nano banana pro edit",
+      "nano-banana-pro/edit",
+      "fal-ai/nano-banana-pro/edit",
+    ],
+  },
+  {
+    alias: "imagen4",
+    modelId: "fal.imagen4-preview",
+    synonyms: ["imagen 4", "fal-ai/imagen4/preview"],
+  },
+  {
+    alias: "imagen4-fast",
+    modelId: "fal.imagen4-preview-fast",
+    synonyms: ["imagen 4 fast", "fal-ai/imagen4/preview/fast"],
+  },
+  {
+    alias: "imagen4-ultra",
+    modelId: "fal.imagen4-preview-ultra",
+    synonyms: ["imagen 4 ultra", "fal-ai/imagen4/preview/ultra"],
+  },
+];
+
+// Copy of `preferredHostedDefaultVideoCreateModelIds()` in
+// `src/hosted-create-policy.ts`; the guide differential pins the two.
+const PREFERRED_GUIDE_VIDEO_MODEL_IDS = [
+  "fal.ltx-2-3-text-to-video-fast",
+  "fal.pixverse-v6-text-to-video",
+  "fal.luma-agent-ray-v3-2-text-to-video",
+  "fal.minimax-hailuo-02-standard-text-to-video",
+  "fal.veo3-1-lite",
+  "fal.wan-v2-7-text-to-video",
+  "fal.veo3-1-fast",
+  "fal.kling-video-v3-standard-text-to-video",
+  "fal.bytedance-seedance-2-0-fast-text-to-video",
+  "fal.ltx-video-13b-distilled",
+];
 
 const CREATE_BATCH_SCHEMA = "image-skill.create-batch.v1";
 const MAX_BATCH_ITEMS = 200;
@@ -470,7 +621,14 @@ function agentSkillHint(commandPrefix = "luxin") {
 
 const argv = normalizePublicArgv(process.argv.slice(2));
 const result = await main(argv);
-process.stdout.write(`${JSON.stringify(result.envelope, null, 2)}\n`);
+// `luxin skill` without --json prints the guidance markdown itself (#2358:
+// the JSON-wrapped copy was 35.8KB and had to be parsed before it could be
+// read). Every other command, and every failure, prints one JSON envelope.
+process.stdout.write(
+  typeof result.text === "string"
+    ? result.text
+    : `${JSON.stringify(result.envelope, null, 2)}\n`,
+);
 process.exitCode = result.exitCode;
 
 async function main(rawArgv) {
@@ -881,9 +1039,12 @@ function commandHelpByKey(key) {
         "--no-spend",
         "--explain",
         "--dry-run",
+        "--prompt-file",
         "--model",
         "--aspect-ratio",
         "--output-count",
+        "--output",
+        "--overwrite",
         "--element-frontal",
         "--element-reference",
         "--reference-image",
@@ -907,6 +1068,7 @@ function commandHelpByKey(key) {
         "--guide",
         "--dry-run",
         "--prompt",
+        "--prompt-file",
         "--model",
         "--mask",
         "--element-reference",
@@ -914,6 +1076,8 @@ function commandHelpByKey(key) {
         "--reference-image",
         "--model-parameters-json",
         "--idempotency-key",
+        "--output",
+        "--overwrite",
       ],
     },
     assets: {
@@ -1075,7 +1239,7 @@ async function skill(argv) {
   }
 
   const refresh = skillRefresh();
-  return success(
+  const structured = success(
     "luxin skill",
     {
       schema: SKILL_GUIDANCE_SCHEMA,
@@ -1096,6 +1260,11 @@ async function skill(argv) {
     },
     refresh === null ? [] : [skillRefreshWarning(refresh)],
   );
+  // Markdown is the default: the bytes an agent reads, with nothing to
+  // unwrap. `--json` prints the envelope (revision, bytes, refresh fields).
+  return flagBool(args, "json")
+    ? structured
+    : { ...structured, text: skillMarkdownWithRefreshNote(content, refresh) };
 }
 
 /**
@@ -1127,6 +1296,13 @@ function skillRefresh() {
     current_revision: SKILL_REVISION,
     refresh_command: SKILL_REFRESH_COMMAND,
   };
+}
+
+function skillMarkdownWithRefreshNote(content, refresh) {
+  const body = content.endsWith("\n") ? content : `${content}\n`;
+  return refresh === null
+    ? body
+    : `> Note: ${skillRefreshWarning(refresh)}\n\n${body}`;
 }
 
 function skillRefreshWarning(refresh) {
@@ -2990,7 +3166,16 @@ async function createGuide(args, options = {}) {
   }
 
   const apiBaseUrl = apiBase(args);
-  const prompt = flagString(args, "prompt") ?? args.positionals[0] ?? "";
+  // #2371: the guide read --prompt only, so --prompt-file reported
+  // prompt_required while the same text inline was ready_to_create.
+  const promptInput = await readPromptFlags(args, {
+    command,
+    allowPositional: true,
+  });
+  if (!promptInput.ok) {
+    return promptInput.result;
+  }
+  const prompt = promptInput.prompt ?? "";
   const trimmedPrompt = prompt.trim();
   const requestedModelId = flagString(args, "model");
   const requestedProviderId = flagString(args, "provider");
@@ -3578,16 +3763,31 @@ async function createGuide(args, options = {}) {
   for (const field of compactOmittedFields) {
     delete guideData[field];
   }
-  return createGuideSuccess(command, quota?.envelope.actor ?? null, guideData, [
-    ...(plannedDebitUnavailable
-      ? [
-          "create_credit_debit_unavailable: this hosted API does not publish per-aspect-ratio create debits, so the credits above are the model's default-shape quote and may not be what create debits. Run the dry_run command in escape_hatches for the exact figure before budgeting.",
-        ]
-      : []),
-    ...(guideSkillRefresh === null
-      ? []
-      : [skillRefreshWarning(guideSkillRefresh)]),
-  ]);
+  // #2371: replay `--prompt-file` and `--output` instead of inlining the text
+  // or dropping the destination.
+  const replayedGuideData = replayOutputInGuideNextCommand(
+    replayPromptFileInCommands(guideData, {
+      prompt: trimmedPrompt,
+      promptFile: promptInput.promptFile,
+    }),
+    flagString(args, "output"),
+    flagBool(args, "overwrite"),
+  );
+  return createGuideSuccess(
+    command,
+    quota?.envelope.actor ?? null,
+    replayedGuideData,
+    [
+      ...(plannedDebitUnavailable
+        ? [
+            "create_credit_debit_unavailable: this hosted API does not publish per-aspect-ratio create debits, so the credits above are the model's default-shape quote and may not be what create debits. Run the dry_run command in escape_hatches for the exact figure before budgeting.",
+          ]
+        : []),
+      ...(guideSkillRefresh === null
+        ? []
+        : [skillRefreshWarning(guideSkillRefresh)]),
+    ],
+  );
 }
 
 function createGuideSuccess(command, actor, data, warnings = []) {
@@ -3667,13 +3867,10 @@ function selectCreateGuideModel(
     }
   }
   if (createGuideImpliesVideo({ prompt, intent })) {
-    const videoCandidates = eligible.filter(
-      (model) => model?.modality === "video",
-    );
-    const video =
-      videoCandidates.find(
-        (model) => !modelCannotExpressAspectRatio(model, requestedRatio),
-      ) ?? videoCandidates[0];
+    const video = selectGuideVideoModel({
+      candidates: eligible.filter((model) => model?.modality === "video"),
+      requestedAspectRatio: requestedRatio,
+    });
     if (video !== undefined) {
       return chosen(video);
     }
@@ -3736,6 +3933,30 @@ function selectCreateGuideModel(
 // capability UNKNOWN, which never disqualifies a model and never triggers the
 // unsupported-ratio warning.
 
+// #2357: prompt-only video models first (the guide has no starting image to
+// give an image-to-video model), then the curated preference order, then the
+// first that can express a requested ratio. Mirrors `selectGuideVideoModel`
+// in `src/commands.ts`.
+function selectGuideVideoModel({ candidates, requestedAspectRatio }) {
+  const promptOnly = candidates.filter(
+    (model) => !createGuideCreateModelRequiresInputImage(model),
+  );
+  const pool = promptOnly.length > 0 ? promptOnly : candidates;
+  const ordered = [
+    ...PREFERRED_GUIDE_VIDEO_MODEL_IDS.map((modelId) =>
+      pool.find((model) => model?.id === modelId),
+    ).filter((model) => model !== undefined),
+    ...pool.filter(
+      (model) => !PREFERRED_GUIDE_VIDEO_MODEL_IDS.includes(model?.id),
+    ),
+  ];
+  return (
+    ordered.find(
+      (model) => !modelCannotExpressAspectRatio(model, requestedAspectRatio),
+    ) ?? ordered[0]
+  );
+}
+
 function guideAspectRatioProbeModelIds({ models, selected, intent, routing }) {
   const ids = [];
   if (typeof selected?.id === "string") {
@@ -3745,9 +3966,9 @@ function guideAspectRatioProbeModelIds({ models, selected, intent, routing }) {
   // sole open question is what the current pick can express, so asking about
   // the alternatives would be a round trip spent on an answer nothing reads.
   if (routing) {
-    for (const modelId of preferredCreateGuideModelIds(
-      createGuideIntentClass(intent),
-    )) {
+    for (const modelId of selected?.modality === "video"
+      ? PREFERRED_GUIDE_VIDEO_MODEL_IDS
+      : preferredCreateGuideModelIds(createGuideIntentClass(intent))) {
       if (models.some((model) => model?.id === modelId)) {
         ids.push(modelId);
       }
@@ -3814,59 +4035,6 @@ async function guideModelsWithAspectRatioCapabilities({
     };
   });
 }
-
-const MODEL_ALIAS_RULES = [
-  {
-    alias: "nano-banana",
-    modelId: "fal.nano-banana-2",
-    synonyms: [
-      "nano banana",
-      "fal/nano-banana",
-      "fal-ai/nano-banana",
-      "fal-ai/nano-banana-2",
-    ],
-  },
-  {
-    alias: "nano-banana-edit",
-    modelId: "fal.nano-banana-2-edit",
-    synonyms: [
-      "nano banana edit",
-      "nano-banana-2/edit",
-      "fal/nano-banana/edit",
-      "fal-ai/nano-banana/edit",
-      "fal-ai/nano-banana-2/edit",
-    ],
-  },
-  {
-    alias: "nano-banana-pro",
-    modelId: "fal.nano-banana-pro",
-    synonyms: ["nano banana pro", "fal-ai/nano-banana-pro"],
-  },
-  {
-    alias: "nano-banana-pro-edit",
-    modelId: "fal.nano-banana-pro-edit",
-    synonyms: [
-      "nano banana pro edit",
-      "nano-banana-pro/edit",
-      "fal-ai/nano-banana-pro/edit",
-    ],
-  },
-  {
-    alias: "imagen4",
-    modelId: "fal.imagen4-preview",
-    synonyms: ["imagen 4", "fal-ai/imagen4/preview"],
-  },
-  {
-    alias: "imagen4-fast",
-    modelId: "fal.imagen4-preview-fast",
-    synonyms: ["imagen 4 fast", "fal-ai/imagen4/preview/fast"],
-  },
-  {
-    alias: "imagen4-ultra",
-    modelId: "fal.imagen4-preview-ultra",
-    synonyms: ["imagen 4 ultra", "fal-ai/imagen4/preview/ultra"],
-  },
-];
 
 function resolveModelLookup(requestedModelId, models) {
   const requested = String(requestedModelId ?? "").trim();
@@ -4394,15 +4562,22 @@ function classifyRequestedAspectRatio(input) {
     return { aspectRatio: null, signal: null };
   }
 
-  const implied = new Set();
-  for (const rule of ORIENTATION_RULES) {
-    if (rule.re.test(text)) {
-      implied.add(rule.ratio);
+  // A stated orientation outranks a usage convention; within a tier,
+  // disagreement means the brief is ambiguous and nothing is suggested.
+  for (const tier of ["orientation", "usage"]) {
+    const implied = new Set();
+    for (const rule of ORIENTATION_RULES) {
+      if (rule.tier === tier && rule.re.test(text)) {
+        implied.add(rule.ratio);
+      }
     }
-  }
-  if (implied.size === 1) {
-    const [only] = [...implied];
-    return { aspectRatio: only ?? null, signal: "orientation_phrase" };
+    if (implied.size === 1) {
+      const [only] = [...implied];
+      return { aspectRatio: only ?? null, signal: "orientation_phrase" };
+    }
+    if (implied.size > 1) {
+      return { aspectRatio: null, signal: null };
+    }
   }
   return { aspectRatio: null, signal: null };
 }
@@ -4526,6 +4701,23 @@ function createGuideSelectedModelRequiresInputImage(model) {
   return (
     Array.isArray(model?.supports) &&
     (model.supports.includes("edit") || model.supports.includes("variation"))
+  );
+}
+
+// #2357: image-to-video models publish `supports: ["create"]` but cannot run
+// without a starting image. The compact `/v1/models` row carries that fact as
+// the "input-image" task tag (derived from `media.input.images.required`), so
+// read the tag, and `media` only when a detail payload hydrated it.
+function createGuideCreateModelRequiresInputImage(model) {
+  return (
+    !createGuideSelectedModelRequiresInputImage(model) &&
+    Array.isArray(model?.supports) &&
+    model.supports.includes("create") &&
+    ((Array.isArray(model?.task_tags) &&
+      (model.task_tags.includes("input-image") ||
+        model.task_tags.includes("reference-required"))) ||
+      model?.media?.input?.images?.required === true ||
+      model?.media?.input?.references?.required === true)
   );
 }
 
@@ -5991,6 +6183,9 @@ function createGuideNextCommand(stage, input) {
     idempotencyKey: `create-guide-${Date.now()}-${randomBytes(4).toString("hex")}`,
     apiBaseUrl: input.apiBaseUrl,
     commandPrefix: input.commandPrefix,
+    requiresStartImage: createGuideCreateModelRequiresInputImage(
+      input.selected,
+    ),
   });
 }
 
@@ -6048,6 +6243,9 @@ function createGuideEscapeHatches(input) {
               dryRun: true,
               apiBaseUrl: input.apiBaseUrl,
               commandPrefix: input.commandPrefix,
+              requiresStartImage: createGuideCreateModelRequiresInputImage(
+                input.selected,
+              ),
             }),
   };
 }
@@ -6196,6 +6394,10 @@ function renderCreateCommand(input) {
       : ["--provider", shellQuote(input.providerId)]),
     "--model",
     shellQuote(input.modelId),
+    // #2357: the model creates from a starting image.
+    ...(input.requiresStartImage === true
+      ? ["--reference-image", START_IMAGE_PLACEHOLDER]
+      : []),
     "--prompt",
     shellQuote(input.prompt),
     "--intent",
@@ -6337,6 +6539,16 @@ async function create(argv) {
   if (!prompt.ok) {
     return prompt.result;
   }
+  const output = createOutputFlag(args, "luxin create");
+  if (!output.ok) {
+    return output.result;
+  }
+  if (output.path !== null && !flagBool(args, "dry-run")) {
+    const blocked = await outputPathBlocked(output, "luxin create");
+    if (blocked !== null) {
+      return blocked;
+    }
+  }
   let referenceToken = null;
   if (flagBool(args, "dry-run") && hasReferenceFlags(args)) {
     referenceToken = await resolveToken(args);
@@ -6443,10 +6655,21 @@ async function create(argv) {
     commandPrefix,
   );
   await clearInFlightSpendForResult(inFlight, result);
-  return withLiveSpendRecoveryHandle(result, {
-    operation: "create",
-    idempotencyKey: isLiveSpend ? idempotencyKey : null,
-  });
+  return withCreateOutputDownloads(
+    withDefaultAspectRatioNotice(
+      withLiveSpendRecoveryHandle(result, {
+        operation: "create",
+        idempotencyKey: isLiveSpend ? idempotencyKey : null,
+      }),
+      {
+        aspectRatioFlag: flagString(args, "aspect-ratio"),
+        plannedAspectRatio: flagString(args, "aspect-ratio") ?? "1:1",
+        prompt: prompt.value,
+        intent: flagString(args, "intent"),
+      },
+    ),
+    { output, dryRun: flagBool(args, "dry-run") },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -7875,6 +8098,16 @@ async function edit(argv) {
   if (!prompt.ok) {
     return prompt.result;
   }
+  const output = createOutputFlag(args, "luxin edit");
+  if (!output.ok) {
+    return output.result;
+  }
+  if (output.path !== null && !flagBool(args, "dry-run")) {
+    const blocked = await outputPathBlocked(output, "luxin edit");
+    if (blocked !== null) {
+      return blocked;
+    }
+  }
   const token = await resolveToken(args);
   if (!token.ok) {
     return token.result;
@@ -7970,10 +8203,328 @@ async function edit(argv) {
     commandPrefix,
   );
   await clearInFlightSpendForResult(inFlight, result);
-  return withLiveSpendRecoveryHandle(result, {
-    operation: "edit",
-    idempotencyKey: isLiveSpend ? idempotencyKey : null,
+  return withCreateOutputDownloads(
+    withLiveSpendRecoveryHandle(result, {
+      operation: "edit",
+      idempotencyKey: isLiveSpend ? idempotencyKey : null,
+    }),
+    { output, dryRun: flagBool(args, "dry-run") },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// `--output PATH` / `--overwrite` on create and edit (save-to-file report:
+// agents asked for ./hero.png needed curl, ffmpeg, and a Python retry that
+// media.luxin.sh's CDN refused). Mirrors `src/cli-local-output.ts`; keep the
+// two in step.
+// ---------------------------------------------------------------------------
+
+function outputExtensionForMimeType(mimeType) {
+  const normalized =
+    typeof mimeType === "string"
+      ? mimeType.split(";")[0].trim().toLowerCase()
+      : null;
+  return normalized === null
+    ? null
+    : (OUTPUT_EXTENSION_BY_MIME_TYPE.get(normalized) ?? null);
+}
+
+function outputExtensionFromUrl(url) {
+  try {
+    const extension = extname(new URL(url).pathname).toLowerCase();
+    return /^\.[a-z0-9]{1,10}$/.test(extension) ? extension : null;
+  } catch {
+    return null;
+  }
+}
+
+function canonicalOutputExtension(extension) {
+  const lower = extension.toLowerCase();
+  return lower === ".jpeg" || lower === ".jpe" ? ".jpg" : lower;
+}
+
+// The extension is the asset's TRUE type: a request for hero.png that gets
+// JPEG bytes writes hero.jpg and says so, never a mislabelled hero.png.
+function resolveOutputPath({ requestedPath, index, trueExtension }) {
+  const requestedExtension = extname(requestedPath);
+  const stem =
+    requestedExtension.length === 0
+      ? requestedPath
+      : requestedPath.slice(0, -requestedExtension.length);
+  const numberedStem = index === 0 ? stem : `${stem}-${index + 1}`;
+  if (trueExtension === null) {
+    return {
+      outputPath: `${numberedStem}${requestedExtension}`,
+      extensionCorrected: false,
+    };
+  }
+  const matches =
+    canonicalOutputExtension(requestedExtension) ===
+    canonicalOutputExtension(trueExtension);
+  return {
+    outputPath: `${numberedStem}${matches ? requestedExtension : trueExtension}`,
+    extensionCorrected: !matches,
+  };
+}
+
+function createOutputFlag(args, command) {
+  const overwrite = flagBool(args, "overwrite");
+  if (!args.flags.has("output")) {
+    return overwrite
+      ? {
+          ok: false,
+          result: invalid(
+            command,
+            "--overwrite only applies with --output PATH",
+          ),
+        }
+      : { ok: true, path: null, overwrite };
+  }
+  const path = flagString(args, "output");
+  if (path === null || path.trim().length === 0) {
+    return {
+      ok: false,
+      result: invalid(command, "--output requires a file path"),
+    };
+  }
+  return { ok: true, path: path.trim(), overwrite };
+}
+
+// Refuse before spend when the requested path is already taken.
+async function outputPathBlocked(output, command) {
+  if (output.overwrite || !(await fileExists(output.path))) {
+    return null;
+  }
+  return failure(
+    command,
+    9,
+    "OUTPUT_EXISTS",
+    `--output path already exists: ${output.path}; pass --overwrite to replace it, or choose another path. Nothing was created.`,
+    false,
+  );
+}
+
+function failedOutputDownload(input) {
+  return {
+    asset_id: input.assetId,
+    url: input.url,
+    requested_output_path: input.requestedPath,
+    output_path: input.outputPath,
+    status: "failed",
+    bytes: null,
+    content_type: null,
+    extension_corrected: false,
+    error: { code: input.code, message: input.message },
+    recovery_command: `luxin assets get ${input.assetId ?? input.url} --output ${JSON.stringify(input.outputPath)} --json`,
+  };
+}
+
+// Never throws: a failed download leaves the paid result intact and reports a
+// copy-runnable `assets get` recovery instead.
+async function downloadCreateOutputs({ assets, requestedPath, overwrite }) {
+  const downloadable = (Array.isArray(assets) ? assets : []).filter(
+    (asset) =>
+      typeof asset?.url === "string" &&
+      asset.url.length > 0 &&
+      asset.planned !== true &&
+      asset.placeholder !== true &&
+      asset.downloadable !== false,
+  );
+  const warnings = [];
+  if (downloadable.length === 0) {
+    warnings.push(
+      "--output wrote nothing: the result has no downloadable asset yet. If a job id is present, run luxin jobs wait JOB_ID --json and then luxin assets get ASSET_ID --output PATH --json.",
+    );
+    return { downloads: [], warnings };
+  }
+  const downloads = [];
+  for (const [index, asset] of downloadable.entries()) {
+    const assetId = typeof asset.asset_id === "string" ? asset.asset_id : null;
+    const declaredMime =
+      typeof asset.mime_type === "string" ? asset.mime_type : null;
+    let response;
+    try {
+      response = await fetch(asset.url, {
+        headers: { "user-agent": CLI_DOWNLOAD_USER_AGENT },
+      });
+    } catch (error) {
+      const planned = resolveOutputPath({
+        requestedPath,
+        index,
+        trueExtension:
+          outputExtensionForMimeType(declaredMime) ??
+          outputExtensionFromUrl(asset.url),
+      });
+      downloads.push(
+        failedOutputDownload({
+          assetId,
+          url: asset.url,
+          requestedPath,
+          outputPath: planned.outputPath,
+          code: "ASSET_DOWNLOAD_FAILED",
+          message: `download failed: ${error instanceof Error ? error.message : "network error"}`,
+        }),
+      );
+      continue;
+    }
+    const contentType =
+      response.headers.get("content-type")?.split(";")[0]?.trim() ?? null;
+    const resolved = resolveOutputPath({
+      requestedPath,
+      index,
+      trueExtension:
+        outputExtensionForMimeType(contentType) ??
+        outputExtensionForMimeType(declaredMime) ??
+        outputExtensionFromUrl(asset.url),
+    });
+    if (!response.ok) {
+      downloads.push(
+        failedOutputDownload({
+          assetId,
+          url: asset.url,
+          requestedPath,
+          outputPath: resolved.outputPath,
+          code: "ASSET_DOWNLOAD_FAILED",
+          message: `download failed with HTTP ${response.status}`,
+        }),
+      );
+      continue;
+    }
+    let bytes;
+    try {
+      bytes = Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      // The connection can drop after the headers arrive. The media is paid
+      // for and stored, so report a failed download with its recovery
+      // instead of losing the whole result.
+      downloads.push(
+        failedOutputDownload({
+          assetId,
+          url: asset.url,
+          requestedPath,
+          outputPath: resolved.outputPath,
+          code: "ASSET_DOWNLOAD_FAILED",
+          message: `download interrupted: ${error instanceof Error ? error.message : "body read failed"}`,
+        }),
+      );
+      continue;
+    }
+    try {
+      await mkdir(dirname(resolve(resolved.outputPath)), { recursive: true });
+      await writeFile(resolved.outputPath, bytes, {
+        flag: overwrite ? "w" : "wx",
+      });
+    } catch (error) {
+      const code = error?.code ?? "write_failed";
+      downloads.push(
+        failedOutputDownload({
+          assetId,
+          url: asset.url,
+          requestedPath,
+          outputPath: resolved.outputPath,
+          code: code === "EEXIST" ? "OUTPUT_EXISTS" : "OUTPUT_WRITE_FAILED",
+          message:
+            code === "EEXIST"
+              ? `output file already exists: ${resolved.outputPath}; pass --overwrite to replace it`
+              : `could not write ${resolved.outputPath} (${code})`,
+        }),
+      );
+      continue;
+    }
+    if (resolved.extensionCorrected) {
+      warnings.push(
+        `--output asked for ${requestedPath} but the asset is ${contentType ?? declaredMime ?? "a different type"}; wrote ${resolved.outputPath} so the extension matches the bytes. Convert it yourself if you need the other format.`,
+      );
+    }
+    downloads.push({
+      asset_id: assetId,
+      url: asset.url,
+      requested_output_path: requestedPath,
+      output_path: resolved.outputPath,
+      status: "written",
+      bytes: bytes.byteLength,
+      content_type: contentType ?? declaredMime,
+      extension_corrected: resolved.extensionCorrected,
+      error: null,
+      recovery_command: null,
+    });
+  }
+  const failed = downloads.filter((download) => download.status === "failed");
+  if (failed.length > 0) {
+    warnings.push(
+      `--output: ${failed.length} of ${downloads.length} download(s) failed after the media was created; nothing was charged twice. Retry with the recovery_command in data.downloads.`,
+    );
+  }
+  return { downloads, warnings };
+}
+
+function appendResultWarnings(result, warnings) {
+  const existing = Array.isArray(result.envelope.warnings)
+    ? result.envelope.warnings
+    : [];
+  return {
+    ...result,
+    envelope: {
+      ...result.envelope,
+      warnings: [
+        ...existing,
+        ...warnings.filter((warning) => !existing.includes(warning)),
+      ],
+    },
+  };
+}
+
+async function withCreateOutputDownloads(result, { output, dryRun }) {
+  if (output.path === null || result.envelope?.ok !== true) {
+    return result;
+  }
+  const data = result.envelope.data;
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    return result;
+  }
+  if (dryRun) {
+    return appendResultWarnings(
+      {
+        ...result,
+        envelope: { ...result.envelope, data: { ...data, downloads: [] } },
+      },
+      [
+        "--output wrote nothing: a dry run plans the job without producing media. Run the same command without --dry-run to save the file.",
+      ],
+    );
+  }
+  const { downloads, warnings } = await downloadCreateOutputs({
+    assets: data.assets,
+    requestedPath: output.path,
+    overwrite: output.overwrite,
   });
+  return appendResultWarnings(
+    {
+      ...result,
+      envelope: { ...result.envelope, data: { ...data, downloads } },
+    },
+    warnings,
+  );
+}
+
+// #2358: name the planned default ratio, and the ratio the brief implies when
+// it differs. Mirrors `withDefaultAspectRatioNotice` in `src/commands.ts`.
+function withDefaultAspectRatioNotice(
+  result,
+  { aspectRatioFlag, plannedAspectRatio, prompt, intent },
+) {
+  if (aspectRatioFlag !== null || result.envelope?.ok !== true) {
+    return result;
+  }
+  const implied = requestedAspectRatioFromBrief({
+    prompt: prompt ?? "",
+    intent,
+  });
+  return appendResultWarnings(result, [
+    implied !== null && implied !== plannedAspectRatio
+      ? `no --aspect-ratio was passed, so this planned the ${plannedAspectRatio} default; the prompt asks for ${implied}. Re-run with --aspect-ratio ${implied} to get that shape.`
+      : `no --aspect-ratio was passed, so this planned the ${plannedAspectRatio} default. Pass --aspect-ratio (for example 16:9 or 9:16) to choose the shape.`,
+  ]);
 }
 
 async function assets(argv) {
@@ -9154,9 +9705,17 @@ function withLiveSpendRecoveryHandle(result, input) {
         recovery: {
           ...recovery,
           idempotency_key: recovery.idempotency_key ?? idempotencyKey,
-          recover_command:
-            recovery.recover_command ??
-            recoverCommandFor(operation, idempotencyKey),
+          // A non-retryable failure (BAD_REQUEST, MODERATION_BLOCKED,
+          // IMAGE_TOO_SMALL, PROVIDER_VALIDATION_ERROR) is fixed by changing
+          // the request, so a "re-run with the same arguments" command would
+          // contradict `recovery.action`. Keep the key, skip the command.
+          ...(error.retryable === false
+            ? {}
+            : {
+                recover_command:
+                  recovery.recover_command ??
+                  recoverCommandFor(operation, idempotencyKey),
+              }),
         },
       },
     },
@@ -9375,6 +9934,15 @@ async function recordInFlightSpend(input) {
   // stderr only — stdout carries exactly one JSON document per invocation
   // (#2240/#2311), so this diagnostic must never join it. Even a killed
   // process leaves this line in the agent's captured transcript.
+  //
+  // #2376: an agent that runs `luxin create --json 2>&1` merges the two
+  // streams, and this line then reaches its JSON parser as a second document
+  // ("Extra data: line 2"). When stdout and stderr are the same non-terminal
+  // file or pipe, skip it: the on-disk record above and the envelope's
+  // `idempotency_key` / recovery block carry the same handle.
+  if (stdoutAndStderrShareTarget()) {
+    return recordedPath;
+  }
   try {
     process.stderr.write(
       `${JSON.stringify({
@@ -9390,6 +9958,22 @@ async function recordInFlightSpend(input) {
     // diagnostics are best-effort; never block the spend on a write failure.
   }
   return recordedPath;
+}
+
+// True when fd 1 and fd 2 are the same pipe or file (`2>&1`) and stderr is not
+// an interactive terminal. A terminal shows both streams to a human, who is
+// not parsing JSON, so the notice stays there.
+function stdoutAndStderrShareTarget() {
+  try {
+    if (process.stderr.isTTY) {
+      return false;
+    }
+    const out = fstatSync(1);
+    const err = fstatSync(2);
+    return out.dev === err.dev && out.ino === err.ino;
+  } catch {
+    return false;
+  }
 }
 
 async function clearInFlightSpend(path) {
@@ -9663,6 +10247,99 @@ function stripeCheckoutCompactUrl(checkoutUrl) {
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+// `--prompt` or `--prompt-file`, never both; raw text, callers trim. Mirrors
+// `readPromptFlags` in `src/cli-local-output.ts`.
+async function readPromptFlags(args, { command, allowPositional }) {
+  const hasPromptFile = args.flags.has("prompt-file");
+  const promptFile = flagString(args, "prompt-file");
+  if (hasPromptFile && (promptFile === null || promptFile.length === 0)) {
+    return {
+      ok: false,
+      result: invalid(command, "--prompt-file requires a path"),
+    };
+  }
+  const prompt = flagString(args, "prompt");
+  if (prompt !== null && promptFile !== null) {
+    return {
+      ok: false,
+      result: invalid(
+        command,
+        "provide either --prompt or --prompt-file, not both",
+      ),
+    };
+  }
+  if (promptFile !== null) {
+    try {
+      return {
+        ok: true,
+        prompt: await readFile(promptFile, "utf8"),
+        promptFile,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        result: invalid(
+          command,
+          `--prompt-file ${JSON.stringify(promptFile)} could not be read (${error?.code ?? "unreadable"})`,
+        ),
+      };
+    }
+  }
+  return {
+    ok: true,
+    prompt: prompt ?? (allowPositional ? (args.positionals[0] ?? null) : null),
+    promptFile: null,
+  };
+}
+
+// #2371: commands the guide emits replay `--prompt-file PATH` instead of
+// inlining the text. Rendered with the inline prompt first (one renderer for
+// both cases), then the exact rendered token is swapped. Mirrors
+// `replayPromptFileInCommands` in `src/cli-local-output.ts`.
+function replayPromptFileInCommands(value, { prompt, promptFile }) {
+  if (promptFile === null || prompt.length === 0) {
+    return value;
+  }
+  const inline = `--prompt ${shellQuote(prompt)}`;
+  const replay = `--prompt-file ${shellQuote(promptFile)}`;
+  const rewrite = (node) => {
+    if (typeof node === "string") {
+      return node.split(inline).join(replay);
+    }
+    if (Array.isArray(node)) {
+      return node.map(rewrite);
+    }
+    if (node !== null && typeof node === "object") {
+      return Object.fromEntries(
+        Object.entries(node).map(([key, child]) => [key, rewrite(child)]),
+      );
+    }
+    return node;
+  };
+  return rewrite(value);
+}
+
+// A guide run with `--output PATH` emits a live create/edit `next_command`
+// that saves to the same PATH. Mirrors `replayOutputInGuideNextCommand`.
+function replayOutputInGuideNextCommand(data, outputPath, overwrite = false) {
+  const command = data?.next_command;
+  if (
+    typeof outputPath !== "string" ||
+    outputPath.trim().length === 0 ||
+    typeof command !== "string" ||
+    !/ (?:create|edit) /.test(command) ||
+    / --(?:guide|dry-run)\b/.test(command) ||
+    / --output\b/.test(command) ||
+    !command.endsWith(" --json")
+  ) {
+    return data;
+  }
+  return {
+    ...data,
+    next_command: `${command.slice(0, -" --json".length)} --output ${shellQuote(outputPath.trim())}${overwrite ? " --overwrite" : ""} --json`,
+  };
 }
 
 async function promptValue(args) {
@@ -10619,7 +11296,9 @@ async function downloadUrl(url, outputPath, options) {
       ),
     };
   }
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: { "user-agent": CLI_DOWNLOAD_USER_AGENT },
+  });
   if (!response.ok || response.body === null) {
     return {
       ok: false,
