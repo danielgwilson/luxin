@@ -58,6 +58,13 @@ codex plugin add luxin@luxin
 
 Update with `codex plugin marketplace upgrade luxin`.
 
+Codex blocks network in its default sandbox, and Luxin calls
+`https://api.luxin.sh`. Start Codex with network on:
+
+```bash
+codex -s workspace-write -c sandbox_workspace_write.network_access=true
+```
+
 If the Codex/global skill target is read-only or missing, keep the tracked slug
 install and put agent skill state in a writable workspace home before running
 any `npx skills add ... -a codex` command. The skills.sh Codex adapter writes

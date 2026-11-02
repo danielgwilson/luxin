@@ -19,6 +19,11 @@ on:
         type: string
         required: false
         default: "latest,image-generation,text-to-image,image-to-image,image-editing,video-generation,audio-generation,image-to-3d,creative-media,zero-setup"
+      changelog:
+        description: Optional changelog text shown on every ClawHub listing this run publishes.
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -39,6 +44,7 @@ jobs:
         owner: danielgwilson,
         skill_path: "${{ inputs.skill_path }}",
         tags: "${{ inputs.tags }}",
+        changelog: "${{ inputs.changelog }}",
         dry_run: false,
       }
     secrets: { clawhub_token: "${{ secrets.CLAWHUB_TOKEN }}" }
@@ -48,6 +54,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Every folder under skills/ except slugs another ClawHub publisher
+        # already holds (ai-image-generation, ai-video-generation, image-edit,
+        # image-generation). public-repo:check fails when a skill folder is
+        # missing from this list or a colliding slug is added, so no listing is
+        # left on stale content. ClawHub bumps the patch version only when the
+        # folder changed.
         include:
           - skill_path: skills/luxin
             tags: latest,image-generation,text-to-image,image-to-image,image-editing,video-generation,audio-generation,image-to-3d,creative-media,zero-setup
@@ -57,6 +69,8 @@ jobs:
             tags: latest,audio-generation,music-generation,sound-generation,creative-media,zero-setup
           - skill_path: skills/creative-media
             tags: latest,creative-media,image-generation,image-editing,video-generation,audio-generation,image-to-3d,zero-setup
+          - skill_path: skills/image-skill
+            tags: latest,image-skill,image-generation,image-editing,text-to-image,creative-media,zero-setup
           - skill_path: skills/image-to-3d
             tags: latest,image-to-3d,3d-generation,glb,creative-media,zero-setup
     uses: openclaw/clawhub/.github/workflows/skill-publish.yml@main
@@ -65,6 +79,7 @@ jobs:
         owner: danielgwilson,
         skill_path: "${{ matrix.skill_path }}",
         tags: "${{ matrix.tags }}",
+        changelog: "${{ inputs.changelog }}",
         dry_run: false,
       }
     secrets: { clawhub_token: "${{ secrets.CLAWHUB_TOKEN }}" }
@@ -72,5 +87,10 @@ jobs:
   publish-catalog:
     if: inputs.mode == 'publish-catalog'
     uses: openclaw/clawhub/.github/workflows/skill-publish.yml@main
-    with: { owner: danielgwilson, dry_run: false }
+    with:
+      {
+        owner: danielgwilson,
+        changelog: "${{ inputs.changelog }}",
+        dry_run: false,
+      }
     secrets: { clawhub_token: "${{ secrets.CLAWHUB_TOKEN }}" }

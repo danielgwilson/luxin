@@ -7,7 +7,7 @@ metadata:
   docs: https://luxin.sh/llms.txt
   status: preview-contract
   cli: luxin
-  skill_revision: d79348f396c6
+  skill_revision: 88f5943969e2
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
@@ -75,12 +75,12 @@ matches the installed version:
 npm_config_update_notifier=false npx -y luxin-cli@latest skill
 ```
 
-This copy is skill revision `d79348f396c6`. Export it so the CLI can say when
+This copy is skill revision `88f5943969e2`. Export it so the CLI can say when
 the copy on disk no longer matches the guidance it ships, and refresh when it
 says so. `skills update` matches the installed name, so name this skill:
 
 ```bash
-export LUXIN_SKILL_REVISION=d79348f396c6
+export LUXIN_SKILL_REVISION=88f5943969e2
 npx skills update image-to-3d
 ```
 

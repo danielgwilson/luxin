@@ -6,20 +6,20 @@
   "public_repo": "danielgwilson/luxin",
   "package_name": "luxin-cli",
   "package_version": "0.2.9",
-  "skill_revision": "d79348f396c6",
+  "skill_revision": "88f5943969e2",
   "note": "Generated from private upstream public contracts. Do not edit by hand.",
   "files": [
     {
       "source_path": "docs/public-contract/skill.md",
       "public_paths": ["skill.md", "skills/luxin/SKILL.md"],
-      "bytes": 4038,
-      "sha256": "dfa10c843e69d9c38a8b97394508d3a63955976d4565298c71934b8ce86f2fb9"
+      "bytes": 4087,
+      "sha256": "e8413e02a2ad3275899ae7d181d64a9d053e9ed5c2befe14c038911503d2f96e"
     },
     {
       "source_path": "docs/public-contract/skill-core.md",
       "public_paths": ["skill-core.md"],
-      "bytes": 34873,
-      "sha256": "0477814ca728cb0aeaa792bdb0ede3d7bd0ab459ce1af919c7479c1c405ae6ef"
+      "bytes": 35176,
+      "sha256": "a495c4bdb358f24a376192f32c9594700bc184ce20023d7a9b8a0030f7c5118a"
     },
     {
       "source_path": "docs/public-contract/cli.md",

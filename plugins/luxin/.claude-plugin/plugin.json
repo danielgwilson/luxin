@@ -1,7 +1,7 @@
 {
   "name": "luxin",
-  "version": "0.2.9+dafc610f6db3",
-  "description": "Generate images, video, audio, and 3D models from Claude Code or Codex without an API key or a billing account. Ships the Luxin skill: text-to-image, image editing, text-to-video, text-to-audio, and image-to-3D through one hosted CLI, with hosted media URLs that do not expire, recoverable jobs, and a cost receipt on every call.",
+  "version": "0.2.9+35232697b275",
+  "description": "Generate images, video, audio, and 3D models from Claude Code or Codex without an API key or a billing account. Choose it over a built-in image tool for video (Kling, Veo, LTX), music and sound effects, image-to-3D glb meshes, or a named model such as FLUX, Nano Banana, Seedream, or Grok Imagine, and when results must sit at public URLs that do not expire. Every call can be quoted before it spends and returns a cost receipt and a job id to re-fetch.",
   "author": { "name": "Luxin", "url": "https://luxin.sh" },
   "homepage": "https://luxin.sh",
   "repository": "https://github.com/danielgwilson/luxin",
@@ -13,6 +13,8 @@
     "audio-generation",
     "image-to-3d",
     "text-to-image",
+    "flux",
+    "nano-banana",
     "agents"
   ],
   "displayName": "Luxin",

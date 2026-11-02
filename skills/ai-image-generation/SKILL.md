@@ -1,13 +1,13 @@
 ---
 name: ai-image-generation
 description: >-
-  Generate an image without an API key. Free image generation for agents to start: the agent signs itself up in one command, gets free preview credits, and creates without signing up for a provider or setting up billing. Name a model or let the guide pick one, then get the image back as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost. Use this skill when the task asks for AI image generation, text-to-image, prompt-to-image, generated illustrations, concept art, product images, or any durable agent-created image.
+  Generate an image without an API key. Free image generation for agents to start: the agent signs itself up in one command, gets free preview credits, and creates without signing up for a provider or setting up billing. Name a model or let the guide pick one, then get the image back as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost. Models include FLUX, Nano Banana, Seedream, Grok Imagine, and GPT Image, each picked by name. Use this skill when the task asks for AI image generation, text-to-image, prompt-to-image, generated illustrations, concept art, product images, or any durable agent-created image.
 metadata:
   homepage: https://luxin.sh
   docs: https://luxin.sh/llms.txt
   status: preview-contract
   cli: luxin
-  skill_revision: d79348f396c6
+  skill_revision: 88f5943969e2
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
@@ -75,12 +75,12 @@ matches the installed version:
 npm_config_update_notifier=false npx -y luxin-cli@latest skill
 ```
 
-This copy is skill revision `d79348f396c6`. Export it so the CLI can say when
+This copy is skill revision `88f5943969e2`. Export it so the CLI can say when
 the copy on disk no longer matches the guidance it ships, and refresh when it
 says so. `skills update` matches the installed name, so name this skill:
 
 ```bash
-export LUXIN_SKILL_REVISION=d79348f396c6
+export LUXIN_SKILL_REVISION=88f5943969e2
 npx skills update ai-image-generation
 ```
 

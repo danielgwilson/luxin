@@ -19,7 +19,7 @@ const VERSION = "0.2.9";
 // Content-derived identity of the guidance this package ships (#2302). Kept in
 // sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
 // gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
-const SKILL_REVISION = "d79348f396c6";
+const SKILL_REVISION = "88f5943969e2";
 // `luxin skill` prints these bundled bytes rather than fetching them, so the
 // guidance can never describe a CLI other than the one printing it. Packed by
 // public-cli/package.json `files`.
