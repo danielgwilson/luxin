@@ -2333,6 +2333,24 @@ into feedback title, body, evidence, issues, or logs. Feedback persists through
 `https://api.luxin.sh/v1/feedback`. The hosted API fails closed if
 durable hosted feedback storage is unavailable.
 
+Provider input and moderation rejections from hosted `create` and `edit`
+return HTTP `422` with `error.retryable: false`. The local CLI uses the same
+error codes and recovery fields:
+
+| `error.code`                | `error.recovery.reason` | `error.recovery.action`   |
+| --------------------------- | ----------------------- | ------------------------- |
+| `MODERATION_BLOCKED`        | `content_policy`        | `revise_prompt_or_inputs` |
+| `IMAGE_TOO_SMALL`           | `image_too_small`       | `fix_inputs`              |
+| `PROVIDER_VALIDATION_ERROR` | `validation_error`      | `fix_inputs`              |
+
+Follow `error.recovery.message` before submitting again: revise the prompt or
+input images for moderation, or correct invalid inputs and run dry-run. If the
+inputs already meet the model limits, report the `trace_id` with
+`luxin feedback create`. Retrying unchanged inputs does not resolve these
+rejections. Transient upstream failures, including provider-directed retries
+and failures to download a signed asset URL, retain HTTP `502`,
+`PROVIDER_FAILURE`, `error.retryable: true`, and the existing retry recovery.
+
 JSON errors may include `error.recovery` with machine-readable fields such as
 `required_flag`, `suggested_command`, `docs_url`, or `retry_after_seconds`.
 Agents should prefer those fields over parsing prose error messages. For
