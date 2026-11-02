@@ -1,19 +1,17 @@
 ---
 name: image-to-3d
 description: >-
-  Turn one image into a 3D mesh and get back a glb file. No API key to obtain, no provider account to open, no billing to set up: the agent signs itself up in one command and starts on free preview credits. Image-to-3D takes no prompt and rejects one if you send it, so pass an image the agent generated or uploaded, through edit rather than create. The mesh returns as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost.
-homepage: https://luxin.sh
-docs: https://luxin.sh/llms.txt
+  Turn one image into a 3D mesh and get back a glb file. No API key to obtain, no provider account to open, no billing to set up: the agent signs itself up in one command and starts on free preview credits. Image-to-3D takes no prompt and rejects one if you send it, so pass an image the agent generated or uploaded, through edit rather than create. The mesh returns as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost. Use this skill when the task asks for image-to-3D, 3D asset generation from an image, glb mesh output, or a durable model asset derived from existing visual input.
 metadata:
+  homepage: https://luxin.sh
+  docs: https://luxin.sh/llms.txt
   status: preview-contract
   cli: luxin
-  skill_revision: 259c47afaeae
+  skill_revision: d79348f396c6
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
-    requires:
-      env: []
-      bins: []
+    homepage: https://luxin.sh
     envVars:
       - name: IMAGE_SKILL_TOKEN
         required: false
@@ -77,13 +75,13 @@ matches the installed version:
 npm_config_update_notifier=false npx -y luxin-cli@latest skill
 ```
 
-This copy is skill revision `259c47afaeae`. Export it so the CLI can say when
+This copy is skill revision `d79348f396c6`. Export it so the CLI can say when
 the copy on disk no longer matches the guidance it ships, and refresh when it
-says so:
+says so. `skills update` matches the installed name, so name this skill:
 
 ```bash
-export LUXIN_SKILL_REVISION=259c47afaeae
-npx skills update luxin
+export LUXIN_SKILL_REVISION=d79348f396c6
+npx skills update image-to-3d
 ```
 
 Refreshing is always an explicit step you run. Nothing in Luxin rewrites this

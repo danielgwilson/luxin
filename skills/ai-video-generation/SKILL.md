@@ -1,19 +1,17 @@
 ---
 name: ai-video-generation
 description: >-
-  Generate video from a text prompt with no API key to obtain first. The agent signs itself up in one command, starts on free preview credits, and gets back an mp4 at a hosted media URL with no signature or expiry: no provider account to open, no billing to set up. The create call runs the render and returns a job id the agent can re-fetch, plus a receipt for what the call cost.
-homepage: https://luxin.sh
-docs: https://luxin.sh/llms.txt
+  Generate video from a text prompt with no API key to obtain first. The agent signs itself up in one command, starts on free preview credits, and gets back an mp4 at a hosted media URL with no signature or expiry: no provider account to open, no billing to set up. The create call runs the render and returns a job id the agent can re-fetch, plus a receipt for what the call cost. Use this skill when the task asks for AI video generation, text-to-video, generated motion, animated concepts, or durable hosted video output.
 metadata:
+  homepage: https://luxin.sh
+  docs: https://luxin.sh/llms.txt
   status: preview-contract
   cli: luxin
-  skill_revision: 259c47afaeae
+  skill_revision: d79348f396c6
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
-    requires:
-      env: []
-      bins: []
+    homepage: https://luxin.sh
     envVars:
       - name: IMAGE_SKILL_TOKEN
         required: false
@@ -77,13 +75,13 @@ matches the installed version:
 npm_config_update_notifier=false npx -y luxin-cli@latest skill
 ```
 
-This copy is skill revision `259c47afaeae`. Export it so the CLI can say when
+This copy is skill revision `d79348f396c6`. Export it so the CLI can say when
 the copy on disk no longer matches the guidance it ships, and refresh when it
-says so:
+says so. `skills update` matches the installed name, so name this skill:
 
 ```bash
-export LUXIN_SKILL_REVISION=259c47afaeae
-npx skills update luxin
+export LUXIN_SKILL_REVISION=d79348f396c6
+npx skills update ai-video-generation
 ```
 
 Refreshing is always an explicit step you run. Nothing in Luxin rewrites this

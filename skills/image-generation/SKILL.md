@@ -1,19 +1,17 @@
 ---
 name: image-generation
 description: >-
-  Generate images from a text prompt without an API key and without signing up for a provider. Free image generation to start: the agent signs itself up in one command and gets free preview credits — no API key to obtain, no billing account to set up. A no-spend guide picks a model and returns the exact create command, so the agent can skip model selection. Each image comes back as a hosted media URL with no signature or expiry, plus a receipt for what the call cost.
-homepage: https://luxin.sh
-docs: https://luxin.sh/llms.txt
+  Generate images from a text prompt without an API key and without signing up for a provider. Free image generation to start: the agent signs itself up in one command and gets free preview credits: no API key to obtain, no billing account to set up. A no-spend guide picks a model and returns the exact create command, so the agent can skip model selection. Each image comes back as a hosted media URL with no signature or expiry, plus a receipt for what the call cost. Use this skill when the task asks for image generation, generated images, AI images, text-to-image, prompt-to-image, generated illustrations, concept art, product images, or any durable agent-created image.
 metadata:
+  homepage: https://luxin.sh
+  docs: https://luxin.sh/llms.txt
   status: preview-contract
   cli: luxin
-  skill_revision: 259c47afaeae
+  skill_revision: d79348f396c6
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
-    requires:
-      env: []
-      bins: []
+    homepage: https://luxin.sh
     envVars:
       - name: IMAGE_SKILL_TOKEN
         required: false
@@ -77,13 +75,13 @@ matches the installed version:
 npm_config_update_notifier=false npx -y luxin-cli@latest skill
 ```
 
-This copy is skill revision `259c47afaeae`. Export it so the CLI can say when
+This copy is skill revision `d79348f396c6`. Export it so the CLI can say when
 the copy on disk no longer matches the guidance it ships, and refresh when it
-says so:
+says so. `skills update` matches the installed name, so name this skill:
 
 ```bash
-export LUXIN_SKILL_REVISION=259c47afaeae
-npx skills update luxin
+export LUXIN_SKILL_REVISION=d79348f396c6
+npx skills update image-generation
 ```
 
 Refreshing is always an explicit step you run. Nothing in Luxin rewrites this

@@ -13,6 +13,7 @@ discoverable on skills.sh:
 
 ```bash
 npx skills add danielgwilson/luxin --full-depth --skill luxin -g -a codex -y
+npx skills add danielgwilson/luxin --full-depth --skill luxin -g -a claude-code -y
 ```
 
 Intent-named aliases are published from the same repo and point to the same
@@ -28,10 +29,12 @@ npx skills add danielgwilson/luxin --full-depth --skill image-to-3d -g -a codex 
 npx skills add danielgwilson/luxin --full-depth --skill creative-media -g -a codex -y
 ```
 
-Or install straight from the hosted public contract for the always-latest build:
+Or install straight from the hosted public contract, which serves the build
+deployed to luxin.sh. `npx skills update luxin` refreshes either install:
 
 ```bash
 npx skills add https://luxin.sh --skill luxin -g -a codex -y
+npx skills add https://luxin.sh --skill luxin -g -a claude-code -y
 ```
 
 If the Codex/global skill target is read-only or missing, keep the tracked slug
@@ -87,8 +90,8 @@ installed binary is `luxin`.
 
 ## Keeping The Skill Current
 
-The installed `SKILL.md` is a ~4KB discovery stub. Everything volatile — flags,
-workflows, recovery, funding — lives in the guidance the CLI itself carries, so
+The installed `SKILL.md` is a ~4KB discovery stub. Everything volatile (flags,
+workflows, recovery, funding) lives in the guidance the CLI itself carries, so
 it always matches the code you are running:
 
 ```bash
@@ -116,7 +119,7 @@ command and never rewrites your skill files, agent config, or hook files.
 ### Optional: refresh at session start (copy-paste, opt-in)
 
 Some runtimes can run a command when a session starts. If you want an automatic
-refresh, add it yourself — Luxin will not install it for you, and nothing below
+refresh, add it yourself. Luxin will not install it for you, and nothing below
 runs unless you put it there. For Claude Code, in `.claude/settings.json`:
 
 ```json

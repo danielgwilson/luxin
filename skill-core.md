@@ -126,11 +126,15 @@ Install paths, in order of preference:
 # zero-setup, always-latest (no global npm prefix required)
 IMAGE_SKILL_DISCOVERY_SOURCE=agent-skill-md npm_config_update_notifier=false npx -y luxin-cli@latest create --guide --prompt "..."
 
-# tracked install through the registry slug
+# tracked install through the registry slug, for Codex and Claude Code
 npx skills add danielgwilson/luxin --full-depth --skill luxin -g -a codex -y
+npx skills add danielgwilson/luxin --full-depth --skill luxin -g -a claude-code -y
 
 # direct from the hosted public contract
 npx skills add https://luxin.sh --skill luxin -g -a codex -y
+
+# global CLI, only when the npm prefix is writable
+npm install -g luxin-cli
 ```
 
 If the Codex/global skill target is read-only or missing, keep the tracked slug
