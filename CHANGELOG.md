@@ -34,6 +34,13 @@ you cannot run.
   (#2376)
 - Fixed: `create --guide --model nano-banana` (any model alias) failed with
   "Cannot access 'MODEL_ALIAS_RULES' before initialization".
+- Claude Code and Codex plugin. Claude Code:
+  `claude plugin marketplace add danielgwilson/luxin`, then
+  `claude plugin install luxin@luxin`. Codex:
+  `codex plugin marketplace add danielgwilson/luxin`, then
+  `codex plugin add luxin@luxin`. The plugin ships the `luxin` skill only. Its
+  version is `<cli version>+<content hash>`, so updates arrive when a shipped
+  file changes.
 
 ## 0.2.9 - 2026-08-17
 

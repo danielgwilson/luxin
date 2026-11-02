@@ -1,0 +1,40 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "luxin",
+  "version": "0.2.9+dafc610f6db3",
+  "description": "Generate images, video, audio, and 3D models from Claude Code or Codex without an API key or a billing account. Ships the Luxin skill: text-to-image, image editing, text-to-video, text-to-audio, and image-to-3D through one hosted CLI, with hosted media URLs that do not expire, recoverable jobs, and a cost receipt on every call.",
+  "author": { "name": "Luxin", "url": "https://luxin.sh" },
+  "homepage": "https://luxin.sh",
+  "repository": "https://github.com/danielgwilson/luxin",
+  "license": "MIT",
+  "keywords": [
+    "image-generation",
+    "image-editing",
+    "video-generation",
+    "audio-generation",
+    "image-to-3d",
+    "text-to-image",
+    "agents"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Luxin",
+        "shortDescription": "Images, video, audio, and 3D without an API key",
+        "longDescription": "Generate images, video, audio, and 3D models from Claude Code or Codex without an API key or a billing account. Ships the Luxin skill: text-to-image, image editing, text-to-video, text-to-audio, and image-to-3D through one hosted CLI, with hosted media URLs that do not expire, recoverable jobs, and a cost receipt on every call.",
+        "developerName": "Luxin",
+        "category": "Creativity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://luxin.sh",
+        "privacyPolicyURL": "https://luxin.sh/privacy",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png",
+        "defaultPrompt": [
+          "Use Luxin to generate a product photo of a field camera on a workbench.",
+          "Use Luxin to turn this image into a 3D glb model.",
+          "Use Luxin to make a ten second video of a slow product reveal."
+        ]
+      }
+    }
+  }
+}

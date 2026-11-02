@@ -1,0 +1,20 @@
+{
+  "name": "luxin",
+  "version": "0.2.9+dafc610f6db3",
+  "description": "Generate images, video, audio, and 3D models from Claude Code or Codex without an API key or a billing account. Ships the Luxin skill: text-to-image, image editing, text-to-video, text-to-audio, and image-to-3D through one hosted CLI, with hosted media URLs that do not expire, recoverable jobs, and a cost receipt on every call.",
+  "author": { "name": "Luxin", "url": "https://luxin.sh" },
+  "homepage": "https://luxin.sh",
+  "repository": "https://github.com/danielgwilson/luxin",
+  "license": "MIT",
+  "keywords": [
+    "image-generation",
+    "image-editing",
+    "video-generation",
+    "audio-generation",
+    "image-to-3d",
+    "text-to-image",
+    "agents"
+  ],
+  "displayName": "Luxin",
+  "icon": "./assets/icon.png"
+}

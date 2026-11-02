@@ -37,6 +37,27 @@ npx skills add https://luxin.sh --skill luxin -g -a codex -y
 npx skills add https://luxin.sh --skill luxin -g -a claude-code -y
 ```
 
+Or install the Luxin plugin, which carries the same skill and updates through
+the plugin manager. In Claude Code:
+
+```bash
+claude plugin marketplace add danielgwilson/luxin
+claude plugin install luxin@luxin
+```
+
+Inside a session, `/plugin marketplace add danielgwilson/luxin` and then
+`/plugin install luxin@luxin` do the same. Update with
+`claude plugin marketplace update luxin && claude plugin update luxin@luxin`.
+
+In Codex:
+
+```bash
+codex plugin marketplace add danielgwilson/luxin
+codex plugin add luxin@luxin
+```
+
+Update with `codex plugin marketplace upgrade luxin`.
+
 If the Codex/global skill target is read-only or missing, keep the tracked slug
 install and put agent skill state in a writable workspace home before running
 any `npx skills add ... -a codex` command. The skills.sh Codex adapter writes

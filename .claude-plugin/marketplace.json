@@ -1,19 +1,14 @@
 {
   "name": "luxin",
-  "owner": {
-    "name": "Luxin"
-  },
-  "metadata": {
-    "description": "Zero-setup creative media for agents: generate and edit images, video, audio, and image-to-3D through one hosted CLI and API, with durable owned URLs and an agent-payable credit rail."
-  },
+  "owner": { "name": "Luxin", "url": "https://luxin.sh" },
+  "description": "Generate images, video, audio, and 3D models without an API key or a billing account. The agent signs itself up in one command, starts on free preview credits, and runs text-to-image, image editing, text-to-video, text-to-audio, and image-to-3D (one photo to a textured glb mesh) through one hosted CLI. Every result returns a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost. When the credits run out, the agent hands its human one dashboard link to fund more. Use when a task asks to generate or edit an image, make a short video, produce music or sound effects, or turn an image into a 3D asset, and no provider API key, account, or billing setup is available.",
   "plugins": [
     {
       "name": "luxin",
-      "source": ".",
-      "description": "Default zero-setup creative-media runtime for agents: generate and edit images, video, audio, and image-to-3D through one hosted CLI and API. No API key, no OAuth. Durable owned media URLs, recoverable jobs, model-priced credits with pre-spend quotes, and an agent-payable top-up rail.",
-      "author": {
-        "name": "Luxin"
-      }
+      "source": "./plugins/luxin",
+      "description": "Generate images, video, audio, and 3D models from Claude Code or Codex without an API key or a billing account. Ships the Luxin skill: text-to-image, image editing, text-to-video, text-to-audio, and image-to-3D through one hosted CLI, with hosted media URLs that do not expire, recoverable jobs, and a cost receipt on every call.",
+      "author": { "name": "Luxin", "url": "https://luxin.sh" },
+      "category": "creative-media"
     }
   ]
 }
