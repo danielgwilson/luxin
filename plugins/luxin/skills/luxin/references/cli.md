@@ -1600,9 +1600,9 @@ luxin create \
 
 luxin create \
   --prompt "Campaign-ready product image of a compact field camera" \
-  --model xai.grok-imagine-image-quality \
+  --model xai.grok-imagine-image-2.0 \
   --model-parameters-json '{"resolution":"2k"}' \
-  --max-estimated-usd-per-image 0.07 \
+  --max-estimated-usd-per-image 0.14 \
   --json
 
 luxin edit \
@@ -1676,29 +1676,29 @@ Minimum success data:
 {
   "job_id": "job_...",
   "capability": {
-    "id": "is.image.generate.xai-grok-imagine-image-quality.v1"
+    "id": "is.image.generate.xai-grok-imagine-image-2-0.v1"
   },
   "assets": [
     {
       "asset_id": "image_...",
-      "path": "https://media.luxin.sh/a/image_abc123.png",
-      "mime_type": "image/png",
-      "url": "https://media.luxin.sh/a/image_abc123.png",
+      "path": "https://media.luxin.sh/a/image_abc123.jpg",
+      "mime_type": "image/jpeg",
+      "url": "https://media.luxin.sh/a/image_abc123.jpg",
       "content_length": 333444,
-      "width": 2048,
-      "height": 2048
+      "width": 1024,
+      "height": 1024
     }
   ],
   "cost": {
-    "estimated_usd": 0.12,
+    "estimated_usd": 0.1,
     "credit_pricing": {
       "credit_unit_usd": 0.01,
-      "credits_required": 12,
-      "estimated_charge_usd": 0.12,
+      "credits_required": 10,
+      "estimated_charge_usd": 0.1,
       "self_fundable": true,
       "self_fund_block_reason": null,
       "pricing_confidence": "known",
-      "pricing_source": "model_parameters"
+      "pricing_source": "model_registry"
     }
   },
   "request": {
@@ -1708,21 +1708,31 @@ Minimum success data:
       "reason": "hosted default selected the strongest currently available quality-first create model",
       "intent": "final",
       "capability": {
-        "id": "is.image.generate.xai-grok-imagine-image-quality.v1"
+        "id": "is.image.generate.xai-grok-imagine-image-2-0.v1"
       },
       "model_parameters": {
-        "keys": ["resolution"],
-        "defaults_applied": ["resolution=2k"],
+        "keys": [],
+        "defaults_applied": [],
         "effective_parameters": [
-          { "name": "resolution", "value": "2k", "source": "default_policy" }
+          {
+            "name": "quality",
+            "value": "medium",
+            "source": "provider_default"
+          },
+          { "name": "resolution", "value": "1k", "source": "provider_default" },
+          {
+            "name": "response_format",
+            "value": "url",
+            "source": "provider_default"
+          }
         ],
-        "source": "default_policy"
+        "source": "none"
       },
       "output": {
-        "resolution_class": "2k",
+        "resolution_class": "1k",
         "expected_width": null,
         "expected_height": null,
-        "expected_min_short_edge": 2048
+        "expected_min_short_edge": 1024
       }
     }
   },
