@@ -6217,13 +6217,15 @@ function preferredCreateGuideModelIds(intentClass) {
       "fal.flux-1-dev",
       "xai.grok-imagine-image",
       "fal.bria-text-to-image-fast",
-      "xai.grok-imagine-image-quality",
+      "xai.grok-imagine-image-2.0",
       "openai.gpt-image-2",
     ];
   }
   if (intentClass === "final") {
+    // #2405: grok-imagine-image-2.0 replaces the delisted -quality model.
+    // Mirrors FINAL_CREATE_MODEL_IDS in src/hosted-create-policy.ts.
     return [
-      "xai.grok-imagine-image-quality",
+      "xai.grok-imagine-image-2.0",
       "openai.gpt-image-2",
       "fal.flux-1-dev",
       "xai.grok-imagine-image",
@@ -6234,7 +6236,7 @@ function preferredCreateGuideModelIds(intentClass) {
   return [
     "fal.flux-1-dev",
     "xai.grok-imagine-image",
-    "xai.grok-imagine-image-quality",
+    "xai.grok-imagine-image-2.0",
     "openai.gpt-image-2",
     "fal.flux-1-schnell",
     "fal.bria-text-to-image-fast",
