@@ -19,7 +19,7 @@ const VERSION = "0.2.11";
 // Content-derived identity of the guidance this package ships (#2302). Kept in
 // sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
 // gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
-const SKILL_REVISION = "88f5943969e2";
+const SKILL_REVISION = "dd9ae8914cf2";
 // `luxin skill` prints these bundled bytes rather than fetching them, so the
 // guidance can never describe a CLI other than the one printing it. Packed by
 // public-cli/package.json `files`.
@@ -811,6 +811,22 @@ const MODEL_FAMILY_VARIANTS = [
     startImage: false,
   },
   {
+    family: "seedance",
+    id: "fal.bytedance-seedance-2-0-fast-image-to-video",
+    name: "Seedance 2.0 Fast Image to Video",
+    slot: "video",
+    tokens: ["2", "fast"],
+    startImage: true,
+  },
+  {
+    family: "seedance",
+    id: "fal.bytedance-seedance-2-0-fast-text-to-video",
+    name: "Seedance 2.0 Fast Text to Video",
+    slot: "video",
+    tokens: ["2", "fast"],
+    startImage: false,
+  },
+  {
     family: "seedream",
     id: "fal.bytedance-seedream-v4-5-edit",
     name: "Bytedance Seedream 4.5 Edit",
@@ -1435,6 +1451,14 @@ const MODEL_FAMILY_VARIANTS = [
     startImage: false,
   },
   {
+    family: "hunyuan",
+    id: "fal.hunyuan-3d-v3-1-pro-image-to-3d",
+    name: "Hunyuan 3D v3.1 Pro image to 3D",
+    slot: "3d",
+    tokens: ["3.1", "3d", "pro"],
+    startImage: false,
+  },
+  {
     family: "ideogram",
     id: "fal.ideogram-v2",
     name: "Ideogram V2",
@@ -1524,6 +1548,22 @@ const MODEL_FAMILY_VARIANTS = [
   },
   {
     family: "kling",
+    id: "fal.kling-v4-image-to-video",
+    name: "Kling 4.0 Image to Video",
+    slot: "video",
+    tokens: ["4"],
+    startImage: true,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-v4-text-to-video",
+    name: "Kling 4.0 Text to Video",
+    slot: "video",
+    tokens: ["4"],
+    startImage: false,
+  },
+  {
+    family: "kling",
     id: "fal.kling-video-v3-standard-image-to-video",
     name: "Kling Video v3 Standard Image to Video",
     slot: "video",
@@ -1569,6 +1609,14 @@ const MODEL_FAMILY_VARIANTS = [
     slot: "video",
     tokens: ["3.2", "ray"],
     startImage: false,
+  },
+  {
+    family: "hailuo",
+    id: "fal.minimax-hailuo-02-standard-image-to-video",
+    name: "MiniMax Hailuo 02 Standard Image to Video",
+    slot: "video",
+    tokens: ["2", "standard"],
+    startImage: true,
   },
   {
     family: "hailuo",
@@ -2709,6 +2757,8 @@ function commandHelpByKey(key) {
         "--output-count",
         "--output",
         "--overwrite",
+        "--no-wait",
+        "--wait-timeout-ms",
         "--element-frontal",
         "--element-reference",
         "--reference-image",
@@ -2742,6 +2792,8 @@ function commandHelpByKey(key) {
         "--idempotency-key",
         "--output",
         "--overwrite",
+        "--no-wait",
+        "--wait-timeout-ms",
       ],
     },
     assets: {
@@ -8735,7 +8787,15 @@ async function create(argv) {
         intent: flagString(args, "intent"),
       },
     ),
-    { output, dryRun: flagBool(args, "dry-run") },
+    {
+      output,
+      dryRun: flagBool(args, "dry-run"),
+      wait: !flagBool(args, "no-wait"),
+      waitTimeoutMs: runningJobWaitTimeoutMs(args),
+      inFlightPath: inFlight,
+      apiBaseUrl: apiBase(args),
+      token: token.token,
+    },
   );
 }
 
@@ -9521,6 +9581,32 @@ async function runBatchLive(input) {
         dryRun: false,
       }),
     });
+    if (
+      result.envelope.ok === true &&
+      result.envelope.data?.job_status === "running"
+    ) {
+      // Plan 170: a 202 running job (first call or same-key replay) is not
+      // delivered media. Report it pending with its jobs wait command; a
+      // rerun of the batch replays it once it has completed.
+      const jobId = batchItemJobId(result.envelope.data);
+      items.push({
+        index: item.index,
+        status: "pending",
+        asset_url: null,
+        job_id: jobId,
+        credits: isBatchIdempotentReplay(result.envelope)
+          ? 0
+          : batchItemCredits(result.envelope.data),
+        model: batchItemModelId(result.envelope.data) ?? item.model,
+        idempotency_key: idempotencyKey,
+        ...(jobId === null
+          ? {}
+          : {
+              wait_command: `luxin jobs wait ${jobId} --timeout-ms 600000 --json`,
+            }),
+      });
+      continue;
+    }
     if (result.envelope.ok === true) {
       const replay = isBatchIdempotentReplay(result.envelope);
       items.push({
@@ -9579,7 +9665,15 @@ async function runBatchLive(input) {
   };
 
   if (stopReason === null || stopError === null) {
-    return success(input.command, data);
+    return success(
+      input.command,
+      data,
+      totals.pending === 0
+        ? []
+        : [
+            `${totals.pending} item${totals.pending === 1 ? " is" : "s are"} still generating; their credits are reserved. Run each item's wait_command, or rerun the same batch with the same --batch-id to collect them. Do not rerun with a new --batch-id: that starts and pays for new generations.`,
+          ],
+    );
   }
 
   // One digest, one recovery block. The completed items are delivered in
@@ -9846,6 +9940,7 @@ function batchTotals(items) {
     skipped_completed: items.filter(
       (item) => item.status === "skipped_completed",
     ).length,
+    pending: items.filter((item) => item.status === "pending").length,
     failed: items.filter((item) => item.status === "failed").length,
     not_attempted: items.filter((item) => item.status === "not_attempted")
       .length,
@@ -10275,7 +10370,15 @@ async function edit(argv) {
       operation: "edit",
       idempotencyKey: isLiveSpend ? idempotencyKey : null,
     }),
-    { output, dryRun: flagBool(args, "dry-run") },
+    {
+      output,
+      dryRun: flagBool(args, "dry-run"),
+      wait: !flagBool(args, "no-wait"),
+      waitTimeoutMs: runningJobWaitTimeoutMs(args),
+      inFlightPath: inFlight,
+      apiBaseUrl: apiBase(args),
+      token: token.token,
+    },
   );
 }
 
@@ -10541,13 +10644,208 @@ function appendResultWarnings(result, warnings) {
   };
 }
 
-async function withCreateOutputDownloads(result, { output, dryRun }) {
+// Plan 170: a create/edit the provider is still working on returns
+// job_status "running". The CLI waits for the job by default (polling
+// GET /v1/jobs/:id, which finalizes it), so one command still returns the
+// finished media; --no-wait returns the running job at once.
+async function waitForRunningJob({ jobId, apiBaseUrl, token, timeoutMs }) {
+  // Local, not module-level: top-level bindings after main() would be in
+  // their temporal dead zone when main runs.
+  const RUNNING_JOB_POLL_MS = 5_000;
+  const started = Date.now();
+  while (Date.now() - started <= timeoutMs) {
+    // GET /v1/jobs/:id can finalize inline (download and store a large file),
+    // so each read is bounded by what is left of the wait.
+    const remaining = timeoutMs - (Date.now() - started);
+    const current = await apiRequest({
+      command: "luxin jobs wait",
+      method: "GET",
+      apiBaseUrl,
+      path: `/v1/jobs/${encodeURIComponent(jobId)}`,
+      token,
+      timeoutMs: Math.max(1, remaining),
+    });
+    if (current.envelope?.ok !== true) {
+      // Out of time mid-read is a timeout, not an error.
+      return {
+        status: Date.now() - started >= timeoutMs ? "timeout" : "error",
+        job: null,
+      };
+    }
+    const job = current.envelope.data?.job ?? null;
+    const status = job?.status;
+    if (
+      status === "completed" ||
+      status === "failed" ||
+      status === "canceled"
+    ) {
+      return { status, job };
+    }
+    const left = timeoutMs - (Date.now() - started);
+    if (left <= 0) break;
+    await sleep(Math.min(RUNNING_JOB_POLL_MS, left));
+  }
+  return { status: "timeout", job: null };
+}
+
+function writeWaitingNotice(jobId) {
+  if (stdoutAndStderrShareTarget()) {
+    return;
+  }
+  try {
+    process.stderr.write(
+      `${JSON.stringify({
+        waiting: {
+          job_id: jobId,
+          resume_command: `luxin jobs wait ${jobId} --timeout-ms 600000 --json`,
+          note: "the provider is still generating; credits are reserved and settle when it finishes. Interrupting is safe: the job keeps running.",
+        },
+      })}\n`,
+    );
+  } catch {
+    // diagnostics are best-effort
+  }
+}
+
+// Plan 170: settle a `running` create/edit result. Waits by default; with
+// --no-wait (or without hosted credentials) returns the running job as is.
+// Plan 170 (#2408 review): agent tool calls often time out at 120s. The
+// hosted call alone can take ~72s before it hands off, so the default wait is
+// budgeted from process start: the whole command ends by ~100s.
+// --wait-timeout-ms sets an explicit wait instead.
+function runningJobWaitTimeoutMs(args) {
+  const DEFAULT_COMMAND_BUDGET_MS = 100_000;
+  const requested = flagNumber(args, "wait-timeout-ms");
+  if (requested !== null && Number.isFinite(requested) && requested >= 0) {
+    return requested;
+  }
+  return Math.max(
+    0,
+    Math.floor(DEFAULT_COMMAND_BUDGET_MS - process.uptime() * 1000),
+  );
+}
+
+async function withRunningJobSettled(
+  result,
+  { wait, apiBaseUrl, token, timeoutMs = 0, inFlightPath = null },
+) {
+  const data = result.envelope?.ok === true ? result.envelope.data : null;
+  if (
+    data === null ||
+    typeof data !== "object" ||
+    Array.isArray(data) ||
+    data.job_status !== "running" ||
+    typeof data.job_id !== "string" ||
+    !wait ||
+    apiBaseUrl === null ||
+    token === null
+  ) {
+    return result;
+  }
+  const jobId = data.job_id;
+  // Before waiting, so a killed process leaves the job id on disk (and on
+  // stderr when the streams are separate): the rerun is `jobs wait JOB`, not
+  // a fresh create that would start and pay for a second generation.
+  await noteRunningJobInFlight(inFlightPath, jobId);
+  writeWaitingNotice(jobId);
+  const waited = await waitForRunningJob({
+    jobId,
+    apiBaseUrl,
+    token,
+    timeoutMs,
+  });
+  if (waited.status === "failed" || waited.status === "canceled") {
+    const jobError = waited.job?.error ?? null;
+    return failure(
+      result.envelope.command,
+      7,
+      typeof jobError?.code === "string" ? jobError.code : "PROVIDER_FAILURE",
+      `job ${jobId} ${waited.status}: ${typeof jobError?.message === "string" ? jobError.message : "the provider job did not produce media; the reserved credits were released"}`,
+      true,
+      {
+        suggested_command: `luxin jobs show ${jobId} --json`,
+        docs_url: "https://luxin.sh/cli.md#luxin-jobs",
+      },
+    );
+  }
+  if (waited.status !== "completed") {
+    const waitCommand = `luxin jobs wait ${jobId} --timeout-ms 600000 --json`;
+    return appendResultWarnings(
+      {
+        ...result,
+        envelope: {
+          ...result.envelope,
+          data: { ...data, next_command: waitCommand },
+        },
+      },
+      [
+        waited.status === "timeout"
+          ? `job ${jobId} is still running (the CLI waited ${Math.round(timeoutMs / 1000)}s); its credits stay reserved. Do not rerun the create: run ${waitCommand}`
+          : `could not read job ${jobId} while waiting; its credits stay reserved. Do not rerun the create: run ${waitCommand}`,
+      ],
+    );
+  }
+  const nextActions =
+    data.next_actions !== null && typeof data.next_actions === "object"
+      ? { ...data.next_actions }
+      : {};
+  delete nextActions.wait_for_job;
+  return {
+    ...result,
+    envelope: {
+      ...result.envelope,
+      data: {
+        ...data,
+        job_status: "completed",
+        assets: Array.isArray(waited.job?.assets) ? waited.job.assets : [],
+        next_actions: nextActions,
+      },
+      warnings: (result.envelope.warnings ?? []).filter(
+        (warning) =>
+          typeof warning !== "string" ||
+          !warning.startsWith("the provider is still generating"),
+      ),
+    },
+  };
+}
+
+async function withCreateOutputDownloads(
+  result,
+  {
+    output,
+    dryRun,
+    wait = true,
+    waitTimeoutMs = 0,
+    inFlightPath = null,
+    apiBaseUrl = null,
+    token = null,
+  },
+) {
+  result = await withRunningJobSettled(result, {
+    wait,
+    apiBaseUrl,
+    token,
+    timeoutMs: waitTimeoutMs,
+    inFlightPath,
+  });
+  await clearInFlightSpendForResult(inFlightPath, result);
   if (output.path === null || result.envelope?.ok !== true) {
     return result;
   }
   const data = result.envelope.data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
     return result;
+  }
+  if (data.job_status === "running" && typeof data.job_id === "string") {
+    return appendResultWarnings(
+      {
+        ...result,
+        envelope: { ...result.envelope, data: { ...data, downloads: [] } },
+      },
+      [
+        `--output wrote nothing: job ${data.job_id} is still running. Run luxin jobs wait ${data.job_id} --timeout-ms 600000 --json, then luxin assets get ASSET_ID --output PATH --json.`,
+      ],
+    );
   }
   if (dryRun) {
     return appendResultWarnings(
@@ -10675,7 +10973,7 @@ async function jobs(argv) {
     return token.result;
   }
   if (subcommand === "show") {
-    return withCopyRunnablePaymentNextActionCommands(
+    const shown = withCopyRunnablePaymentNextActionCommands(
       await apiRequest({
         command: "luxin jobs show",
         method: "GET",
@@ -10685,6 +10983,8 @@ async function jobs(argv) {
       }),
       createGuideCommandPrefix(),
     );
+    await clearInFlightForTerminalJob(jobId, shown);
+    return shown;
   }
   if (subcommand === "wait") {
     const timeoutMs = flagNumber(args, "timeout-ms") ?? 30_000;
@@ -10715,6 +11015,7 @@ async function jobs(argv) {
           timeout_ms: timeoutMs,
           poll_interval_ms: pollIntervalMs,
         };
+        await clearInFlightForTerminalJob(jobId, current);
         return current;
       }
       await sleep(pollIntervalMs);
@@ -11900,12 +12201,24 @@ async function readInFlightSpendEntry({ path, file, now }) {
   const argv = Array.isArray(parsed.argv)
     ? parsed.argv.filter((value) => typeof value === "string")
     : [];
-  const recoverCommand = renderRecoverCommand({
-    operation: parsed.operation,
-    argv,
-    idempotencyKey: parsed.idempotency_key,
-    fallback: parsed.recover_command,
-  });
+  // Plan 170: once the API handed the call off to a running job, the
+  // breadcrumb names that job. Recovery waits for it; rebuilding the create
+  // from argv would point the agent at a new paid generation.
+  const jobId =
+    typeof parsed.job_id === "string" && parsed.job_id !== ""
+      ? parsed.job_id
+      : null;
+  const recoverCommand =
+    jobId !== null
+      ? `luxin jobs wait ${
+          /^[A-Za-z0-9_-]+$/.test(jobId) ? jobId : shellQuote(jobId)
+        } --timeout-ms 600000 --json`
+      : renderRecoverCommand({
+          operation: parsed.operation,
+          argv,
+          idempotencyKey: parsed.idempotency_key,
+          fallback: parsed.recover_command,
+        });
 
   return {
     file,
@@ -11925,12 +12238,15 @@ async function readInFlightSpendEntry({ path, file, now }) {
       typeof parsed.recover_command === "string"
         ? parsed.recover_command
         : null,
+    ...(jobId === null ? {} : { job_id: jobId }),
     warning:
-      state === "recoverable"
-        ? "the hosted reservation TTL has not elapsed; recover before cleanup"
-        : sweepEligible
-          ? "reservation TTL has long elapsed; recover first if the original result still matters, or run doctor --sweep-in-flight to remove this breadcrumb"
-          : "reservation TTL has elapsed; recover if you need the result, otherwise leave it until it becomes sweep-eligible",
+      jobId !== null
+        ? "the API handed this call off to a running job; wait for that job, do not rerun the create (its credits stay reserved until the job settles, up to 24 hours)"
+        : state === "recoverable"
+          ? "the hosted reservation TTL has not elapsed; recover before cleanup"
+          : sweepEligible
+            ? "reservation TTL has long elapsed; recover first if the original result still matters, or run doctor --sweep-in-flight to remove this breadcrumb"
+            : "reservation TTL has elapsed; recover if you need the result, otherwise leave it until it becomes sweep-eligible",
   };
 }
 
@@ -12068,10 +12384,72 @@ async function clearInFlightSpendForResult(path, result) {
     envelope !== undefined &&
     envelope.ok !== true &&
     envelope.error?.retryable === true;
-  if (retryableFailure) {
+  // Plan 170: a job still running has unsettled credits; keep the breadcrumb
+  // (it names the job) until it completes or fails.
+  const stillRunning =
+    envelope?.ok === true && envelope.data?.job_status === "running";
+  if (retryableFailure || stillRunning) {
     return;
   }
   await clearInFlightSpend(path);
+}
+
+// Plan 170: once `jobs show` or `jobs wait` sees the job terminal, its
+// credits are settled, so drop any breadcrumb that names it; `doctor` then
+// stops listing a finished job.
+async function clearInFlightForTerminalJob(jobId, result) {
+  const status =
+    result?.envelope?.ok === true
+      ? result.envelope.data?.job?.status
+      : undefined;
+  if (status !== "completed" && status !== "failed" && status !== "canceled") {
+    return;
+  }
+  const dir = inFlightSpendDir();
+  let files;
+  try {
+    files = await readdir(dir);
+  } catch {
+    return;
+  }
+  for (const name of files) {
+    if (!name.endsWith(".json")) continue;
+    const path = join(dir, name);
+    try {
+      const record = JSON.parse(await readFile(path, "utf8"));
+      if (record?.job_id === jobId) {
+        await rm(path, { force: true });
+      }
+    } catch {
+      // best effort; an unreadable breadcrumb is left for doctor.
+    }
+  }
+}
+
+// Plan 170: point the breadcrumb at the running job before the CLI waits.
+async function noteRunningJobInFlight(path, jobId) {
+  if (path === null || path === undefined) {
+    return;
+  }
+  try {
+    const record = JSON.parse(await readFile(path, "utf8"));
+    await writeFile(
+      path,
+      `${JSON.stringify(
+        {
+          ...record,
+          job_id: jobId,
+          job_status: "running",
+          recover_command: `luxin jobs wait ${jobId} --timeout-ms 600000 --json`,
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+  } catch {
+    // best effort; the stderr notice and the envelope carry the job id too.
+  }
 }
 
 async function apiRequest(input) {
@@ -12079,6 +12457,15 @@ async function apiRequest(input) {
   try {
     const response = await fetch(url, {
       method: input.method,
+      // Plan 170: a caller with a deadline (the running-job wait) bounds the
+      // request; others keep the default.
+      ...(typeof input.timeoutMs === "number"
+        ? {
+            signal: globalThis.AbortSignal.timeout(
+              Math.max(1, Math.ceil(input.timeoutMs)),
+            ),
+          }
+        : {}),
       headers: {
         accept: "application/json",
         ...(input.body === undefined

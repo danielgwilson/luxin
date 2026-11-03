@@ -480,6 +480,8 @@
           "--output-count",
           "--output",
           "--overwrite",
+          "--no-wait",
+          "--wait-timeout-ms",
           "--element-frontal",
           "--element-reference",
           "--reference-image",
@@ -518,7 +520,9 @@
           "--model-parameters-json",
           "--idempotency-key",
           "--output",
-          "--overwrite"
+          "--overwrite",
+          "--no-wait",
+          "--wait-timeout-ms"
         ]
       }
     },

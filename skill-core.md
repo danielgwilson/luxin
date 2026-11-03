@@ -97,7 +97,7 @@ edit        many assets  x     video     -> luxin create --model fal.ltx-video-1
 
 - **Generate vs edit.** If the user wants to modify an existing image while preserving parts of it, that is `edit`. If images are only references for style, composition, mood, or subject, that is `generate`. No input images means `generate`.
 - **Single vs many.** For variants of one prompt use `--output-count N` only after `models show` confirms `max_outputs_per_request > 1` on the selected model. For distinct assets (storyboard panels, animatic frames, icon packs), put one prompt per item in a batch file and run `create --batch items.json`, with `--dry-run` first: it prices the whole sequence against your remaining credits and today's remaining jobs and tells you where it would stop. Do not abuse `--output-count` as a multi-prompt batch.
-- **Modality.** Image is the default. Video, audio, and 3D run through the same `create` / `edit` loop and return the same envelope shape with the right asset prefix (`image_...`, `video_...`, `audio_...`, mesh under `assets[].url`). Plain `create` without a model still defaults to image; pass `--model` or use `--guide` for non-image modalities.
+- **Modality.** Image is the default. Video, audio, and 3D run through the same `create` / `edit` loop and return the same envelope shape with the right asset prefix (`image_...`, `video_...`, `audio_...`, mesh under `assets[].url`). Plain `create` without a model still defaults to image; pass `--model` or use `--guide` for non-image modalities. Slow video and 3D models can take minutes: the CLI waits for them by default and returns the finished media. If a result still says `data.job_status: "running"` (older CLI, `--no-wait`, or the default wait, which ends about 100 seconds after the command started, ran out), run the returned `data.next_command` or `data.next_actions.wait_for_job.command` (`luxin jobs wait JOB_ID --timeout-ms 600000 --json`). Do not rerun the create for a running job. Credits settle once when it completes and are released if it fails.
 
 ## First real run
 
@@ -297,7 +297,7 @@ The CLI uploads local paths and remote URLs first, then edits the resulting Luxi
 
 ```bash
 luxin jobs show JOB_ID         # status, cost, safety, capability id, timestamps, reusable assets
-luxin jobs wait JOB_ID         # blocks until terminal state
+luxin jobs wait JOB_ID --timeout-ms 600000  # blocks until terminal state; finishes running jobs
 luxin assets show ASSET_ID     # owned-asset metadata
 luxin assets get ASSET_ID --output ./result.png  # download owned asset (refuses to overwrite without --overwrite)
 luxin activity list --limit 20

@@ -16,7 +16,7 @@ metadata:
   docs: https://luxin.sh/llms.txt
   status: preview-contract
   cli: luxin
-  skill_revision: 88f5943969e2
+  skill_revision: dd9ae8914cf2
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
@@ -61,10 +61,10 @@ Read these only when a task needs them.
 
 ## Say which revision you have
 
-This copy is skill revision `88f5943969e2`. Export it so the CLI can say when the copy on disk no longer matches the guidance it ships:
+This copy is skill revision `dd9ae8914cf2`. Export it so the CLI can say when the copy on disk no longer matches the guidance it ships:
 
 ```bash
-export LUXIN_SKILL_REVISION=88f5943969e2
+export LUXIN_SKILL_REVISION=dd9ae8914cf2
 ```
 
 When it is stale, `create --guide` returns `data.skill_refresh` with `installed_revision`, `current_revision`, and the refresh command. Refreshing is always an explicit step you run. Nothing in Luxin rewrites this file, your agent config, or your hooks.

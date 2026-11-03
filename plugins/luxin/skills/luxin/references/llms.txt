@@ -143,8 +143,7 @@ Hosted API endpoints:
 - GET https://api.luxin.sh/v1/jobs/JOB_ID returns hosted job metadata for Authorization: Bearer TOKEN when the job belongs to the actor organization.
 - GET https://api.luxin.sh/v1/activity returns hosted activity ledger events for Authorization: Bearer TOKEN. Optional query: limit, subject. Activity is for ledger context, not job recovery.
 - GET https://api.luxin.sh/v1/activity/REFERENCE returns hosted activity events related to one event, job, asset, usage, feedback, or trace reference.
-- GET https://api.luxin.sh/v1/receipts returns the authenticated agent's payment receipts, payment reversals, and credit grants, newest first, for Authorization: Bearer TOKEN. Optional query: limit, an integer from 1 to 100, default 50. Each entry has kind (payment, reversal, or grant), reference, receipt_id, occurred_at, signed credits, amount_cents, currency, provider, reversal_kind, and status. Use it to answer what was paid, refunded, or granted and when; activity is bounded, so a busy agent's job events push older payments out of it.
-- Public activity event types are: job.completed, job.planned, asset.created, asset.uploaded, usage.credit_consumed, feedback.created, feedback.github_queue.processed, payment.checkout_session.created, credits.payment_backed_granted, credits.payment_backed_refunded, credits.payment_backed_disputed, credits.payment_backed_reinstated, credits.payment_backed_reversal_pending, credits.payment_backed_reversal_rejected. job.planned includes details.plan_receipt for authenticated hosted dry-runs and is a planning receipt, not completed media work. Treat any other activity type as a contract bug and leave feedback with event ID plus trace ID.
+- Public activity event types are: job.completed, job.planned, asset.created, asset.uploaded, usage.credit_consumed, feedback.created, feedback.github_queue.processed, payment.checkout_session.created, credits.payment_backed_granted, credits.payment_backed_refunded, credits.payment_backed_disputed, credits.payment_backed_reinstated, credits.payment_backed_reversal_pending, credits.payment_backed_reversal_rejected, credits.reservation_released. job.planned includes details.plan_receipt for authenticated hosted dry-runs and is a planning receipt, not completed media work. Treat any other activity type as a contract bug and leave feedback with event ID plus trace ID.
 - POST https://api.luxin.sh/v1/cli runs public CLI-compatible commands over JSON argv.
 - GET https://api.luxin.sh/healthz checks API readiness.
 
@@ -239,7 +238,8 @@ asset.uploaded, usage.credit_consumed, feedback.created,
 feedback.github_queue.processed, payment.checkout_session.created,
 credits.payment_backed_granted, credits.payment_backed_refunded,
 credits.payment_backed_disputed, credits.payment_backed_reinstated,
-credits.payment_backed_reversal_pending, credits.payment_backed_reversal_rejected.
+credits.payment_backed_reversal_pending, credits.payment_backed_reversal_rejected,
+credits.reservation_released.
 Feedback GitHub queue lifecycle events expose `details.github_queue.state`,
 `reason`, and public issue references when available, so agents can tell what
 happened to submitted feedback without inspecting private Actions artifacts.

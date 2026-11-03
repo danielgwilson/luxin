@@ -1944,6 +1944,14 @@ piped through `--batch -`, `resume_command` uses a `<your-batch-file>`
 placeholder and a `resume_note` explains to save or re-pipe the same document
 — it is never a bare `--batch -` that would hang waiting on stdin.
 
+An item whose provider is still generating (a slow video or 3D model) comes
+back as `status: "pending"` with its `job_id` and a `wait_command`
+(`luxin jobs wait JOB_ID --timeout-ms 600000 --json`); its credits are
+reserved, it is never counted as delivered, and `totals.pending` counts it.
+Run the `wait_command`, or rerun the same file with the same `--batch-id` to
+collect it once it completes. A new `--batch-id` would start and pay for new
+generations.
+
 At any wall the batch stops cleanly: completed items stay in `data.items` with
 their `asset_url`, remaining items are `not_attempted`, `stop_reason` is
 `credits_depleted`, `daily_job_cap_reached`, or `item_failed`, and the envelope
@@ -2311,6 +2319,52 @@ failure, cancellation, or deterministic timeout. Terminal success uses the same
 top-level `status`, `state`, `assets`, and `cost` mirrors as `jobs show`, with
 `request.timeout_ms` and `request.poll_interval_ms` added for provenance.
 
+Running jobs. Some video and 3D models take minutes (Kling 4.0, Hunyuan 3D
+v3.1 Pro). When the provider is still working about 70 seconds into a
+`create` or `edit`, the hosted API returns HTTP 202 with `data.job_status:
+"running"`, `data.assets: []`, and `data.next_actions.wait_for_job`.
+
+- The CLI waits for the job by default and prints the finished result, so
+  one command still returns the media. The default wait ends about 100
+  seconds after the command started, under common agent tool timeouts;
+  `--wait-timeout-ms MS` sets the wait explicitly. A job that fails while
+  the CLI waits exits `7` with the job's error.
+- If the wait runs out, the CLI prints the running job with
+  `data.next_command` (`luxin jobs wait JOB_ID ...`) and exits `0`. Run that
+  command; do not rerun the create, which would start and pay for a second
+  generation.
+- `--no-wait` returns the running job at once. Finish it later with:
+
+```bash
+luxin jobs wait job_... --timeout-ms 600000 --json
+```
+
+- The credits are reserved when the job starts. They are charged once when
+  the job completes and its media is stored, and released if the provider
+  reports a failure. After 45 minutes Luxin asks the provider to cancel;
+  the credits stay held until the provider reports a final state (a request
+  already mid-processing can still complete, and is then charged), for up
+  to 24 hours after the job started, then are released.
+- While the job runs, `jobs show` returns `job.async`: `state` (`running`, or
+  `cancelling` once a cancel was sent), `credits_reserved`,
+  `cancel_requested_at`, and `credits_held_until` (the latest time the
+  reservation can last).
+- `jobs show` and `jobs wait` finish the job on read; there is nothing else
+  to call. A failed job carries `job.error.code` (`PROVIDER_FAILURE` or
+  `PROVIDER_TIMEOUT`) and the release appears in `luxin activity list` as
+  `credits.reservation_released`.
+- Retrying the same `create` with the same `--idempotency-key` returns the
+  same running job (HTTP 202, same `next_actions`); it does not start or
+  charge a second generation.
+- With `--output PATH`, the file is saved once the job completes. With
+  `--no-wait`, `--output` writes nothing and says which command finishes it.
+- Interrupting a waiting CLI is safe: the job keeps running, and a scheduled
+  sweep settles it even if nobody reads it again. Before it waits, the CLI
+  writes the job id and its `jobs wait` command to the in-flight record that
+  `luxin doctor` reads; `jobs show` or `jobs wait` clears it once the job is
+  terminal. While the record names a job, `doctor` lists that `job_id` and
+  its `recover_command` is `luxin jobs wait JOB`, never a new create.
+
 ### `luxin activity list`
 
 Lists recent hosted activity ledger events visible to the authenticated agent.
@@ -2420,6 +2474,7 @@ below.
 | `credits.payment_backed_reinstated`        | `credit`   | credits     | Stripe dispute funds were reinstated and recorded.                 | `quote_id`, `receipt_id`, `payment_reversal_id`                    |
 | `credits.payment_backed_reversal_pending`  | `credit`   | credits     | A reversal was recorded but could not be fully applied.            | `quote_id`, `receipt_id`, `payment_reversal_id`                    |
 | `credits.payment_backed_reversal_rejected` | `credit`   | credits     | A reversal was rejected because it could not safely reconcile.     | `quote_id`, `receipt_id`, `payment_reversal_id`                    |
+| `credits.reservation_released`             | `credit`   | credits     | Reserved credits return after a provider failure, timeout, or TTL. | `job_id`                                                           |
 
 `feedback.github_queue.processed` includes `details.github_queue` with
 machine-readable lifecycle fields such as `state`, `reason`, `issue_urls`,
