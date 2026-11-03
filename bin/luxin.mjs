@@ -694,7 +694,14 @@ const MODEL_FAMILIES = [
     brandSpelling: "ERNIE",
   },
 ];
-const MODEL_FAMILY_OPERATION_TOKENS = ["edit", "text", "to", "image", "video"];
+const MODEL_FAMILY_OPERATION_TOKENS = [
+  "deprecated",
+  "edit",
+  "text",
+  "to",
+  "image",
+  "video",
+];
 const MODEL_FAMILY_GUARD_FOLLOWERS = [
   "capacitor",
   "core",
@@ -2133,7 +2140,7 @@ const MODEL_FAMILY_VARIANTS = [
   {
     family: "grok-imagine",
     id: "xai.grok-imagine-image-quality",
-    name: "Grok Imagine Image Quality",
+    name: "Grok Imagine Image Quality deprecated",
     slot: "create",
     tokens: ["quality"],
     startImage: false,
@@ -2141,7 +2148,7 @@ const MODEL_FAMILY_VARIANTS = [
   {
     family: "grok-imagine",
     id: "xai.grok-imagine-image-quality-edit",
-    name: "Grok Imagine Image Quality Edit",
+    name: "Grok Imagine Image Quality Edit deprecated",
     slot: "edit",
     tokens: ["quality"],
     startImage: false,
@@ -4415,6 +4422,15 @@ function modelFindRowFromSummary(model) {
     ...(executable && available
       ? {}
       : { availability_reason: model?.availability_reason ?? null }),
+    ...(model?.deprecated === true
+      ? {
+          deprecated: true,
+          replacement_model_ids: Array.isArray(model.replacement_model_ids)
+            ? [...model.replacement_model_ids]
+            : [],
+          deprecation_reason: model.deprecation_reason ?? null,
+        }
+      : {}),
     show_command:
       typeof model?.id === "string"
         ? `luxin models show ${model.id} --json`
@@ -4740,10 +4756,26 @@ function modelSummaryRow(model) {
     grants_required: Array.isArray(model.capability?.grants_required)
       ? [...model.capability.grants_required]
       : [],
+    ...modelDeprecationFields(model.deprecations),
     show_command:
       typeof model.id === "string"
         ? `luxin models show ${model.id} --json`
         : "luxin models show MODEL_ID --json",
+  };
+}
+
+// Mirrors deprecationFields in src/model-discovery.ts (#2405): set only when
+// the full model row publishes a `deprecations` entry with a replacement.
+function modelDeprecationFields(deprecations) {
+  const deprecation = Array.isArray(deprecations) ? deprecations[0] : null;
+  if (!isRecord(deprecation) || typeof deprecation.replacement !== "string") {
+    return {};
+  }
+  return {
+    deprecated: true,
+    replacement_model_ids: deprecation.replacement.split(" or "),
+    deprecation_reason:
+      typeof deprecation.reason === "string" ? deprecation.reason : null,
   };
 }
 
