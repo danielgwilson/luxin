@@ -6,6 +6,27 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.13 - 2026-11-03
+
+Deprecated xAI models say so and name their replacement.
+
+- `xai.grok-imagine-image-quality` and `xai.grok-imagine-image-quality-edit`
+  are deprecated but still executable. `models show` reports
+  `catalog.lifecycle: "deprecated"`, a `deprecations` entry (name,
+  replacement, reason), and a `migration_hints` line. `models list` and
+  `models find` rows carry `deprecated: true`, `replacement_model_ids`, and
+  `deprecation_reason`, and sort after current rows of the same rank. The
+  replacements are `xai.grok-imagine-image-2.0` and
+  `xai.grok-imagine-image-2.0-edit`. (#2428)
+- The xAI provider default is now `xai.grok-imagine-image-2.0` for create and
+  `xai.grok-imagine-image-2.0-edit` for edit. An explicit `--model` for a
+  deprecated id still runs. (#2428)
+- An async job whose provider reported it finished, but whose status then
+  turns failed or expired, is held for up to 10 minutes and then released as
+  `provider_result_unavailable`. It was held for up to 24 hours. Downloads of
+  finished results time out after 5 minutes and are retried, not released.
+  (#2429)
+
 ## 0.2.12 - 2026-11-03
 
 Slow videos and 3D models finish instead of failing.
