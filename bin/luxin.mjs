@@ -465,6 +465,10 @@ const ORIENTATION_RULES = [
 
 const GUIDE_ASPECT_RATIO_PROBE_LIMIT = 8;
 
+// #2393: the Codex sandbox flag that turns outbound network on.
+const NETWORK_UNAVAILABLE_CODEX_FIX =
+  "codex -s workspace-write -c sandbox_workspace_write.network_access=true";
+
 const OUTPUT_EXTENSION_BY_MIME_TYPE = new Map([
   ["image/png", ".png"],
   ["image/jpeg", ".jpg"],
@@ -3398,6 +3402,7 @@ async function createGuide(args, options = {}) {
     requestedModelId,
     quota,
     estimatedCredits,
+    health,
   });
   // #2204-#2216: `--explain` opts back into the complete payload in every
   // stage; the compact default is for the agent that just wants the decision.
@@ -5467,11 +5472,22 @@ function createGuideBlocker(stage, input) {
       message: `Selected first image requires ${input.estimatedCredits ?? "unknown"} credits; current remaining credits are ${remaining ?? "unknown"}.`,
     };
   }
+  // #2393: no outbound network is the common cause in agent sandboxes, and
+  // the fix is a sandbox flag, not a retry. Say so in the blocker itself.
+  const networkError =
+    input.health?.envelope.error?.code === "NETWORK_UNAVAILABLE" ||
+    input.health?.envelope.error?.code === "NETWORK_ERROR"
+      ? input.health.envelope.error
+      : null;
   return {
     code: "service_unreachable",
     message:
+      networkError?.message ??
       input.quota?.envelope.error?.message ??
       "Guide could not complete read-only hosted or registry checks.",
+    ...(networkError?.recovery === undefined
+      ? {}
+      : { recovery: networkError.recovery }),
   };
 }
 
@@ -10081,6 +10097,31 @@ async function apiRequest(input) {
             docs_url: "https://luxin.sh/cli.md",
             retry_after_seconds: 30,
           };
+    // #2393: name the likely cause. ENOTFOUND (the API name does not
+    // resolve) is the no-network sandbox and is not retryable; temporary DNS,
+    // refused, reset, and timeout stay retryable with the idempotent retry
+    // first and the sandbox hint as a possible cause.
+    const classification = classifyNetworkError(error);
+    if (classification !== null) {
+      const body = networkErrorBody(
+        input.apiBaseUrl,
+        classification,
+        typeof recovery.idempotency_key === "string"
+          ? {
+              idempotencyKey: recovery.idempotency_key,
+              suggestedCommand: recovery.suggested_command,
+            }
+          : null,
+      );
+      return failure(
+        input.command,
+        7,
+        body.code,
+        body.message,
+        body.retryable,
+        body.recovery,
+      );
+    }
     return failure(
       input.command,
       7,
@@ -10090,6 +10131,92 @@ async function apiRequest(input) {
       recovery,
     );
   }
+}
+
+// Mirrors `src/network-unavailable.ts`; tests/network-unavailable.test.ts runs
+// one code table against both, so keep this function self-contained.
+function classifyNetworkError(error) {
+  const unavailable = new Set(["ENOTFOUND"]);
+  const transient = new Set([
+    "EAI_AGAIN",
+    "ECONNREFUSED",
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "ENETUNREACH",
+    "EHOSTUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_SOCKET",
+  ]);
+  let current = error;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (current === null || typeof current !== "object") {
+      return null;
+    }
+    const code = current.code;
+    if (typeof code === "string") {
+      if (unavailable.has(code)) {
+        return { kind: "unavailable", code };
+      }
+      if (transient.has(code)) {
+        return { kind: "transient", code };
+      }
+    }
+    current = current.cause;
+  }
+  return null;
+}
+
+function networkErrorBody(apiBaseUrl, classification, retry) {
+  let host = apiBaseUrl;
+  try {
+    host = new URL(apiBaseUrl).host;
+  } catch {
+    // keep the raw value
+  }
+  const hosts = [host, "media.luxin.sh"].filter(
+    (value, index, all) => all.indexOf(value) === index,
+  );
+  const networkFixes = {
+    codex: NETWORK_UNAVAILABLE_CODEX_FIX,
+    generic: `allow outbound HTTPS (port 443) to ${hosts.join(" and ")}`,
+  };
+  const sandboxHint = `In a Codex sandbox network is off by default: rerun with \`${NETWORK_UNAVAILABLE_CODEX_FIX}\` or allow network for the session. In any other sandbox, allow outbound HTTPS to ${hosts.join(" and ")}.`;
+  const code = classification.code;
+  if (classification.kind === "unavailable") {
+    return {
+      code: "NETWORK_UNAVAILABLE",
+      message: `${host} did not resolve from this shell (${code}); it most likely has no outbound network. Retrying will fail the same way until network is allowed.`,
+      retryable: false,
+      recovery: {
+        reason: "network_unavailable",
+        action: "enable_outbound_network",
+        message: sandboxHint,
+        hosts,
+        network_fixes: networkFixes,
+        docs_url: "https://luxin.sh/cli.md#network-unavailable",
+      },
+    };
+  }
+  return {
+    code: "NETWORK_ERROR",
+    message: `request to ${host} failed (${code}); this is usually transient.`,
+    retryable: true,
+    recovery: {
+      reason: "network_error",
+      action: "retry",
+      message: `Retry in a few seconds${retry ? " with the same --idempotency-key, which dedupes to one charge" : ""}. If it persists, check sandbox network access: ${sandboxHint}`,
+      hosts,
+      network_fixes: networkFixes,
+      docs_url: "https://luxin.sh/cli.md#network-unavailable",
+      retry_after_seconds: 30,
+      ...(retry
+        ? {
+            idempotency_key: retry.idempotencyKey,
+            suggested_command: retry.suggestedCommand,
+          }
+        : {}),
+    },
+  };
 }
 
 function parseEnvelope(text, command, statusCode, options = {}) {

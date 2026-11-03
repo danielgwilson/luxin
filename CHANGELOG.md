@@ -9,6 +9,13 @@ provenance; this file is the human- and agent-readable release map.
 Saving files, reading prompts from files, and guides that do not pick a model
 you cannot run.
 
+- When `api.luxin.sh` does not resolve, commands return `NETWORK_UNAVAILABLE`
+  with `retryable: false` and the fix in `error.recovery.network_fixes`: the
+  Codex sandbox flag and the hosts a generic sandbox must allow. Temporary DNS, refused, reset, and timeout errors return a
+  retryable `NETWORK_ERROR` that keeps the idempotency key and names the
+  sandbox only as a possible cause. `create --guide` puts the recovery on its
+  `service_unreachable` blocker. (#2393)
+
 - New: `--output PATH` (with `--overwrite`) on `create` and `edit` downloads
   the produced asset to your disk and reports it in `data.downloads[]`. The
   extension always matches the bytes: ask for `hero.png`, get JPEG, and the

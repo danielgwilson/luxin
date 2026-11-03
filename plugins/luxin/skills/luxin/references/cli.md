@@ -42,6 +42,33 @@ Public contract URLs:
 | 8    | Timeout                                |
 | 9    | Filesystem or artifact storage failure |
 
+### Network unavailable
+
+When the hosted API name does not resolve (`ENOTFOUND`), the shell most likely
+has no outbound network, so every command returns `NETWORK_UNAVAILABLE` with
+exit `7` and `retryable: false`: a timed retry fails the same way. The request
+never left the shell, so nothing was charged. `error.recovery` carries
+`reason: "network_unavailable"`, `action: "enable_outbound_network"`, the
+`hosts` to allow, and `network_fixes`:
+
+- `network_fixes.codex`: Codex runs commands with network off by default.
+  Rerun with
+  `codex -s workspace-write -c sandbox_workspace_write.network_access=true`, or
+  allow network for the session.
+- `network_fixes.generic`: allow outbound HTTPS (port 443) to `api.luxin.sh`
+  and `media.luxin.sh`.
+
+A temporary DNS failure (`EAI_AGAIN`), refused connection (`ECONNREFUSED`),
+reset (`ECONNRESET`), timeout (`ETIMEDOUT`), or no route returns
+`NETWORK_ERROR` with `retryable: true`, `action: "retry"`, and
+`retry_after_seconds`. On a live create or edit it keeps
+`recovery.idempotency_key`, because a reset or timeout can land after a credit
+was reserved and the same key dedupes the retry to one charge. The same
+`network_fixes` are included as a possible cause if the error persists.
+
+`create --guide` reports either case as stage `service_unreachable`, with the
+message and `recovery` on `data.blocker`.
+
 ## Commands
 
 ### `luxin doctor`
