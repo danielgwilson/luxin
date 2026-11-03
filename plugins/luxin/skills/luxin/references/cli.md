@@ -2384,6 +2384,36 @@ If a response includes an event type outside this registry, treat it as a
 contract bug and submit `luxin feedback create --json` with the event ID
 and trace ID.
 
+### Receipts (`GET /v1/receipts`)
+
+Returns the authenticated agent's payment receipts, payment reversals, and
+credit grants, newest first. Activity is bounded, so a busy agent's job events
+push older payments out of it; receipts are read from the payment ledger and
+stay visible. There is no CLI command yet; call the hosted route with the saved
+token. It never spends.
+
+```bash
+curl -sS "https://api.luxin.sh/v1/receipts?limit=20" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+`limit` is an integer from 1 to 100 and defaults to 50. `data.receipts[]`
+entries:
+
+| Field           | Meaning                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `kind`          | `payment`, `reversal`, or `grant`.                                                       |
+| `reference`     | The id to quote about this entry: the `receipt_` id, the reversal id, or the grant's id. |
+| `receipt_id`    | The payment a reversal applies to; the payment itself for `kind: payment`.               |
+| `occurred_at`   | ISO 8601 timestamp.                                                                      |
+| `credits`       | Signed: positive adds credits, negative removes them.                                    |
+| `amount_cents`  | Money paid or returned, in minor units of `currency`. `null` for a grant.                |
+| `provider`      | `stripe` for card and USDC payments, `fake` for test-mode purchases, `null` for a grant. |
+| `reversal_kind` | `refund`, `dispute`, `dispute_funds_withdrawn`, `dispute_funds_reinstated`, or `void`.   |
+| `status`        | `succeeded` for a payment, the reversal status for a reversal, `granted` for a grant.    |
+
+The human dashboard reads the same route with its session cookie.
+
 ### `luxin feedback create`
 
 Leaves structured product feedback in hosted Luxin product memory.
