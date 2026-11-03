@@ -2341,7 +2341,11 @@ luxin jobs wait job_... --timeout-ms 600000 --json
 
 - The credits are reserved when the job starts. They are charged once when
   the job completes and its media is stored, and released if the provider
-  reports a failure. After 45 minutes Luxin asks the provider to cancel;
+  reports a failure. If the provider finished but its result cannot be read
+  or stored, the credits stay held while Luxin retries, then are released:
+  for up to 10 minutes when the result is rejected or missing (HTTP
+  400/404/410/422, or no media URL), and up to 24 hours for temporary errors.
+  After 45 minutes Luxin asks the provider to cancel;
   the credits stay held until the provider reports a final state (a request
   already mid-processing can still complete, and is then charged), for up
   to 24 hours after the job started, then are released.
