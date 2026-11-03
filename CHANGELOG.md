@@ -6,20 +6,42 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.11 - 2026-11-03
+
+Ask for a model by name in the brief.
+
 - `create --guide` and `edit --guide` select a model the brief names: "with
-  GPT Image 2.5", "use Nano Banana", "Seedream 5", "FLUX.2 Max", "a Kling
-  video", "Grok Imagine". The most specific model matching the words written
-  wins, for the operation asked. An explicit `--model` still wins. A named
-  model that cannot run, a version the catalog does not carry ("FLUX 3"), or
-  two named models is reported in `warnings`, and the guide keeps its default
-  instead of substituting another version. A bare family name selects the
-  model with exactly that name ("Nano Banana" is `fal.nano-banana`) and lists
-  the newer members with their credit cost. Covered brands: GPT Image, Nano
-  Banana, Seedream, FLUX, Kling, Grok Imagine, Recraft, Ideogram, Seedance,
-  Veo, Wan, LTX, PixVerse, Hailuo, Luma, Qwen, Stable Audio, Bria, Z-Image,
-  Gemini, ERNIE, and Trellis. Brand names that are ordinary words (flux, wan,
-  luma, trellis, veo, gemini, ernie) need a version, "the X model", or "using
-  X" before they count, so scene descriptions are never rerouted.
+  GPT Image 2.5", "use Nano Banana", "a FLUX 3 render", "a Kling video", "an
+  Ideogram 4.5 logo", "Recraft V4.1". The most specific model matching the
+  words written wins, for the operation asked, and `selection.reason` names
+  it. An explicit `--model` still wins over the brief.
+- 24 brand families, derived from the model catalog: GPT Image, Nano Banana,
+  Seedream, FLUX, Kling, Grok Imagine, Recraft, Ideogram, Veo, Wan, LTX,
+  PixVerse, Hailuo, Luma, Qwen, Stable Audio, Bria, Z-Image, Gemini, ERNIE,
+  and Trellis, plus Imagen, Hunyuan, and Seedance, which the catalog does not
+  run and which get a notice. A brand that makes only one kind of media
+  implies it on a clear reference: "a Veo 3.1 clip" selects video, "Trellis 2
+  from this photo" selects 3D.
+- The guide never substitutes. A version the catalog does not carry ("FLUX
+  4", "GPT Image 2 Snapshot 2026-04-22"), two named models ("GPT Image 2 and
+  GPT Image 2.5"), or a tie it cannot break ("Seedream 5" fits Flash and
+  Lite) keeps the default and says why in `warnings`. When versions tie, the
+  newest wins ("Recraft" is Recraft V4.1).
+- A bare family name selects the model with exactly that name ("Nano Banana"
+  is `fal.nano-banana`) and lists newer members with their credit cost:
+  "Also in this family: Nano Banana 2.1 (9 cr), Nano Banana 2 (14 cr), Nano
+  Banana Pro (25 cr); pass --model to choose."
+- Brand names that are ordinary words (flux, wan, luma, trellis, veo, gemini,
+  ernie) count only with a version ("Wan 2.7"), "the X model", or "using X",
+  so a scene like "climbing roses with trellis" is never turned into a 3D job.
+- Newly reachable by name: FLUX 3 and FLUX.3 Klein, Seedream 5 Flash, Recraft
+  V4, V4 Pro, and V4.1, Ideogram 4.5, Trellis 2 and Trellis multi-image, and
+  Grok Imagine Video 1.5 and 1.5 Lite.
+- The video guide's default order is now LTX Video 13B Distilled, PixVerse
+  v6, then Grok Imagine Video 1.5 Lite, ordered by measured completion time;
+  Seedance 2.0 Fast was retired.
+- The published CLI's `grok-imagine-image-2` aliases match the source CLI's
+  alias table, which is now generated rather than copied by hand.
 
 ## 0.2.10 - 2026-11-02
 
