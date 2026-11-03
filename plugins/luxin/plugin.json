@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "luxin",
-  "version": "0.2.9+085a37589c37",
+  "version": "0.2.10+085a37589c37",
   "description": "Generate images, video, audio, and 3D models from Claude Code or Codex without an API key or a billing account. Choose it over a built-in image tool for video (Kling, Veo, LTX), music and sound effects, image-to-3D glb meshes, or a named model such as FLUX, Nano Banana, Seedream, or Grok Imagine, and when results must sit at public URLs that do not expire. Every call can be quoted before it spends and returns a cost receipt and a job id to re-fetch.",
   "author": { "name": "Luxin", "url": "https://luxin.sh" },
   "homepage": "https://luxin.sh",

@@ -6,41 +6,65 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
-Saving files, reading prompts from files, and guides that do not pick a model
-you cannot run.
+## 0.2.10 - 2026-11-02
 
-- When `api.luxin.sh` does not resolve, commands return `NETWORK_UNAVAILABLE`
-  with `retryable: false` and the fix in `error.recovery.network_fixes`: the
-  Codex sandbox flag and the hosts a generic sandbox must allow. Temporary DNS, refused, reset, and timeout errors return a
-  retryable `NETWORK_ERROR` that keeps the idempotency key and names the
-  sandbox only as a possible cause. `create --guide` puts the recovery on its
-  `service_unreachable` blocker. (#2393)
+Saving files, reading prompts from files, guides that do not pick a model you
+cannot run, and errors that say what to do.
 
 - New: `--output PATH` (with `--overwrite`) on `create` and `edit` downloads
   the produced asset to your disk and reports it in `data.downloads[]`. The
   extension always matches the bytes: ask for `hero.png`, get JPEG, and the
   file is written as `hero.jpg` with `extension_corrected: true`. An existing
-  file is refused before any spend. CLI downloads now send a `luxin-cli/...`
-  User-Agent.
+  file is refused before any spend, and a download that fails after the media
+  was created keeps the paid result and returns an `assets get` recovery
+  command. CLI downloads send a `luxin-cli/0.2.10` User-Agent.
 - `--prompt-file PATH` works with `create`, `edit`, and their `--guide` modes;
-  the guide's commands replay `--prompt-file` instead of inlining the text.
-  (#2371)
+  the guide's commands replay `--prompt-file` (and `--output`/`--overwrite`)
+  instead of inlining the text. (#2371)
+
 - `video create --guide` picks a text-to-video model for a prompt-only brief.
-  When an image-to-video model is chosen, `next_command` carries
+  When a model that needs a starting image is chosen, `next_command` carries
   `--reference-image IMAGE_PATH` and `next_command_missing_inputs` names it.
   (#2357)
-- The guide reads more shape phrasing: "a wide landscape hero banner",
-  "a wide cinematic composition", "hero image", "website banner", "youtube
-  thumbnail" are 16:9; "instagram story", "phone wallpaper", "tiktok video" are
-  9:16. A create without `--aspect-ratio` now warns that it planned the 1:1
+- The guide reads more shape phrasing: "a wide landscape hero banner", "a wide
+  cinematic composition", "hero image", "website banner", and "youtube
+  thumbnail" are 16:9; "instagram story", "phone wallpaper", and "tiktok video"
+  are 9:16. A create without `--aspect-ratio` warns that it planned the 1:1
   default and names the ratio the prompt asked for. (#2358)
+- New models: GPT Image 2.5 Flare and Sunburst (`openai.gpt-image-2.5-flare`,
+  `openai.gpt-image-2.5-sunburst`, plus 2026-09-08 snapshots; create and
+  edit), with `quality` up to `xhigh` and `max` and transparent backgrounds.
+  Create defaults to `quality: medium` when the budget allows, as GPT Image 2
+  does, so the quote is a real number. Nano Banana 2.1
+  (`fal.google-nano-banana-2-1`, create and edit) at 1K/2K/4K.
+- Fixed: `create --guide --model nano-banana` (any model alias) failed with
+  "Cannot access 'MODEL_ALIAS_RULES' before initialization".
+- The `imagen4`, `imagen4-fast`, and `imagen4-ultra` aliases are gone: Fal
+  retired those endpoints. `--model imagen4` now selects nothing instead of a
+  model that cannot run. The `grok-imagine-image-2` aliases now work in the
+  published CLI.
+
 - `luxin skill` prints the guidance markdown by default; `luxin skill --json`
   keeps the envelope.
 - Under `2>&1` a live create/edit no longer adds the stderr `in_flight` line,
   so the merged stream is one JSON document. Separate stderr still gets it.
   (#2376)
-- Fixed: `create --guide --model nano-banana` (any model alias) failed with
-  "Cannot access 'MODEL_ALIAS_RULES' before initialization".
+- A non-retryable failure (`BAD_REQUEST`, `MODERATION_BLOCKED`,
+  `IMAGE_TOO_SMALL`, `PROVIDER_VALIDATION_ERROR`) no longer carries a
+  `recover_command` that re-runs the same arguments; `recovery.action` says
+  what to change instead. The idempotency key is still returned.
+- When `api.luxin.sh` does not resolve, commands return `NETWORK_UNAVAILABLE`
+  with `retryable: false` and the fix in `error.recovery.network_fixes`: the
+  Codex sandbox flag and the hosts a generic sandbox must allow. Temporary
+  DNS, refused, reset, and timeout errors return a retryable `NETWORK_ERROR`
+  that keeps the idempotency key and names the sandbox only as a possible
+  cause. `create --guide` puts the recovery on its `service_unreachable`
+  blocker. Code change: a reset or timeout used to be
+  `HOSTED_API_REQUEST_FAILED`; it is now `NETWORK_ERROR`, still retryable.
+  (#2393)
+- The skill refresh nudge prints `npx skills update` with no name filter, so
+  installs under an alias name such as `image-skill` update too.
+
 - Claude Code and Codex plugin. Claude Code:
   `claude plugin marketplace add danielgwilson/luxin`, then
   `claude plugin install luxin@luxin`. Codex:
