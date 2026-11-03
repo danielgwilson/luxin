@@ -2343,8 +2343,10 @@ luxin jobs wait job_... --timeout-ms 600000 --json
   the job completes and its media is stored, and released if the provider
   reports a failure. If the provider finished but its result cannot be read
   or stored, the credits stay held while Luxin retries, then are released:
-  for up to 10 minutes when the result is rejected or missing (HTTP
-  400/404/410/422, or no media URL), and up to 24 hours for temporary errors.
+  for up to 10 minutes when the result is rejected, missing, or expired
+  (HTTP 400/404/410/422, no media URL, or a failed or expired status after
+  the provider reported the job finished), and up to 24 hours for temporary
+  errors.
   After 45 minutes Luxin asks the provider to cancel;
   the credits stay held until the provider reports a final state (a request
   already mid-processing can still complete, and is then charged), for up
