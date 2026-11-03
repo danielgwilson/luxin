@@ -486,10 +486,1651 @@ const OUTPUT_EXTENSION_BY_MIME_TYPE = new Map([
 
 const CLI_DOWNLOAD_USER_AGENT = `luxin-cli/${VERSION} (+https://luxin.sh/cli.md)`;
 
-// Every alias must resolve to an executable row; a retired target makes
-// `--model ALIAS` select nothing. The imagen4 trio was dropped when #2384
-// retired those Fal endpoints: redirecting a named Google model to another
-// vendor would be a silent substitution. tests/model-alias-rules.test.ts.
+// BEGIN GENERATED: model vocabulary
+// Do not edit: generated from src/model-families.ts and
+// src/model-discovery.ts by `pnpm mirror-generated:write`, verified by
+// `pnpm mirror-generated:check`. Declared above `await main()` so it is
+// initialized before any command reads it.
+const MODEL_FAMILIES = [
+  {
+    id: "gpt-image",
+    label: "GPT Image",
+    keyword: ["gpt", "image"],
+    defaults: { create: ["2"], edit: ["2"] },
+    prefer: [["2.5", "flare"], ["2"]],
+    guarded: false,
+  },
+  {
+    id: "nano-banana",
+    label: "Nano Banana",
+    keyword: ["nano", "banana"],
+    defaults: { create: ["2"], edit: ["2"] },
+    prefer: [["2"]],
+    guarded: false,
+  },
+  {
+    id: "seedream",
+    label: "Seedream",
+    keyword: ["seedream"],
+    defaults: { create: ["4.5"], edit: ["4.5"] },
+    prefer: [["4.5"]],
+    guarded: false,
+  },
+  {
+    id: "flux",
+    label: "FLUX",
+    keyword: ["flux"],
+    defaults: { create: ["1", "dev"], edit: ["2"] },
+    prefer: [["1", "dev"], ["2"]],
+    guarded: true,
+    brandSpelling: "FLUX",
+  },
+  {
+    id: "kling",
+    label: "Kling",
+    keyword: ["kling"],
+    defaults: { create: ["3"], edit: ["3"], video: ["3", "standard"] },
+    prefer: [["3", "standard"], ["3"]],
+    guarded: false,
+  },
+  {
+    id: "grok-imagine",
+    label: "Grok Imagine",
+    keyword: ["grok", "imagine"],
+    defaults: { create: ["2"], edit: ["2"] },
+    prefer: [["2"]],
+    guarded: false,
+  },
+  {
+    id: "imagen",
+    label: "Imagen",
+    keyword: ["imagen"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "recraft",
+    label: "Recraft",
+    keyword: ["recraft"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "ideogram",
+    label: "Ideogram",
+    keyword: ["ideogram"],
+    defaults: {},
+    prefer: [["2"]],
+    guarded: true,
+    brandSpelling: "Ideogram",
+  },
+  {
+    id: "seedance",
+    label: "Seedance",
+    keyword: ["seedance"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "veo",
+    label: "Veo",
+    keyword: ["veo"],
+    defaults: {},
+    prefer: [["3.1", "lite"]],
+    guarded: true,
+    brandSpelling: "Veo",
+  },
+  {
+    id: "wan",
+    label: "Wan",
+    keyword: ["wan"],
+    defaults: {},
+    prefer: [],
+    guarded: true,
+    brandSpelling: "Wan",
+  },
+  {
+    id: "hunyuan",
+    label: "Hunyuan",
+    keyword: ["hunyuan"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "trellis",
+    label: "Trellis",
+    keyword: ["trellis"],
+    defaults: {},
+    prefer: [],
+    guarded: true,
+    brandSpelling: "Trellis",
+  },
+  {
+    id: "ltx",
+    label: "LTX",
+    keyword: ["ltx"],
+    defaults: {},
+    prefer: [["2.3", "fast"]],
+    guarded: false,
+  },
+  {
+    id: "pixverse",
+    label: "PixVerse",
+    keyword: ["pixverse"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "hailuo",
+    label: "Hailuo",
+    keyword: ["hailuo"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "luma",
+    label: "Luma",
+    keyword: ["luma"],
+    defaults: {},
+    prefer: [],
+    guarded: true,
+    brandSpelling: "Luma",
+  },
+  {
+    id: "qwen",
+    label: "Qwen",
+    keyword: ["qwen"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "stable-audio",
+    label: "Stable Audio",
+    keyword: ["stable", "audio"],
+    defaults: {},
+    prefer: [],
+    guarded: true,
+    brandSpelling: "Stable Audio",
+  },
+  {
+    id: "bria",
+    label: "Bria",
+    keyword: ["bria"],
+    defaults: {},
+    prefer: [["fast"]],
+    guarded: false,
+  },
+  {
+    id: "z-image",
+    label: "Z-Image",
+    keyword: ["z", "image"],
+    defaults: {},
+    prefer: [],
+    guarded: false,
+  },
+  {
+    id: "gemini",
+    label: "Gemini",
+    keyword: ["gemini"],
+    defaults: {},
+    prefer: [],
+    guarded: true,
+    brandSpelling: "Gemini",
+  },
+  {
+    id: "ernie",
+    label: "ERNIE",
+    keyword: ["ernie"],
+    defaults: {},
+    prefer: [],
+    guarded: true,
+    brandSpelling: "ERNIE",
+  },
+];
+const MODEL_FAMILY_OPERATION_TOKENS = ["edit", "text", "to", "image", "video"];
+const MODEL_FAMILY_GUARD_FOLLOWERS = [
+  "capacitor",
+  "core",
+  "density",
+  "field",
+  "line",
+  "lines",
+  "of",
+];
+const MODEL_FAMILY_CHOOSING_VERBS = ["use", "using", "via", "try"];
+const MODEL_FAMILY_VARIANTS = [
+  {
+    family: "flux",
+    id: "fal.blackforestlabs-flux-3-edit-image",
+    name: "FLUX 3 Edit",
+    slot: "edit",
+    tokens: ["3"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.blackforestlabs-flux-3-klein-edit-image",
+    name: "FLUX 3 Klein Edit",
+    slot: "edit",
+    tokens: ["3", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.blackforestlabs-flux-3-klein-text-to-image",
+    name: "FLUX 3 Klein",
+    slot: "create",
+    tokens: ["3", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.blackforestlabs-flux-3-text-to-image",
+    name: "FLUX 3",
+    slot: "create",
+    tokens: ["3"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-background-replace",
+    name: "Bria Background Replace",
+    slot: "edit",
+    tokens: ["background", "replace"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-fibo-bbq-preview-generate",
+    name: "Bria Fibo BBQ Preview",
+    slot: "create",
+    tokens: ["bbq", "fibo", "preview"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-fibo-generate",
+    name: "Bria Fibo",
+    slot: "create",
+    tokens: ["fibo"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-fibo-lite-generate",
+    name: "Bria Fibo Lite",
+    slot: "create",
+    tokens: ["fibo", "lite"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-genfill",
+    name: "Bria GenFill",
+    slot: "edit",
+    tokens: ["genfill"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-reimagine",
+    name: "Bria Reimagine",
+    slot: "edit",
+    tokens: ["reimagine"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-text-to-image-base",
+    name: "Bria Text to Image Base",
+    slot: "create",
+    tokens: ["base"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-text-to-image-fast",
+    name: "Bria Text to Image Fast",
+    slot: "create",
+    tokens: ["fast"],
+    startImage: false,
+  },
+  {
+    family: "bria",
+    id: "fal.bria-text-to-image-hd",
+    name: "Bria Text to Image HD",
+    slot: "create",
+    tokens: ["hd"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v4-5-edit",
+    name: "Bytedance Seedream 4.5 Edit",
+    slot: "edit",
+    tokens: ["4.5"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v4-5-text-to-image",
+    name: "Bytedance Seedream 4.5",
+    slot: "create",
+    tokens: ["4.5"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v4-edit",
+    name: "Bytedance Seedream v4 Edit",
+    slot: "edit",
+    tokens: ["4"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v4-text-to-image",
+    name: "Bytedance Seedream v4",
+    slot: "create",
+    tokens: ["4"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v5-flash-edit",
+    name: "Seedream 5 Flash Edit",
+    slot: "edit",
+    tokens: ["5", "flash"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v5-flash-text-to-image",
+    name: "Seedream 5 Flash",
+    slot: "create",
+    tokens: ["5", "flash"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v5-lite-edit",
+    name: "Bytedance Seedream 5.0 Lite Edit",
+    slot: "edit",
+    tokens: ["5", "lite"],
+    startImage: false,
+  },
+  {
+    family: "seedream",
+    id: "fal.bytedance-seedream-v5-lite-text-to-image",
+    name: "Bytedance Seedream 5.0 Lite",
+    slot: "create",
+    tokens: ["5", "lite"],
+    startImage: false,
+  },
+  {
+    family: "ernie",
+    id: "fal.ernie-image",
+    name: "ERNIE Image",
+    slot: "create",
+    tokens: [],
+    startImage: false,
+  },
+  {
+    family: "ernie",
+    id: "fal.ernie-image-lora",
+    name: "ERNIE Image LoRA",
+    slot: "create",
+    tokens: ["lora"],
+    startImage: false,
+  },
+  {
+    family: "ernie",
+    id: "fal.ernie-image-lora-turbo",
+    name: "ERNIE Image LoRA Turbo",
+    slot: "create",
+    tokens: ["lora", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "ernie",
+    id: "fal.ernie-image-turbo",
+    name: "ERNIE Image Turbo",
+    slot: "create",
+    tokens: ["turbo"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-1-dev",
+    name: "FLUX 1 dev",
+    slot: "create",
+    tokens: ["1", "dev"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-1-dev-image-to-image",
+    name: "FLUX 1 dev Image to Image",
+    slot: "edit",
+    tokens: ["1", "dev"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-1-krea",
+    name: "FLUX 1 Krea dev",
+    slot: "create",
+    tokens: ["1", "dev", "krea"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-1-krea-image-to-image",
+    name: "FLUX 1 Krea dev Image to Image",
+    slot: "edit",
+    tokens: ["1", "dev", "krea"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-1-schnell",
+    name: "FLUX 1 schnell",
+    slot: "create",
+    tokens: ["1", "schnell"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-1-srpo",
+    name: "FLUX 1 SRPO dev",
+    slot: "create",
+    tokens: ["1", "dev", "srpo"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-1-srpo-image-to-image",
+    name: "FLUX 1 SRPO dev Image to Image",
+    slot: "edit",
+    tokens: ["1", "dev", "srpo"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2",
+    name: "FLUX 2",
+    slot: "create",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-edit",
+    name: "FLUX 2 Edit",
+    slot: "edit",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-flash",
+    name: "FLUX 2 Flash",
+    slot: "create",
+    tokens: ["2", "flash"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-flash-edit",
+    name: "FLUX 2 Flash Edit",
+    slot: "edit",
+    tokens: ["2", "flash"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-flex",
+    name: "FLUX 2 Flex",
+    slot: "create",
+    tokens: ["2", "flex"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-flex-edit",
+    name: "FLUX 2 Flex Edit",
+    slot: "edit",
+    tokens: ["2", "flex"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b",
+    name: "FLUX 2 klein 4B",
+    slot: "create",
+    tokens: ["2", "4b", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b-base",
+    name: "FLUX 2 klein 4B Base",
+    slot: "create",
+    tokens: ["2", "4b", "base", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b-base-edit",
+    name: "FLUX 2 klein 4B Base Edit",
+    slot: "edit",
+    tokens: ["2", "4b", "base", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b-base-edit-lora",
+    name: "FLUX 2 klein 4B Base Edit LoRA",
+    slot: "edit",
+    tokens: ["2", "4b", "base", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b-base-lora",
+    name: "FLUX 2 klein 4B Base LoRA",
+    slot: "create",
+    tokens: ["2", "4b", "base", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b-edit",
+    name: "FLUX 2 klein 4B Edit",
+    slot: "edit",
+    tokens: ["2", "4b", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b-edit-lora",
+    name: "FLUX 2 klein 4B Edit LoRA",
+    slot: "edit",
+    tokens: ["2", "4b", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-4b-lora",
+    name: "FLUX 2 klein 4B LoRA",
+    slot: "create",
+    tokens: ["2", "4b", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b",
+    name: "FLUX 2 klein 9B",
+    slot: "create",
+    tokens: ["2", "9b", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b-base",
+    name: "FLUX 2 klein 9B Base",
+    slot: "create",
+    tokens: ["2", "9b", "base", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b-base-edit",
+    name: "FLUX 2 klein 9B Base Edit",
+    slot: "edit",
+    tokens: ["2", "9b", "base", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b-base-edit-lora",
+    name: "FLUX 2 klein 9B Base Edit LoRA",
+    slot: "edit",
+    tokens: ["2", "9b", "base", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b-base-lora",
+    name: "FLUX 2 klein 9B Base LoRA",
+    slot: "create",
+    tokens: ["2", "9b", "base", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b-edit",
+    name: "FLUX 2 klein 9B Edit",
+    slot: "edit",
+    tokens: ["2", "9b", "klein"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b-edit-lora",
+    name: "FLUX 2 klein 9B Edit LoRA",
+    slot: "edit",
+    tokens: ["2", "9b", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-klein-9b-lora",
+    name: "FLUX 2 klein 9B LoRA",
+    slot: "create",
+    tokens: ["2", "9b", "klein", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-lora",
+    name: "FLUX 2 LoRA",
+    slot: "create",
+    tokens: ["2", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-lora-edit",
+    name: "FLUX 2 LoRA Edit",
+    slot: "edit",
+    tokens: ["2", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-max",
+    name: "FLUX 2 Max",
+    slot: "create",
+    tokens: ["2", "max"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-max-edit",
+    name: "FLUX 2 Max Edit",
+    slot: "edit",
+    tokens: ["2", "max"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-pro",
+    name: "FLUX 2 Pro",
+    slot: "create",
+    tokens: ["2", "pro"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-pro-edit",
+    name: "FLUX 2 Pro Edit",
+    slot: "edit",
+    tokens: ["2", "pro"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-turbo",
+    name: "FLUX 2 Turbo",
+    slot: "create",
+    tokens: ["2", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-2-turbo-edit",
+    name: "FLUX 2 Turbo Edit",
+    slot: "edit",
+    tokens: ["2", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-dev",
+    name: "FLUX 1 dev",
+    slot: "create",
+    tokens: ["1", "dev"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-dev-image-to-image",
+    name: "FLUX 1 Dev Image to Image",
+    slot: "edit",
+    tokens: ["1", "dev"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-krea",
+    name: "FLUX 1 Krea",
+    slot: "create",
+    tokens: ["1", "krea"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-krea-image-to-image",
+    name: "FLUX 1 Krea Image to Image",
+    slot: "edit",
+    tokens: ["1", "krea"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-lora",
+    name: "Flux LoRA",
+    slot: "create",
+    tokens: ["lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-lora-image-to-image",
+    name: "Flux LoRA Image to Image",
+    slot: "edit",
+    tokens: ["lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-lora-inpainting",
+    name: "Flux LoRA Inpainting",
+    slot: "edit",
+    tokens: ["inpainting", "lora"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-lora-stream",
+    name: "Flux LoRA Stream",
+    slot: "create",
+    tokens: ["lora", "stream"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-kontext",
+    name: "FLUX 1 Kontext Pro",
+    slot: "edit",
+    tokens: ["1", "kontext", "pro"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-kontext-max",
+    name: "FLUX 1 Kontext Max",
+    slot: "edit",
+    tokens: ["1", "kontext", "max"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-kontext-max-multi",
+    name: "FLUX 1 Kontext Max Multi",
+    slot: "edit",
+    tokens: ["1", "kontext", "max", "multi"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-kontext-max-text-to-image",
+    name: "FLUX 1 Kontext Max Text to Image",
+    slot: "create",
+    tokens: ["1", "kontext", "max"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-kontext-text-to-image",
+    name: "FLUX 1 Kontext Pro Text to Image",
+    slot: "create",
+    tokens: ["1", "kontext", "pro"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-v1-1",
+    name: "FLUX 1 Pro 1.1",
+    slot: "create",
+    tokens: ["1", "1.1", "pro"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-v1-1-ultra",
+    name: "FLUX 1 Pro 1.1 Ultra",
+    slot: "create",
+    tokens: ["1", "1.1", "pro", "ultra"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-v1-1-ultra-finetuned",
+    name: "FLUX 1 Pro 1.1 Ultra Fine tuned",
+    slot: "create",
+    tokens: ["1", "1.1", "fine", "pro", "tuned", "ultra"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-v1-fill",
+    name: "FLUX 1 Pro Fill",
+    slot: "edit",
+    tokens: ["1", "fill", "pro"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-pro-v1-fill-finetuned",
+    name: "FLUX 1 Pro Fill Fine tuned",
+    slot: "edit",
+    tokens: ["1", "fill", "fine", "pro", "tuned"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-schnell",
+    name: "FLUX 1 Schnell",
+    slot: "create",
+    tokens: ["1", "schnell"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-srpo",
+    name: "FLUX 1 SRPO",
+    slot: "create",
+    tokens: ["1", "srpo"],
+    startImage: false,
+  },
+  {
+    family: "flux",
+    id: "fal.flux-srpo-image-to-image",
+    name: "FLUX 1 SRPO Image to Image",
+    slot: "edit",
+    tokens: ["1", "srpo"],
+    startImage: false,
+  },
+  {
+    family: "gemini",
+    id: "fal.gemini-25-flash-image",
+    name: "Gemini 2.5 Flash Image",
+    slot: "create",
+    tokens: ["2.5", "flash"],
+    startImage: false,
+  },
+  {
+    family: "gemini",
+    id: "fal.gemini-25-flash-image-edit",
+    name: "Gemini 2.5 Flash Image Edit",
+    slot: "edit",
+    tokens: ["2.5", "flash"],
+    startImage: false,
+  },
+  {
+    family: "gemini",
+    id: "fal.gemini-3-1-flash-image-preview",
+    name: "Gemini 3.1 Flash Image Preview",
+    slot: "create",
+    tokens: ["3.1", "flash", "preview"],
+    startImage: false,
+  },
+  {
+    family: "gemini",
+    id: "fal.gemini-3-1-flash-image-preview-edit",
+    name: "Gemini 3.1 Flash Image Preview Edit",
+    slot: "edit",
+    tokens: ["3.1", "flash", "preview"],
+    startImage: false,
+  },
+  {
+    family: "gemini",
+    id: "fal.gemini-3-pro-image-preview",
+    name: "Gemini 3 Pro Image Preview",
+    slot: "create",
+    tokens: ["3", "preview", "pro"],
+    startImage: false,
+  },
+  {
+    family: "gemini",
+    id: "fal.gemini-3-pro-image-preview-edit",
+    name: "Gemini 3 Pro Image Preview Edit",
+    slot: "edit",
+    tokens: ["3", "preview", "pro"],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.google-nano-banana-2-1",
+    name: "Nano Banana 2.1",
+    slot: "create",
+    tokens: ["2.1"],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.google-nano-banana-2-1-edit",
+    name: "Nano Banana 2.1 Edit",
+    slot: "edit",
+    tokens: ["2.1"],
+    startImage: false,
+  },
+  {
+    family: "ideogram",
+    id: "fal.ideogram-v2",
+    name: "Ideogram V2",
+    slot: "create",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "ideogram",
+    id: "fal.ideogram-v2-edit",
+    name: "Ideogram V2 Edit",
+    slot: "edit",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "ideogram",
+    id: "fal.ideogram-v2a",
+    name: "Ideogram V2A",
+    slot: "create",
+    tokens: ["v2a"],
+    startImage: false,
+  },
+  {
+    family: "ideogram",
+    id: "fal.ideogram-v2a-turbo",
+    name: "Ideogram V2A Turbo",
+    slot: "create",
+    tokens: ["turbo", "v2a"],
+    startImage: false,
+  },
+  {
+    family: "ideogram",
+    id: "fal.ideogram-v4-5",
+    name: "Ideogram 4.5",
+    slot: "create",
+    tokens: ["4.5"],
+    startImage: false,
+  },
+  {
+    family: "ideogram",
+    id: "fal.ideogram-v4-5-edit",
+    name: "Ideogram 4.5 Edit",
+    slot: "edit",
+    tokens: ["4.5"],
+    startImage: false,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-image-o1",
+    name: "Kling O1 Image",
+    slot: "edit",
+    tokens: ["o1"],
+    startImage: false,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-image-o3-image-to-image",
+    name: "Kling Image O3 Image to Image",
+    slot: "edit",
+    tokens: ["o3"],
+    startImage: false,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-image-o3-text-to-image",
+    name: "Kling Image O3 Text to Image",
+    slot: "create",
+    tokens: ["o3"],
+    startImage: false,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-image-v3-image-to-image",
+    name: "Kling Image v3 Image to Image",
+    slot: "edit",
+    tokens: ["3"],
+    startImage: false,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-image-v3-text-to-image",
+    name: "Kling Image v3 Text to Image",
+    slot: "create",
+    tokens: ["3"],
+    startImage: false,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-video-v3-standard-image-to-video",
+    name: "Kling Video v3 Standard Image to Video",
+    slot: "video",
+    tokens: ["3", "standard"],
+    startImage: true,
+  },
+  {
+    family: "kling",
+    id: "fal.kling-video-v3-standard-text-to-video",
+    name: "Kling Video v3 Standard Text to Video",
+    slot: "video",
+    tokens: ["3", "standard"],
+    startImage: false,
+  },
+  {
+    family: "ltx",
+    id: "fal.ltx-2-3-image-to-video-fast",
+    name: "LTX 2.3 Fast Image to Video",
+    slot: "video",
+    tokens: ["2.3", "fast"],
+    startImage: true,
+  },
+  {
+    family: "ltx",
+    id: "fal.ltx-2-3-text-to-video-fast",
+    name: "LTX 2.3 Video Fast Text to Video",
+    slot: "video",
+    tokens: ["2.3", "fast"],
+    startImage: false,
+  },
+  {
+    family: "ltx",
+    id: "fal.ltx-video-13b-distilled",
+    name: "LTX Video 13B Distilled",
+    slot: "video",
+    tokens: ["13b", "distilled"],
+    startImage: false,
+  },
+  {
+    family: "luma",
+    id: "fal.luma-agent-ray-v3-2-text-to-video",
+    name: "Luma Ray 3.2 Text to Video",
+    slot: "video",
+    tokens: ["3.2", "ray"],
+    startImage: false,
+  },
+  {
+    family: "hailuo",
+    id: "fal.minimax-hailuo-02-standard-text-to-video",
+    name: "MiniMax Hailuo 02 Standard Text to Video",
+    slot: "video",
+    tokens: ["2", "standard"],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.nano-banana",
+    name: "Nano Banana",
+    slot: "create",
+    tokens: [],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.nano-banana-2",
+    name: "Nano Banana 2",
+    slot: "create",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.nano-banana-2-edit",
+    name: "Nano Banana 2 Edit",
+    slot: "edit",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.nano-banana-edit",
+    name: "Nano Banana Edit",
+    slot: "edit",
+    tokens: [],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.nano-banana-pro",
+    name: "Nano Banana Pro",
+    slot: "create",
+    tokens: ["pro"],
+    startImage: false,
+  },
+  {
+    family: "nano-banana",
+    id: "fal.nano-banana-pro-edit",
+    name: "Nano Banana Pro Edit",
+    slot: "edit",
+    tokens: ["pro"],
+    startImage: false,
+  },
+  {
+    family: "pixverse",
+    id: "fal.pixverse-v6-image-to-video",
+    name: "PixVerse V6 Image to Video",
+    slot: "video",
+    tokens: ["6"],
+    startImage: true,
+  },
+  {
+    family: "pixverse",
+    id: "fal.pixverse-v6-text-to-video",
+    name: "PixVerse V6 Text to Video",
+    slot: "video",
+    tokens: ["6"],
+    startImage: false,
+  },
+  {
+    family: "qwen",
+    id: "fal.qwen-image",
+    name: "Qwen Image",
+    slot: "create",
+    tokens: [],
+    startImage: false,
+  },
+  {
+    family: "qwen",
+    id: "fal.qwen-image-2512-lora",
+    name: "Qwen Image 2512 LoRA",
+    slot: "create",
+    tokens: ["2512", "lora"],
+    startImage: false,
+  },
+  {
+    family: "qwen",
+    id: "fal.qwen-image-edit-2511",
+    name: "Qwen Image Edit 2511",
+    slot: "edit",
+    tokens: ["2511"],
+    startImage: false,
+  },
+  {
+    family: "qwen",
+    id: "fal.qwen-image-edit-plus",
+    name: "Qwen Image Edit Plus",
+    slot: "edit",
+    tokens: ["plus"],
+    startImage: false,
+  },
+  {
+    family: "qwen",
+    id: "fal.qwen-image-image-to-image",
+    name: "Qwen Image Image to Image",
+    slot: "edit",
+    tokens: [],
+    startImage: false,
+  },
+  {
+    family: "recraft",
+    id: "fal.recraft-v3-text-to-image",
+    name: "Recraft V3",
+    slot: "create",
+    tokens: ["3"],
+    startImage: false,
+  },
+  {
+    family: "recraft",
+    id: "fal.recraft-v4-1-flash-text-to-image",
+    name: "Recraft V4.1 Flash",
+    slot: "create",
+    tokens: ["4.1", "flash"],
+    startImage: false,
+  },
+  {
+    family: "recraft",
+    id: "fal.recraft-v4-1-pro-text-to-image",
+    name: "Recraft V4.1 Pro",
+    slot: "create",
+    tokens: ["4.1", "pro"],
+    startImage: false,
+  },
+  {
+    family: "recraft",
+    id: "fal.recraft-v4-1-text-to-image",
+    name: "Recraft V4.1",
+    slot: "create",
+    tokens: ["4.1"],
+    startImage: false,
+  },
+  {
+    family: "recraft",
+    id: "fal.recraft-v4-pro-text-to-image",
+    name: "Recraft V4 Pro",
+    slot: "create",
+    tokens: ["4", "pro"],
+    startImage: false,
+  },
+  {
+    family: "recraft",
+    id: "fal.recraft-v4-text-to-image",
+    name: "Recraft V4",
+    slot: "create",
+    tokens: ["4"],
+    startImage: false,
+  },
+  {
+    family: "stable-audio",
+    id: "fal.stable-audio-25-text-to-audio",
+    name: "Stable Audio 2.5",
+    slot: "audio",
+    tokens: ["2.5"],
+    startImage: false,
+  },
+  {
+    family: "trellis",
+    id: "fal.trellis-2",
+    name: "Trellis 2 image to 3D",
+    slot: "3d",
+    tokens: ["2", "3d"],
+    startImage: false,
+  },
+  {
+    family: "trellis",
+    id: "fal.trellis-image-to-3d",
+    name: "Trellis image to 3D",
+    slot: "3d",
+    tokens: ["3d"],
+    startImage: false,
+  },
+  {
+    family: "trellis",
+    id: "fal.trellis-multi",
+    name: "Trellis Multi Image image to 3D",
+    slot: "3d",
+    tokens: ["3d", "multi"],
+    startImage: false,
+  },
+  {
+    family: "veo",
+    id: "fal.veo3-1-fast",
+    name: "Veo 3.1 Fast Text to Video",
+    slot: "video",
+    tokens: ["3.1", "fast"],
+    startImage: false,
+  },
+  {
+    family: "veo",
+    id: "fal.veo3-1-fast-image-to-video",
+    name: "Veo 3.1 Fast Image to Video",
+    slot: "video",
+    tokens: ["3.1", "fast"],
+    startImage: true,
+  },
+  {
+    family: "veo",
+    id: "fal.veo3-1-lite",
+    name: "Veo 3.1 Lite Text to Video",
+    slot: "video",
+    tokens: ["3.1", "lite"],
+    startImage: false,
+  },
+  {
+    family: "veo",
+    id: "fal.veo3-1-lite-image-to-video",
+    name: "Veo 3.1 Lite Image to Video",
+    slot: "video",
+    tokens: ["3.1", "lite"],
+    startImage: true,
+  },
+  {
+    family: "wan",
+    id: "fal.wan-v2-7-edit",
+    name: "Wan 2.7 Edit",
+    slot: "edit",
+    tokens: ["2.7"],
+    startImage: false,
+  },
+  {
+    family: "wan",
+    id: "fal.wan-v2-7-image-to-video",
+    name: "Wan 2.7 Image to Video",
+    slot: "video",
+    tokens: ["2.7"],
+    startImage: true,
+  },
+  {
+    family: "wan",
+    id: "fal.wan-v2-7-pro-edit",
+    name: "Wan 2.7 Pro Edit",
+    slot: "edit",
+    tokens: ["2.7", "pro"],
+    startImage: false,
+  },
+  {
+    family: "wan",
+    id: "fal.wan-v2-7-pro-text-to-image",
+    name: "Wan 2.7 Pro Text to Image",
+    slot: "create",
+    tokens: ["2.7", "pro"],
+    startImage: false,
+  },
+  {
+    family: "wan",
+    id: "fal.wan-v2-7-text-to-image",
+    name: "Wan 2.7 Text to Image",
+    slot: "create",
+    tokens: ["2.7"],
+    startImage: false,
+  },
+  {
+    family: "wan",
+    id: "fal.wan-v2-7-text-to-video",
+    name: "Wan 2.7 Text to Video",
+    slot: "video",
+    tokens: ["2.7"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-base",
+    name: "Z Image Base",
+    slot: "create",
+    tokens: ["base"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-base-lora",
+    name: "Z Image Base LoRA",
+    slot: "create",
+    tokens: ["base", "lora"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo",
+    name: "Z Image Turbo",
+    slot: "create",
+    tokens: ["turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-controlnet",
+    name: "Z Image Turbo ControlNet",
+    slot: "edit",
+    tokens: ["controlnet", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-controlnet-lora",
+    name: "Z Image Turbo ControlNet LoRA",
+    slot: "edit",
+    tokens: ["controlnet", "lora", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-image-to-image",
+    name: "Z Image Turbo Image to Image",
+    slot: "edit",
+    tokens: ["turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-image-to-image-lora",
+    name: "Z Image Turbo Image to Image LoRA",
+    slot: "edit",
+    tokens: ["lora", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-inpaint",
+    name: "Z Image Turbo Inpaint",
+    slot: "edit",
+    tokens: ["inpaint", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-inpaint-lora",
+    name: "Z Image Turbo Inpaint LoRA",
+    slot: "edit",
+    tokens: ["inpaint", "lora", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-lora",
+    name: "Z Image Turbo LoRA",
+    slot: "create",
+    tokens: ["lora", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-tiling",
+    name: "Z Image Turbo Seamless Tiling",
+    slot: "create",
+    tokens: ["seamless", "tiling", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "z-image",
+    id: "fal.z-image-turbo-tiling-lora",
+    name: "Z Image Turbo Seamless Tiling LoRA",
+    slot: "create",
+    tokens: ["lora", "seamless", "tiling", "turbo"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-1.5",
+    name: "GPT Image 1.5",
+    slot: "create",
+    tokens: ["1.5"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-1.5-edit",
+    name: "GPT Image 1.5 Edit",
+    slot: "edit",
+    tokens: ["1.5"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2",
+    name: "GPT Image 2",
+    slot: "create",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2-2026-04-21",
+    name: "GPT Image 2 Snapshot 2026 04 21",
+    slot: "create",
+    tokens: ["2", "2026", "21", "4", "snapshot"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2-2026-04-21-edit",
+    name: "GPT Image 2 Snapshot 2026 04 21 Edit",
+    slot: "edit",
+    tokens: ["2", "2026", "21", "4", "snapshot"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2-edit",
+    name: "GPT Image 2 Edit",
+    slot: "edit",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-flare",
+    name: "GPT Image 2.5 Flare",
+    slot: "create",
+    tokens: ["2.5", "flare"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-flare-2026-09-08",
+    name: "GPT Image 2.5 Flare Snapshot 2026 09 08",
+    slot: "create",
+    tokens: ["2.5", "2026", "8", "9", "flare", "snapshot"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-flare-2026-09-08-edit",
+    name: "GPT Image 2.5 Flare Snapshot 2026 09 08 Edit",
+    slot: "edit",
+    tokens: ["2.5", "2026", "8", "9", "flare", "snapshot"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-flare-edit",
+    name: "GPT Image 2.5 Flare Edit",
+    slot: "edit",
+    tokens: ["2.5", "flare"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-sunburst",
+    name: "GPT Image 2.5 Sunburst",
+    slot: "create",
+    tokens: ["2.5", "sunburst"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-sunburst-2026-09-08",
+    name: "GPT Image 2.5 Sunburst Snapshot 2026 09 08",
+    slot: "create",
+    tokens: ["2.5", "2026", "8", "9", "snapshot", "sunburst"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-sunburst-2026-09-08-edit",
+    name: "GPT Image 2.5 Sunburst Snapshot 2026 09 08 Edit",
+    slot: "edit",
+    tokens: ["2.5", "2026", "8", "9", "snapshot", "sunburst"],
+    startImage: false,
+  },
+  {
+    family: "gpt-image",
+    id: "openai.gpt-image-2.5-sunburst-edit",
+    name: "GPT Image 2.5 Sunburst Edit",
+    slot: "edit",
+    tokens: ["2.5", "sunburst"],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-image",
+    name: "Grok Imagine Image",
+    slot: "create",
+    tokens: [],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-image-2.0",
+    name: "Grok Imagine Image 2.0",
+    slot: "create",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-image-2.0-edit",
+    name: "Grok Imagine Image 2.0 Edit",
+    slot: "edit",
+    tokens: ["2"],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-image-edit",
+    name: "Grok Imagine Image Edit",
+    slot: "edit",
+    tokens: [],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-image-quality",
+    name: "Grok Imagine Image Quality",
+    slot: "create",
+    tokens: ["quality"],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-image-quality-edit",
+    name: "Grok Imagine Image Quality Edit",
+    slot: "edit",
+    tokens: ["quality"],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-video-1.5",
+    name: "Grok Imagine Video 1.5",
+    slot: "video",
+    tokens: ["1.5"],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-video-1.5-image-to-video",
+    name: "Grok Imagine Video 1.5 Image to Video",
+    slot: "video",
+    tokens: ["1.5"],
+    startImage: true,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-video-1.5-lite",
+    name: "Grok Imagine Video 1.5 Lite",
+    slot: "video",
+    tokens: ["1.5", "lite"],
+    startImage: false,
+  },
+  {
+    family: "grok-imagine",
+    id: "xai.grok-imagine-video-1.5-lite-image-to-video",
+    name: "Grok Imagine Video 1.5 Lite Image to Video",
+    slot: "video",
+    tokens: ["1.5", "lite"],
+    startImage: true,
+  },
+];
 const MODEL_ALIAS_RULES = [
   {
     alias: "nano-banana",
@@ -547,6 +2188,7 @@ const MODEL_ALIAS_RULES = [
     ],
   },
 ];
+// END GENERATED: model vocabulary
 
 // Copy of `preferredHostedDefaultVideoCreateModelIds()` in
 // `src/hosted-create-policy.ts`; the guide differential pins the two.
@@ -3245,10 +4887,29 @@ async function createGuide(args, options = {}) {
     models.envelope.ok && Array.isArray(models.envelope.data?.models)
       ? models.envelope.data.models
       : null;
+  // Named-model selection from prose: an explicit --model wins, then a model
+  // the brief names (when executable for this operation), then the default.
+  const namedModel =
+    listedModels === null || requestedModelId !== null
+      ? { kind: "none" }
+      : resolveGuideNamedModel({
+          models: listedModels,
+          prompt: trimmedPrompt,
+          intent: requestedIntent,
+          operation: guideOperation,
+        });
+  const namedModelWarning =
+    namedModel.kind === "notice"
+      ? namedModel.warning
+      : namedModel.kind === "selected"
+        ? namedModel.notice
+        : null;
+  const selectionModelId =
+    namedModel.kind === "selected" ? namedModel.modelId : requestedModelId;
   const selectModel = (candidateModels) =>
     candidateModels === null
       ? null
-      : selectCreateGuideModel(candidateModels, requestedModelId, {
+      : selectCreateGuideModel(candidateModels, selectionModelId, {
           operation: guideOperation,
           prompt: trimmedPrompt,
           intent: requestedIntent,
@@ -3478,12 +5139,16 @@ async function createGuide(args, options = {}) {
   });
   // Append, never replace: the stage warning carries the spend-safety contract
   // agents rely on, and the ratio note is additive context.
+  const guideWarningNotes = [
+    unsupportedAspectRatioWarning,
+    namedModelWarning,
+  ].filter((note) => note !== null);
   const guideWarning =
-    unsupportedAspectRatioWarning === null
+    guideWarningNotes.length === 0
       ? baseGuideWarning
       : {
           ...baseGuideWarning,
-          warning: `${baseGuideWarning.warning} ${unsupportedAspectRatioWarning}`,
+          warning: [baseGuideWarning.warning, ...guideWarningNotes].join(" "),
         };
   const quotaTopUp = createGuideQuotaTopUp(
     quota?.envelope.data?.top_up ?? null,
@@ -3714,23 +5379,25 @@ async function createGuide(args, options = {}) {
             modality: selected.modality ?? null,
             suggested_aspect_ratio: selectedAspectRatio,
             reason:
-              requestedModelId !== null
-                ? createGuideRequestedSelectionReason(selected)
-                : selection?.aspectRatioRoutedFrom != null &&
-                    briefAspectRatio !== null
-                  ? aspectRatioRoutedCreateSelectionReason({
-                      aspectRatio: briefAspectRatio,
-                      skippedModelId: selection.aspectRatioRoutedFrom,
-                    })
-                  : selection?.aspectRatioCapableFallback === true &&
+              namedModel.kind === "selected"
+                ? namedModel.reason
+                : requestedModelId !== null
+                  ? createGuideRequestedSelectionReason(selected)
+                  : selection?.aspectRatioRoutedFrom != null &&
                       briefAspectRatio !== null
-                    ? `guide selected an available model that supports the requested ${briefAspectRatio} aspect ratio`
-                    : createGuideSelectionReason(
-                        selected,
-                        trimmedPrompt,
-                        requestedIntent,
-                        guideOperation,
-                      ),
+                    ? aspectRatioRoutedCreateSelectionReason({
+                        aspectRatio: briefAspectRatio,
+                        skippedModelId: selection.aspectRatioRoutedFrom,
+                      })
+                    : selection?.aspectRatioCapableFallback === true &&
+                        briefAspectRatio !== null
+                      ? `guide selected an available model that supports the requested ${briefAspectRatio} aspect ratio`
+                      : createGuideSelectionReason(
+                          selected,
+                          trimmedPrompt,
+                          requestedIntent,
+                          guideOperation,
+                        ),
           },
     cost: {
       estimated_credits: estimatedCredits,
@@ -3806,11 +5473,375 @@ async function createGuide(args, options = {}) {
             "create_credit_debit_unavailable: this hosted API does not publish per-aspect-ratio create debits, so the credits above are the model's default-shape quote and may not be what create debits. Run the dry_run command in escape_hatches for the exact figure before budgeting.",
           ]
         : []),
+      ...(namedModelWarning === null ? [] : [namedModelWarning]),
       ...(guideSkillRefresh === null
         ? []
         : [skillRefreshWarning(guideSkillRefresh)]),
     ],
   );
+}
+
+// ---------------------------------------------------------------------------
+// Named-model selection from prose. MODEL_FAMILIES, the token lists, and
+// MODEL_FAMILY_VARIANTS (derived from the registry) are generated from
+// src/model-families.ts; these functions mirror `modelNameTokens`,
+// `findMentions`, and `resolveNamedModel` there and run the same corpus in
+// tests/model-families.test.ts. Keep each one self-contained.
+// ---------------------------------------------------------------------------
+function modelNameTokens(text) {
+  const tokens = [];
+  for (const piece of text.split(/[\s_/()[\],;:!?"'`-]+/)) {
+    const cleaned = piece.replace(/^\.+|\.+$/g, "");
+    if (cleaned.length === 0) {
+      continue;
+    }
+    const dotted = /^([A-Za-z]+)\.(\d+(?:\.\d+)?)$/.exec(cleaned);
+    const parts = dotted ? [dotted[1] ?? "", dotted[2] ?? ""] : [cleaned];
+    for (const part of parts) {
+      let norm = part.toLowerCase();
+      const whole = /^v?(\d+)(?:\.0)?$/.exec(norm);
+      if (whole) {
+        // "02" and "2" name the same version (MiniMax Hailuo 02).
+        norm = String(Number(whole[1] ?? norm));
+      } else if (/^v\d+\.\d+$/.test(norm)) {
+        norm = norm.slice(1);
+      }
+      tokens.push({ raw: part, norm });
+    }
+  }
+  return tokens;
+}
+
+function modelFamilyKeywordIndex(tokens, keyword, from = 0) {
+  for (let index = from; index + keyword.length <= tokens.length; index += 1) {
+    if (
+      keyword.every((word, offset) => tokens[index + offset]?.norm === word)
+    ) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function findModelFamilyMentions(text, variants) {
+  const tokens = modelNameTokens(text);
+  const mentions = [];
+  for (const family of MODEL_FAMILIES) {
+    const vocabulary = new Set(
+      variants
+        .filter((variant) => variant.family === family.id)
+        .flatMap((variant) => variant.tokens),
+    );
+    let at = modelFamilyKeywordIndex(tokens, family.keyword);
+    while (at >= 0) {
+      const after = at + family.keyword.length;
+      const named = [];
+      let unknownVersion = null;
+      let end = after;
+      for (
+        let index = after;
+        index < tokens.length && index < after + 6;
+        index += 1
+      ) {
+        const token = tokens[index]?.norm ?? "";
+        if (MODEL_FAMILY_OPERATION_TOKENS.includes(token)) {
+          continue;
+        }
+        if (vocabulary.has(token)) {
+          named.push(token);
+          end = index + 1;
+          continue;
+        }
+        // A version or snapshot component the family does not carry, even
+        // after matched tokens ("GPT Image 2 Snapshot 2026-04-22"): report
+        // it, never match the nearest row.
+        if (/^\d+(?:\.\d+)?$/.test(token)) {
+          unknownVersion = token;
+          end = index + 1;
+        }
+        break;
+      }
+      // Guarded keywords are ordinary words, so they need an unambiguous
+      // model reference. Strong: a variant token or version follows, or the
+      // exact brand casing is followed by "model". Framed: a choosing verb
+      // precedes the exact brand casing ("using Wan"). Lowercase prose and a
+      // bare "with" never count (#2407 review: "climbing roses with trellis"
+      // became an image-to-3D request).
+      const next = tokens[after]?.norm ?? "";
+      const exactCasing =
+        family.brandSpelling !== undefined &&
+        tokens
+          .slice(at, after)
+          .map((token) => token.raw)
+          .join(" ") === family.brandSpelling;
+      const previous = tokens[at - 1]?.norm ?? "";
+      const verb = previous === "the" ? (tokens[at - 2]?.norm ?? "") : previous;
+      const strong =
+        named.length > 0 ||
+        unknownVersion !== null ||
+        (exactCasing && (next === "model" || next === "models"));
+      const framed =
+        exactCasing &&
+        MODEL_FAMILY_CHOOSING_VERBS.includes(verb) &&
+        !MODEL_FAMILY_GUARD_FOLLOWERS.includes(next);
+      if (!family.guarded || strong || framed) {
+        mentions.push({
+          family,
+          strong: !family.guarded || strong,
+          tokens: [...new Set(named)].sort(),
+          phrase: tokens
+            .slice(at, end)
+            .map((token) => token.raw)
+            .join(" "),
+          unknownVersion,
+        });
+      }
+      at = modelFamilyKeywordIndex(tokens, family.keyword, after);
+    }
+  }
+  return mentions;
+}
+
+function resolveNamedModel({
+  text,
+  slot: requestedSlot,
+  variants,
+  isExecutable,
+  creditsFor,
+}) {
+  const slotLabel = {
+    create: "image create",
+    edit: "image edit",
+    video: "video",
+    audio: "audio",
+    "3d": "3D",
+  };
+  const fallback = "so the guide used its default selection";
+  const distinct = new Map();
+  for (const mention of findModelFamilyMentions(text, variants)) {
+    distinct.set(
+      `${mention.family.id}:${mention.tokens.join(",")}:${mention.unknownVersion ?? ""}`,
+      mention,
+    );
+  }
+  const mentions = [...distinct.values()];
+  const [mention] = mentions;
+  if (mention === undefined) {
+    return { kind: "none" };
+  }
+  if (mentions.length > 1) {
+    return {
+      kind: "notice",
+      warning: `The brief names several models (${mentions.map((entry) => entry.phrase).join(", ")}), ${fallback}. Pass --model to choose one.`,
+    };
+  }
+  const familyVariants = variants.filter(
+    (variant) => variant.family === mention.family.id,
+  );
+  // A brand that only makes one kind of media implies it ("Veo 3.1 of a
+  // dog" is a video brief), but only on a strong reference: inference must
+  // never switch the operation on an ordinary word.
+  const familySlots = new Set(familyVariants.map((variant) => variant.slot));
+  const onlySlot = familySlots.size === 1 ? [...familySlots][0] : undefined;
+  const slot =
+    requestedSlot === "create" &&
+    mention.strong &&
+    !familySlots.has("create") &&
+    onlySlot !== undefined &&
+    onlySlot !== "edit"
+      ? onlySlot
+      : requestedSlot;
+  if (mention.unknownVersion !== null || familyVariants.length === 0) {
+    return {
+      kind: "notice",
+      warning: `${mention.phrase} is not in the Luxin catalog, ${fallback}. Pass --model to choose another model.`,
+    };
+  }
+  const wanted =
+    mention.tokens.length > 0 ||
+    familyVariants.some(
+      (variant) => variant.slot === slot && variant.tokens.length === 0,
+    )
+      ? mention.tokens
+      : [...(mention.family.defaults[slot] ?? [])];
+  const covers = (variant) =>
+    wanted.every((token) => variant.tokens.includes(token));
+  const candidates = familyVariants.filter(
+    (variant) => variant.slot === slot && covers(variant),
+  );
+  if (candidates.length === 0) {
+    return {
+      kind: "notice",
+      warning: familyVariants.some(covers)
+        ? `${mention.phrase} has no ${slotLabel[slot]} model in the Luxin catalog, ${fallback}.`
+        : `${mention.phrase} is not in the Luxin catalog, ${fallback}. Pass --model to choose another model.`,
+    };
+  }
+  const extra = (variant) => variant.tokens.length - wanted.length;
+  const fewest = Math.min(...candidates.map(extra));
+  const best = candidates.filter((variant) => extra(variant) === fewest);
+  const shapes = [...new Set(best.map((variant) => variant.tokens.join(",")))];
+  const preferred =
+    shapes.length > 1
+      ? (mention.family.prefer
+          .map((tokens) => [...tokens].sort().join(","))
+          .find((shape) => shapes.includes(shape)) ??
+        newestVersionShape(shapes))
+      : shapes[0];
+  if (preferred === undefined) {
+    return {
+      kind: "notice",
+      warning: `${mention.phrase} matches several models (${best.map((variant) => variant.id).join(", ")}), ${fallback}. Pass --model to choose one.`,
+    };
+  }
+  const ordered = best
+    .filter((variant) => variant.tokens.join(",") === preferred)
+    .sort(
+      (left, right) =>
+        Number(left.startImage) - Number(right.startImage) ||
+        left.id.localeCompare(right.id),
+    );
+  const chosen = ordered.find((variant) => isExecutable(variant.id, slot));
+  const first = ordered[0];
+  if (chosen === undefined || first === undefined) {
+    return {
+      kind: "notice",
+      warning: `${first?.name ?? mention.phrase} (${first?.id ?? "unknown"}) is cataloged but not executable right now, ${fallback}.`,
+    };
+  }
+  return {
+    kind: "selected",
+    modelId: chosen.id,
+    reason: `the brief names ${chosen.name}, so the guide selected ${chosen.id}`,
+    notice:
+      mention.tokens.length === 0 && chosen.tokens.length === 0
+        ? alsoInFamilyNotice({
+            siblings: familyVariants.filter(
+              (variant) =>
+                variant.slot === slot &&
+                variant.id !== chosen.id &&
+                variant.tokens.length > 0 &&
+                !variant.startImage &&
+                isExecutable(variant.id, slot),
+            ),
+            creditsFor,
+          })
+        : null,
+  };
+}
+
+// When tied shapes differ only in one version number, the newest wins.
+// Mirrors `newestVersionShape` in src/model-families.ts.
+function newestVersionShape(shapes) {
+  const parsed = shapes.map((shape) => {
+    const tokens = shape.length === 0 ? [] : shape.split(",");
+    const versions = tokens.filter((token) => /^\d+(?:\.\d+)?$/.test(token));
+    return {
+      shape,
+      version: versions.length === 1 ? Number(versions[0]) : null,
+      rest: tokens.filter((token) => !versions.includes(token)).join(","),
+    };
+  });
+  const [first] = parsed;
+  if (
+    first === undefined ||
+    parsed.some(
+      (entry) => entry.version === null || entry.rest !== first.rest,
+    ) ||
+    new Set(parsed.map((entry) => entry.version)).size !== parsed.length
+  ) {
+    return undefined;
+  }
+  return [...parsed].sort(
+    (left, right) => (right.version ?? 0) - (left.version ?? 0),
+  )[0]?.shape;
+}
+
+function alsoInFamilyNotice({ siblings, creditsFor }) {
+  const limit = 4;
+  const byName = new Map();
+  for (const variant of siblings) {
+    if (!byName.has(variant.name)) {
+      byName.set(variant.name, {
+        name: variant.name,
+        credits: creditsFor?.(variant.id) ?? null,
+      });
+    }
+  }
+  const listed = [...byName.values()].sort(
+    (left, right) =>
+      (left.credits ?? Number.POSITIVE_INFINITY) -
+        (right.credits ?? Number.POSITIVE_INFINITY) ||
+      left.name.localeCompare(right.name),
+  );
+  if (listed.length === 0) {
+    return null;
+  }
+  const shown = listed
+    .slice(0, limit)
+    .map((entry) =>
+      entry.credits === null
+        ? entry.name
+        : `${entry.name} (${entry.credits} cr)`,
+    );
+  const more =
+    listed.length > limit ? `, and ${listed.length - limit} more` : "";
+  return `Also in this family: ${shown.join(", ")}${more}; pass --model to choose.`;
+}
+
+function resolveGuideNamedModel({ models, prompt, intent, operation }) {
+  const brief = { prompt, intent };
+  const slot =
+    operation === "edit"
+      ? "edit"
+      : createGuideImplies3d(brief)
+        ? "3d"
+        : createGuideImpliesAudio(brief)
+          ? "audio"
+          : createGuideImpliesVideo(brief)
+            ? "video"
+            : "create";
+  const byId = new Map(models.map((model) => [model?.id, model]));
+  return resolveNamedModel({
+    text: prompt,
+    slot,
+    variants: MODEL_FAMILY_VARIANTS,
+    creditsFor: (modelId) => {
+      const credits = byId.get(modelId)?.credits_required;
+      return typeof credits === "number" ? credits : null;
+    },
+    isExecutable: (modelId, resolvedSlot) => {
+      const model = byId.get(modelId);
+      if (
+        model === undefined ||
+        model.status !== "available" ||
+        guideModelExecutionStatus(model) !== "executable"
+      ) {
+        return false;
+      }
+      const creates =
+        Array.isArray(model.supports) && model.supports.includes("create");
+      if (resolvedSlot === "edit") {
+        return (
+          model.modality === "image" &&
+          createGuideSelectedModelRequiresInputImage(model)
+        );
+      }
+      if (resolvedSlot === "3d") {
+        return (
+          model.modality === "3d" &&
+          (creates || createGuideSelectedModelRequiresInputImage(model))
+        );
+      }
+      const modality =
+        resolvedSlot === "create"
+          ? "image"
+          : resolvedSlot === "video"
+            ? "video"
+            : "audio";
+      return creates && model.modality === modality;
+    },
+  });
 }
 
 function createGuideSuccess(command, actor, data, warnings = []) {

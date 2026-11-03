@@ -6,6 +6,21 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+- `create --guide` and `edit --guide` select a model the brief names: "with
+  GPT Image 2.5", "use Nano Banana", "Seedream 5", "FLUX.2 Max", "a Kling
+  video", "Grok Imagine". The most specific model matching the words written
+  wins, for the operation asked. An explicit `--model` still wins. A named
+  model that cannot run, a version the catalog does not carry ("FLUX 3"), or
+  two named models is reported in `warnings`, and the guide keeps its default
+  instead of substituting another version. A bare family name selects the
+  model with exactly that name ("Nano Banana" is `fal.nano-banana`) and lists
+  the newer members with their credit cost. Covered brands: GPT Image, Nano
+  Banana, Seedream, FLUX, Kling, Grok Imagine, Recraft, Ideogram, Seedance,
+  Veo, Wan, LTX, PixVerse, Hailuo, Luma, Qwen, Stable Audio, Bria, Z-Image,
+  Gemini, ERNIE, and Trellis. Brand names that are ordinary words (flux, wan,
+  luma, trellis, veo, gemini, ernie) need a version, "the X model", or "using
+  X" before they count, so scene descriptions are never rerouted.
+
 ## 0.2.10 - 2026-11-02
 
 Saving files, reading prompts from files, guides that do not pick a model you

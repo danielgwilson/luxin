@@ -1433,6 +1433,47 @@ receipt. Use the `--max-estimated-usd-per-image` value returned by
 `create --guide`; it is sized to the Luxin credit debit, not only the
 upstream provider estimate.
 
+The guide also reads a model named in the brief. "with GPT Image 2.5", "use
+Nano Banana", "a Seedream 5 poster", "a FLUX.2 Max render", "a Kling video", and
+"Grok Imagine" select that model for the operation (create, edit, or video), and
+`selection.reason` says so. The guide picks the most specific model that matches
+every word written after the family name: "FLUX.2 Max" is FLUX.2 Max, "FLUX.2"
+is FLUX.2, and a bare family name is the model with exactly that name ("Nano
+Banana" is `fal.nano-banana`) or, when no model has that name, the family's
+default ("FLUX" is FLUX.1 dev). When several rows fit equally and differ only
+in version, the newest wins ("Recraft" is Recraft V4.1); when they differ in a
+tier ("Seedream 5" fits Flash and Lite), the guide says so and keeps its
+default. When a bare name selects that literal row and
+newer members of the family can run, `warnings` adds a notice listing up to four
+of them, cheapest first, with their credit cost: "Also in this family: Nano
+Banana 2.1 (9 cr), Nano Banana 2 (14 cr), Nano Banana Pro (25 cr); pass --model
+to choose." Precedence: an explicit `--model` wins, then a
+model the brief names, then the intent default. The guide never substitutes a
+different version for the one named. It keeps its default selection and says
+why in `warnings` and `guide_warning.warning` when any of these is true:
+
+- the named model has no row for the operation ("FLUX.2 has no video model");
+- the model is not executable;
+- the version is not in the catalog ("FLUX 3", "Kling 4");
+- the brief names two different models or versions ("GPT Image 2 and GPT Image
+  2.5").
+
+The families are GPT Image, Nano Banana, Seedream, FLUX, Kling, Grok Imagine,
+Recraft, Ideogram, Seedance, Veo, Wan, LTX, PixVerse, Hailuo, Luma, Qwen, Stable
+Audio, Bria, Z-Image, Gemini, ERNIE, Trellis, plus Imagen and Hunyuan, which the
+catalog does not carry and which only produce a notice. A brand that makes only
+one kind of media implies it on a clear reference: "a Veo 3.1 clip of a dog"
+selects a video model, "use the Trellis model on this photo" a 3D model. Brand
+names that are also ordinary words (flux, wan, luma, trellis, ideogram, veo,
+gemini, ernie, stable audio) count only on an unambiguous model reference: a
+version or tier after the name ("Wan 2.7", "Luma Ray 3.2"), the exact brand
+spelling followed by "model" ("the FLUX model"), or a choosing verb before the
+exact spelling ("using Wan", "use ERNIE Image"). Only the first two may switch
+the operation. A version or snapshot the catalog lacks ("GPT Image 2 Snapshot
+2026-04-22") is reported, never matched to the nearest row. "Solder flux", "a
+FLUX render", "roses with trellis", "a wan smile", "luma key", and "imagine a
+fox" name no model.
+
 Preview-compatible richer shape:
 
 ```bash
