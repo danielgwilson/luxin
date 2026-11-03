@@ -551,16 +551,16 @@ const MODEL_ALIAS_RULES = [
 // Copy of `preferredHostedDefaultVideoCreateModelIds()` in
 // `src/hosted-create-policy.ts`; the guide differential pins the two.
 const PREFERRED_GUIDE_VIDEO_MODEL_IDS = [
-  "fal.ltx-2-3-text-to-video-fast",
+  "fal.ltx-video-13b-distilled",
   "fal.pixverse-v6-text-to-video",
+  "xai.grok-imagine-video-1.5-lite",
+  "fal.ltx-2-3-text-to-video-fast",
   "fal.luma-agent-ray-v3-2-text-to-video",
-  "fal.minimax-hailuo-02-standard-text-to-video",
   "fal.veo3-1-lite",
   "fal.wan-v2-7-text-to-video",
   "fal.veo3-1-fast",
   "fal.kling-video-v3-standard-text-to-video",
-  "fal.bytedance-seedance-2-0-fast-text-to-video",
-  "fal.ltx-video-13b-distilled",
+  "fal.minimax-hailuo-02-standard-text-to-video",
 ];
 
 const CREATE_BATCH_SCHEMA = "image-skill.create-batch.v1";
