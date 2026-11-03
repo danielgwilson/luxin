@@ -6,6 +6,55 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.12 - 2026-11-03
+
+Slow videos and 3D models finish instead of failing.
+
+- Async handoff: when the provider is still generating at the hosted API's
+  70s budget, `create` and `edit` no longer fail and refund. The API keeps
+  the credit reservation and answers HTTP 202 with
+  `data.job_status: "running"`, the `job_id`, and
+  `next_actions.wait_for_job`, whose command is
+  `luxin jobs wait JOB --timeout-ms 600000 --json`. The job is charged once
+  when it completes and refunded if it fails; a scheduled sweep settles it
+  even if nobody reads it again. A same-key retry returns the same running
+  job and never starts a second generation. A same-key call that was still
+  running when the other handed off also answers with that running job,
+  whether its own provider call succeeded or failed, so it never reads as a
+  retryable failure. (#2408, #2416)
+- The CLI waits for a running job by default and returns the finished media
+  (and saves it with `--output`), so one command still produces the file.
+  The wait is budgeted from process start, so the whole command ends about
+  100s after it began. `--wait-timeout-ms N` sets the wait explicitly. If
+  the wait runs out, the CLI prints the running job with `data.next_command`
+  and exits 0; a job that fails while waiting exits 7 with its error code.
+- `--no-wait` returns the running job at once.
+- Recovery waits for the job instead of starting a new create: before it
+  waits, the CLI writes the job id and its `jobs wait` command to the
+  in-flight record. `luxin doctor` lists that `job_id`, and its
+  `recover_command` is `luxin jobs wait JOB`. `jobs show` or `jobs wait`
+  clears the record once the job is terminal. Every job read is bounded by the time left in the wait.
+- `jobs show` carries `job.async` for a handed-off job: `state` (`running`
+  or `cancelling`), `credits_reserved`, `cancel_requested_at`, and
+  `credits_held_until`. A job past the 45-minute limit is cancelled at the
+  provider, and its credits stay held until the provider reports a final
+  state, up to 24 hours.
+- `create --batch`: a running item is `pending` with its `job_id` and
+  `wait_command`, counted in `totals.pending`. Do not rerun the batch with a
+  new batch id.
+- Activity: a released reservation appears as `credits.reservation_released`
+  with `credits_delta` and `links.job_id`.
+- `create --guide --intent final` (and the general, draft, and reproducible
+  lists) now prefer `xai.grok-imagine-image-2.0`, after xAI delisted
+  `grok-imagine-image-quality`. Final intent costs 10 credits instead of 12.
+- New executable models, which need the handoff: Kling 4.0 text-to-video and
+  image-to-video (`fal.kling-v4-text-to-video`,
+  `fal.kling-v4-image-to-video`; 5s at 720p by default, 3 to 10s, 720p or
+  1080p) and Hunyuan 3D v3.1 Pro image-to-3D
+  (`fal.hunyuan-3d-v3-1-pro-image-to-3d`). Seedance 2.0 Fast text-to-video
+  and image-to-video and Hailuo 02 Standard image-to-video are executable
+  again; the video guide's default order is unchanged.
+
 ## 0.2.11 - 2026-11-03
 
 Ask for a model by name in the brief.
