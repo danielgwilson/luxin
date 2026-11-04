@@ -2106,9 +2106,9 @@ The server still validates ownership, prompt policy, references, masks,
 `model_parameters`, and budget guards before returning the planned job.
 
 Create a 3D asset from an image through the same `edit` command and
-durable-media loop. Image-to-3D is promptless and image-conditioned, so it ships
-as a variation transform: pass exactly one owned input image (no prompt) to a 3D
-model by id and the response returns a durable owned `.glb` mesh asset URL (in
+durable-media loop. Image-to-3D is image-conditioned and has no prompt field, so
+it ships as a variation transform: pass exactly one owned input image (no
+prompt) to a 3D model by id and the response returns a durable owned `.glb` mesh asset URL (in
 `assets[].url`), a `job_id`, and a `cost.credit_pricing` receipt. A 3D mesh has
 no aspect ratio.
 
@@ -2124,9 +2124,19 @@ credits, quoted before spend) and returns an owned `model/gltf-binary` (`.glb`)
 textured mesh. The first slice is defaults-only (no tunable `model_parameters`);
 guidance/steps/mesh_simplify/texture_size controls are a later milestone. Inspect
 parameters, output media type, and cost first with `luxin models show
-fal.trellis-image-to-3d --json`. The input must be one Luxin-owned image;
-3D runs synchronously through the same edit call and can take longer than an
-image.
+fal.trellis-image-to-3d --json`. The input must be one Luxin-owned image.
+
+Prompt policy for 3D models (none of the providers' input schemas has a prompt
+field):
+
+- `fal.trellis-image-to-3d` rejects `--prompt` with `INVALID_ARGUMENTS`
+  (`model fal.trellis-image-to-3d does not accept --prompt`).
+- `fal.trellis-2`, `fal.trellis-multi`, and
+  `fal.hunyuan-3d-v3-1-pro-image-to-3d` take `--prompt` as optional and never
+  send it to the provider. Omit it.
+
+A 3D run that outlasts the first wait (Hunyuan 3D v3.1 Pro takes about 2
+minutes) returns a running job; see `luxin jobs wait` below.
 
 Preview hosted create/edit supports model-specific provider-backed paths such
 as Fal Gemini 3 Pro Image Preview Create (`fal.gemini-3-pro-image-preview`),
@@ -2311,11 +2321,18 @@ Minimum success data:
 Waits for a hosted Luxin job to reach a terminal status.
 
 ```bash
-luxin jobs wait job_... --timeout-ms 30000 --poll-interval-ms 1000 --json
+luxin jobs wait job_... --timeout-ms 100000 --poll-interval-ms 1000 --json
 ```
 
 Completed jobs return immediately. Non-terminal jobs poll until completion,
-failure, cancellation, or deterministic timeout. Terminal success uses the same
+failure, cancellation, or timeout. `--timeout-ms` defaults to 100000, the same
+command budget as the `create`/`edit` wait, under common 120s agent tool
+timeouts; Luxin has no per-model latency to size it from. If the wait ends with
+the job still running, the command exits `8` with `JOB_WAIT_TIMEOUT`
+(`TIMEOUT` in the published npm CLI), `retryable: true`, a message that names the
+job as still running, and `error.recovery.suggested_command`
+(`luxin jobs wait JOB_ID --timeout-ms 600000 --json`). The job is not canceled
+and its credits stay reserved; do not rerun the create. Terminal success uses the same
 top-level `status`, `state`, `assets`, and `cost` mirrors as `jobs show`, with
 `request.timeout_ms` and `request.poll_interval_ms` added for provenance.
 

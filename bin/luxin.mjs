@@ -19,7 +19,7 @@ const VERSION = "0.2.13";
 // Content-derived identity of the guidance this package ships (#2302). Kept in
 // sync with docs/public-contract/skill.md by `pnpm skill-revision:write` and
 // gated by `pnpm skill-revision:check`; the mirror cannot import from src/.
-const SKILL_REVISION = "dd9ae8914cf2";
+const SKILL_REVISION = "d4829c5b76d7";
 // `luxin skill` prints these bundled bytes rather than fetching them, so the
 // guidance can never describe a CLI other than the one printing it. Packed by
 // public-cli/package.json `files`.
@@ -98,6 +98,21 @@ const PROMPTLESS_EDIT_MODEL_IDS = new Set([
   // provider rejects any prompt, so the public CLI must not require/send one.
   "fal.trellis-image-to-3d",
 ]);
+// Image-to-3D rows with no provider prompt field that accept `--prompt` and
+// never forward it. Mirrors src/prompt-optional-models.ts: without this list
+// the CLI demanded --prompt for them (#2423).
+const PROMPT_OPTIONAL_EDIT_MODEL_IDS = new Set([
+  "fal.trellis-2",
+  "fal.trellis-multi",
+  "fal.hunyuan-3d-v3-1-pro-image-to-3d",
+]);
+// Models whose command line carries no --prompt (rejects it or ignores it).
+function editTakesNoPrompt(modelId) {
+  return (
+    PROMPTLESS_EDIT_MODEL_IDS.has(modelId) ||
+    PROMPT_OPTIONAL_EDIT_MODEL_IDS.has(modelId)
+  );
+}
 // #2204-#2216: the guide fields the `ready_compact` output mode drops. Kept as
 // one list so the delete and `data.output_mode.omitted_fields` cannot drift.
 const COMPACT_OMITTABLE_GUIDE_FIELDS = [
@@ -2784,6 +2799,8 @@ function commandHelpByKey(key) {
       command: "luxin edit help",
       usage: 'luxin edit --input image_... --prompt "..." --json',
       docs_url: "https://luxin.sh/cli.md#luxin-edit",
+      description:
+        "--prompt is required except for promptless models. Image-to-3D models (fal.trellis-image-to-3d, fal.trellis-2, fal.trellis-multi, fal.hunyuan-3d-v3-1-pro-image-to-3d) have no prompt field: omit --prompt. fal.trellis-image-to-3d rejects one; the other 3D models accept it and do not send it to the provider.",
       required_flags: ["--input"],
       optional_flags: [
         "--guide",
@@ -2832,8 +2849,11 @@ function commandHelpByKey(key) {
     },
     "jobs wait": {
       command: "luxin jobs wait help",
-      usage: "luxin jobs wait JOB_ID --timeout-ms 30000 --json",
+      usage: "luxin jobs wait JOB_ID --json",
       docs_url: "https://luxin.sh/cli.md#luxin-jobs",
+      description:
+        "Wait for a job to finish. The default wait is 100000 ms; --timeout-ms sets it exactly (Hunyuan 3D can take about 2 minutes, so use 600000 for slow models). When the wait ends with the job still running, the error says so and gives the next jobs wait command.",
+      optional_flags: ["--timeout-ms", "--poll-interval-ms"],
     },
     activity: {
       command: "luxin activity help",
@@ -5122,7 +5142,7 @@ async function createGuide(args, options = {}) {
     prompt: trimmedPrompt,
     promptRequired:
       trimmedPrompt.length === 0 &&
-      (selected === null || !PROMPTLESS_EDIT_MODEL_IDS.has(selected.id)),
+      (selected === null || !editTakesNoPrompt(selected.id)),
     health,
     models,
     selected,
@@ -8363,8 +8383,7 @@ function createGuideEscapeHatches(input) {
     ),
     dry_run:
       input.selected === null ||
-      (input.prompt.length === 0 &&
-        !PROMPTLESS_EDIT_MODEL_IDS.has(input.selected.id))
+      (input.prompt.length === 0 && !editTakesNoPrompt(input.selected.id))
         ? renderGuidePrefixedCommand(
             input.commandPrefix,
             input.guideOperation === "edit"
@@ -8504,7 +8523,7 @@ function guidePaymentInspectionCommand(commands, kind) {
 }
 
 function renderInputImageGuideCommand(input) {
-  const promptless = PROMPTLESS_EDIT_MODEL_IDS.has(input.modelId);
+  const promptless = editTakesNoPrompt(input.modelId);
   return [
     input.commandPrefix ?? "image-skill",
     "edit",
@@ -11019,9 +11038,12 @@ async function jobs(argv) {
     return shown;
   }
   if (subcommand === "wait") {
-    const timeoutMs = flagNumber(args, "timeout-ms") ?? 30_000;
+    // Same ~100s default as the create/edit wait (#2408), under common 120s
+    // agent tool timeouts; Hunyuan 3D takes ~2 minutes in total (#2424).
+    const timeoutMs = flagNumber(args, "timeout-ms") ?? 100_000;
     const pollIntervalMs = flagNumber(args, "poll-interval-ms") ?? 1_000;
     const started = Date.now();
+    let lastStatus = "running";
     while (Date.now() - started <= timeoutMs) {
       const current = withCopyRunnablePaymentNextActionCommands(
         await apiRequest({
@@ -11037,6 +11059,9 @@ async function jobs(argv) {
         return current;
       }
       const status = current.envelope.data?.job?.status;
+      if (typeof status === "string") {
+        lastStatus = status;
+      }
       if (
         status === "completed" ||
         status === "failed" ||
@@ -11052,13 +11077,18 @@ async function jobs(argv) {
       }
       await sleep(pollIntervalMs);
     }
+    const waitCommand = `luxin jobs wait ${jobId} --timeout-ms 600000 --json`;
     return failure(
       "luxin jobs wait",
       8,
       "TIMEOUT",
-      `job ${jobId} did not reach a terminal state within ${timeoutMs}ms`,
+      `job ${jobId} is still ${lastStatus} after ${timeoutMs}ms; the wait ended, the job did not, and its credits stay reserved. Do not rerun the create: run ${waitCommand}`,
       true,
-      { retry_after_seconds: Math.ceil(pollIntervalMs / 1000) },
+      {
+        retry_after_seconds: Math.ceil(pollIntervalMs / 1000),
+        suggested_command: waitCommand,
+        docs_url: "https://luxin.sh/cli.md#luxin-jobs",
+      },
     );
   }
   return invalid("luxin jobs", "jobs requires show or wait");
@@ -12999,6 +13029,10 @@ async function editPromptValue(args, modelId) {
     value = await readFile(promptFile, "utf8");
   }
   const trimmed = value?.trim() ?? "";
+  if (modelId !== null && PROMPT_OPTIONAL_EDIT_MODEL_IDS.has(modelId)) {
+    // Accepted and not forwarded: the provider takes no prompt (#2423).
+    return { ok: true, value: trimmed };
+  }
   if (isPromptlessModel) {
     if (trimmed.length > 0) {
       return {

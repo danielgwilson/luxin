@@ -506,6 +506,7 @@
         "command": "luxin edit help",
         "usage": "luxin edit --input image_... --prompt \"...\" --json",
         "docs_url": "https://luxin.sh/cli.md#luxin-edit",
+        "description": "--prompt is required except for promptless models. Image-to-3D models (fal.trellis-image-to-3d, fal.trellis-2, fal.trellis-multi, fal.hunyuan-3d-v3-1-pro-image-to-3d) have no prompt field: omit --prompt. fal.trellis-image-to-3d rejects one; the other 3D models accept it and do not send it to the provider.",
         "required_flags": ["--input"],
         "optional_flags": [
           "--guide",
@@ -572,8 +573,10 @@
       "key": "jobs wait",
       "help": {
         "command": "luxin jobs wait help",
-        "usage": "luxin jobs wait JOB_ID --timeout-ms 30000 --json",
-        "docs_url": "https://luxin.sh/cli.md#luxin-jobs"
+        "usage": "luxin jobs wait JOB_ID --json",
+        "docs_url": "https://luxin.sh/cli.md#luxin-jobs",
+        "description": "Wait for a job to finish. The default wait is 100000 ms; --timeout-ms sets it exactly (Hunyuan 3D can take about 2 minutes, so use 600000 for slow models). When the wait ends with the job still running, the error says so and gives the next jobs wait command.",
+        "optional_flags": ["--timeout-ms", "--poll-interval-ms"]
       }
     },
     {

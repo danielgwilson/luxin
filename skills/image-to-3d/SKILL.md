@@ -1,13 +1,13 @@
 ---
 name: image-to-3d
 description: >-
-  Turn one image into a 3D mesh and get back a glb file. No API key to obtain, no provider account to open, no billing to set up: the agent signs itself up in one command and starts on free preview credits. Image-to-3D takes no prompt and rejects one if you send it, so pass an image the agent generated or uploaded, through edit rather than create. The mesh returns as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost. Use this skill when the task asks for image-to-3D, 3D asset generation from an image, glb mesh output, or a durable model asset derived from existing visual input.
+  Turn one image into a 3D mesh and get back a glb file. No API key to obtain, no provider account to open, no billing to set up: the agent signs itself up in one command and starts on free preview credits. Image-to-3D takes no prompt, so omit --prompt and pass an image the agent generated or uploaded, through edit rather than create. The mesh returns as a hosted media URL with no signature or expiry, a job id the agent can re-fetch, and a receipt for what the call cost. Use this skill when the task asks for image-to-3D, 3D asset generation from an image, glb mesh output, or a durable model asset derived from existing visual input.
 metadata:
   homepage: https://luxin.sh
   docs: https://luxin.sh/llms.txt
   status: preview-contract
   cli: luxin
-  skill_revision: dd9ae8914cf2
+  skill_revision: d4829c5b76d7
   canonical_skill_url: https://luxin.sh/skill.md
   canonical_api_url: https://api.luxin.sh
   openclaw:
@@ -75,12 +75,12 @@ matches the installed version:
 npm_config_update_notifier=false npx -y luxin-cli@latest skill
 ```
 
-This copy is skill revision `dd9ae8914cf2`. Export it so the CLI can say when
+This copy is skill revision `d4829c5b76d7`. Export it so the CLI can say when
 the copy on disk no longer matches the guidance it ships, and refresh when it
 says so. `skills update` matches the installed name, so name this skill:
 
 ```bash
-export LUXIN_SKILL_REVISION=dd9ae8914cf2
+export LUXIN_SKILL_REVISION=d4829c5b76d7
 npx skills update image-to-3d
 ```
 

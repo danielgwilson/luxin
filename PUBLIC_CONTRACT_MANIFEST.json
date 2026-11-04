@@ -6,32 +6,32 @@
   "public_repo": "danielgwilson/luxin",
   "package_name": "luxin-cli",
   "package_version": "0.2.13",
-  "skill_revision": "dd9ae8914cf2",
+  "skill_revision": "d4829c5b76d7",
   "note": "Generated from private upstream public contracts. Do not edit by hand.",
   "files": [
     {
       "source_path": "docs/public-contract/skill.md",
       "public_paths": ["skill.md", "skills/luxin/SKILL.md"],
       "bytes": 4087,
-      "sha256": "b961d87067e9b213acc7839a05d3b5644f8a4f4d58a944dde7549917bc529e2e"
+      "sha256": "1d4cadf95a097003f5ecdf0603a17b38c7d898f46d435c4b255910e3593d3598"
     },
     {
       "source_path": "docs/public-contract/skill-core.md",
       "public_paths": ["skill-core.md"],
-      "bytes": 35732,
-      "sha256": "a08218d1f5ab751b474edb770ca8c9e8459ac1dd50e74ec3a24c581b4792bdfc"
+      "bytes": 35956,
+      "sha256": "5c6e195511a43c816560a4704dd8820f64da378188f0216234cedbe94efb1697"
     },
     {
       "source_path": "docs/public-contract/cli.md",
       "public_paths": ["cli.md", "skills/luxin/references/cli.md"],
-      "bytes": 119977,
-      "sha256": "de23555d9906d99445bbd4483398fabaa9302f05492a7cf27b3181f15dec38dd"
+      "bytes": 120949,
+      "sha256": "539ae9706570ecaee5895d2f92e97446c1b5653acfe2ca747bbb5edc85ad0d53"
     },
     {
       "source_path": "docs/public-contract/llms.txt",
       "public_paths": ["llms.txt", "skills/luxin/references/llms.txt"],
-      "bytes": 45879,
-      "sha256": "2291f8850e3bf2bffecbd9930a1572b4d31af0bffd1385cb197c4e08006a9966"
+      "bytes": 45996,
+      "sha256": "78955c492a70102df48a5d523ace1de8c59b19119b85ad589d7034ba41535834"
     },
     {
       "source_path": "docs/public-contract/commands.json",
@@ -39,8 +39,8 @@
         "commands.json",
         "skills/luxin/references/commands.json"
       ],
-      "bytes": 18629,
-      "sha256": "507557bdd0633c3c147611ef49d9b6f3e2b4514f8f14e24176cd76a754f5da21"
+      "bytes": 19294,
+      "sha256": "ac7265c8a4502cdef7d588b65ac45b5c19f01841225fe23e6ba84c437d1c7d41"
     }
   ]
 }

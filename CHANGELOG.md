@@ -6,6 +6,17 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+- `luxin edit` no longer requires `--prompt` for `fal.trellis-2`,
+  `fal.trellis-multi`, or `fal.hunyuan-3d-v3-1-pro-image-to-3d`. They have no
+  provider prompt field; a prompt is accepted and not sent.
+  `fal.trellis-image-to-3d` still rejects one. The edit guide no longer asks
+  for a prompt or prints `--prompt` for these models. (#2423)
+- `luxin jobs wait` waits 100000 ms by default (was 30000). When the wait
+  ends with the job still running, the error says so and gives
+  `luxin jobs wait JOB_ID --timeout-ms 600000 --json` in the message and
+  `error.recovery.suggested_command`. `help jobs wait` lists `--timeout-ms`
+  and `--poll-interval-ms`. (#2424)
+
 ## 0.2.13 - 2026-11-03
 
 Deprecated xAI models say so and name their replacement.
