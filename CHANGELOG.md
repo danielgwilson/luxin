@@ -6,16 +6,59 @@ provenance; this file is the human- and agent-readable release map.
 
 ## Unreleased
 
+## 0.2.14 - 2026-11-04
+
+Default edits work on purchased credits, and 3D edits stop asking for a prompt.
+
+- `luxin edit` without `--aspect-ratio` sends no ratio. It used to send
+  `auto`, which has no pre-spend price on 23 fal edit models (for example
+  `fal.flux-2-pro-edit`), so a paid-credit edit was refused with
+  `PAYMENT_BACKED_PRICING_UNSUPPORTED` before any spend. Now the hosted API
+  picks a priced size from the input image's recorded dimensions. Where the
+  model takes a custom `image_size`, it keeps the input's own width and
+  height, scaled into the model's edge limit and capped at 4 MP with the
+  shape kept (20 models). Otherwise it sends the closest supported aspect
+  ratio (3 models). The choice appears in
+  `selection.model_parameters.defaults_applied`, for example
+  `image_size=2508x1672 (capped from input 6000x4000)`. For a larger output,
+  pass `image_size` in `--model-parameters-json`. An explicit
+  `--aspect-ratio auto` is sent unchanged and is still refused on paid
+  credits for those models. A masked edit over 4 MP stays on `auto`; pass
+  `image_size` equal to the mask's size. Preview credits are unaffected.
+  (#2436)
+- `models show`, `models list`, and `models find` report `self_fundable` and,
+  when it is `false`, `self_fund_block_reason`: `exact_price_unavailable`
+  (no request shape has a pre-spend price), `aspect_ratio_required` (paid
+  credits fund the model only with an explicit `--aspect-ratio`), or
+  `route_unavailable_for_paid_credits`. The verdict is priced at the shapes
+  `create` and `edit` actually send, so it can differ from the
+  `credits_required` quote. `create --guide` and `edit --guide` skip
+  `self_fundable: false` models unless the brief names one, and warn when it
+  does. Seven OpenAI edit models are `exact_price_unavailable`; paid credits
+  cannot fund them. (#2436)
+- `openai.gpt-image-1.5` and `openai.gpt-image-2-2026-04-21` create default
+  to medium quality like their siblings, so paid credits can price them.
+  (#2436)
+- OpenAI GPT Image 1.5, 2 and 2.5 create bill prompt text tokens per output
+  image on top of the output-token quote. When the quoted debit would not
+  cover a prompt's text tokens, bounded by its UTF-8 length, the create
+  reserves more credits, and the final debit settles down to the token usage
+  OpenAI returns. An agent needs credits for the reservation, not only the
+  quote, or the call fails with `QUOTA_EXCEEDED`. When prompt text raises a
+  settled charge, `cost.credit_pricing.prompt_text_credits` reports those
+  credits. `--max-estimated-usd-per-image` still compares the quote without
+  the prompt text, so a settled charge can exceed it: about $0.07 per output
+  image for a 32,000-character English prompt. (#2439)
 - `luxin edit` no longer requires `--prompt` for `fal.trellis-2`,
   `fal.trellis-multi`, or `fal.hunyuan-3d-v3-1-pro-image-to-3d`. They have no
   provider prompt field; a prompt is accepted and not sent.
   `fal.trellis-image-to-3d` still rejects one. The edit guide no longer asks
-  for a prompt or prints `--prompt` for these models. (#2423)
+  for a prompt or prints `--prompt` for these models. (#2423, #2432)
 - `luxin jobs wait` waits 100000 ms by default (was 30000). When the wait
   ends with the job still running, the error says so and gives
   `luxin jobs wait JOB_ID --timeout-ms 600000 --json` in the message and
   `error.recovery.suggested_command`. `help jobs wait` lists `--timeout-ms`
-  and `--poll-interval-ms`. (#2424)
+  and `--poll-interval-ms`. (#2424, #2432)
 
 ## 0.2.13 - 2026-11-03
 
