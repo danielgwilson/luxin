@@ -1376,6 +1376,13 @@ Current executable provider-native controls include:
   the model's advertised `max_outputs_per_request`, currently mapped to
   OpenAI's `n` parameter. GPT Image 2 edit remains preflight unknown-cost, then
   records usage-priced provider cost when OpenAI returns token usage.
+- GPT Image 1.5, 2 and 2.5 create bill prompt text tokens per output image on
+  top of the output-token quote. When the quoted debit would not cover a
+  prompt's text tokens (bounded by its UTF-8 length), the create reserves more
+  credits, and the final debit settles down to the token usage OpenAI returns.
+  An agent therefore needs credits for that reservation, not only the quote.
+  When prompt text raises a settled OpenAI GPT Image charge, create or edit,
+  `cost.credit_pricing` reports those credits as `prompt_text_credits`.
 
 Inspect each model before use; provider-native controls are available only
 through validated `model_parameters`.
@@ -1527,7 +1534,13 @@ top-level Luxin create control; do not pass provider-native `n` through
 field. Credit pricing and `cost.credit_pricing.credits_required` are total
 operation debits across all requested outputs. `--max-estimated-usd-per-image`
 and raw API `max_estimated_usd_per_image` are per-image Luxin debit
-budget guards.
+budget guards. They are compared with the quoted debit. Very long prompts on
+OpenAI GPT Image models can settle above that estimate by the prompt's text
+tokens at the credit rate, shown as `cost.credit_pricing.prompt_text_credits`:
+at the 32,000-character limit about $0.07 per output image for English and
+$0.27 for text near one token per character. The settled charge never exceeds
+the reservation, which bounds prompt tokens by UTF-8 bytes (up to about $1.07
+per output image for 4-byte characters).
 
 Generate video through the same `create` command and durable-media loop. For
 video prompts, run `luxin create --guide --prompt "..." --json`; the guide
