@@ -24,8 +24,8 @@
     {
       "source_path": "docs/public-contract/cli.md",
       "public_paths": ["cli.md", "skills/luxin/references/cli.md"],
-      "bytes": 120949,
-      "sha256": "539ae9706570ecaee5895d2f92e97446c1b5653acfe2ca747bbb5edc85ad0d53"
+      "bytes": 123860,
+      "sha256": "182780fb10de6469fef16a6b2fa741ca44832e8eaee38e74d4818fe6d01eebd8"
     },
     {
       "source_path": "docs/public-contract/llms.txt",

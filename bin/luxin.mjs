@@ -76,7 +76,9 @@ const MODELS_BOOLEAN_FLAGS = new Set([
 
 // Mirrors OPENAI_QUALITY_MEDIUM_DEFAULT_MODEL_IDS in src/hosted-create-policy.ts.
 const CREATE_GUIDE_OPENAI_QUALITY_MEDIUM_DEFAULT_MODEL_IDS = new Set([
+  "openai.gpt-image-1.5",
   "openai.gpt-image-2",
+  "openai.gpt-image-2-2026-04-21",
   "openai.gpt-image-2.5-flare",
   "openai.gpt-image-2.5-flare-2026-09-08",
   "openai.gpt-image-2.5-sunburst",
@@ -4432,6 +4434,16 @@ function modelFindRowFromSummary(model) {
     credits_required: model?.credits_required ?? null,
     estimated_usd_per_image: model?.estimated_usd_per_image ?? null,
     pricing_confidence: model?.pricing_confidence ?? null,
+    // #2425: whether payment-backed credits fund this model. An older server
+    // does not publish it, and null says so instead of guessing.
+    self_fundable:
+      typeof model?.self_fundable === "boolean" ? model.self_fundable : null,
+    ...(model?.self_fundable === false
+      ? {
+          self_fund_block_reason:
+            model.self_fund_block_reason ?? "exact_price_unavailable",
+        }
+      : {}),
     // Never fabricated: the compact list does not publish media.input.
     aspect_ratios: null,
     max_resolution: model?.max_resolution ?? null,
@@ -5064,6 +5076,10 @@ async function createGuide(args, options = {}) {
           modelId: selected.id,
         })
       : null;
+  const paidCreditWarning =
+    selected === null
+      ? null
+      : guidePaidCreditWarning(selected, selectedAspectRatio);
   const pricingContext = {
     aspectRatio: selectedAspectRatio ?? "1:1",
     outputCount: 1,
@@ -5246,6 +5262,7 @@ async function createGuide(args, options = {}) {
   const guideWarningNotes = [
     unsupportedAspectRatioWarning,
     namedModelWarning,
+    paidCreditWarning,
   ].filter((note) => note !== null);
   const guideWarning =
     guideWarningNotes.length === 0
@@ -5578,6 +5595,7 @@ async function createGuide(args, options = {}) {
           ]
         : []),
       ...(namedModelWarning === null ? [] : [namedModelWarning]),
+      ...(paidCreditWarning === null ? [] : [paidCreditWarning]),
       ...(guideSkillRefresh === null
         ? []
         : [skillRefreshWarning(guideSkillRefresh)]),
@@ -5997,15 +6015,20 @@ function selectCreateGuideModel(
       ? chosen(requested)
       : null;
   }
-  const candidates =
+  // #2425: mirrors guideAutoSelectable in src/commands.ts. The guide never
+  // picks, on its own, a model payment-backed credits cannot fund.
+  const candidates = (
     operation === "edit"
       ? models.filter(isExecutableInputImageEdit)
-      : models.filter(isExecutableCreate);
+      : models.filter(isExecutableCreate)
+  ).filter(guideAutoSelectable);
   if (createGuideImplies3d({ prompt, intent })) {
     const eligible3d = guideCandidatesWithinBudget({
       candidates: models.filter(
         (model) =>
-          model?.modality === "3d" && isExecutableInputImageEdit(model),
+          model?.modality === "3d" &&
+          isExecutableInputImageEdit(model) &&
+          guideAutoSelectable(model),
       ),
       maxEstimatedUsdPerImage,
     });
@@ -6637,6 +6660,45 @@ function guideModelExecutionStatus(model) {
   return typeof model?.model_execution_status === "string"
     ? model.model_execution_status
     : null;
+}
+
+// Whether payment-backed credits fund the model (#2425). Both shapes: the
+// compact `GET /v1/models` row flattens it, the detail row nests it under
+// economics.credit_pricing. Absent (an older server) is not evidence of a
+// block.
+function guideModelSelfFund(model) {
+  const nested = model?.economics?.credit_pricing;
+  const selfFundable =
+    typeof nested?.self_fundable === "boolean"
+      ? nested.self_fundable
+      : typeof model?.self_fundable === "boolean"
+        ? model.self_fundable
+        : undefined;
+  const reason =
+    typeof nested?.self_fund_block_reason === "string"
+      ? nested.self_fund_block_reason
+      : typeof model?.self_fund_block_reason === "string"
+        ? model.self_fund_block_reason
+        : null;
+  return { selfFundable, reason };
+}
+
+function guideAutoSelectable(model) {
+  return guideModelSelfFund(model).selfFundable !== false;
+}
+
+// Mirrors guidePaidCreditWarning in src/commands.ts.
+function guidePaidCreditWarning(model, aspectRatio) {
+  const { selfFundable, reason } = guideModelSelfFund(model);
+  if (selfFundable !== false) {
+    return null;
+  }
+  if (reason === "aspect_ratio_required") {
+    return aspectRatio === null || aspectRatio === "auto"
+      ? `${model.id} is funded by payment-backed credits only with an explicit --aspect-ratio; without one a paid-credit request is refused with PAYMENT_BACKED_PRICING_UNSUPPORTED. Preview credits run it as planned.`
+      : null;
+  }
+  return `${model.id} cannot be funded by payment-backed credits (self_fund_block_reason ${reason ?? "exact_price_unavailable"}); a paid-credit request is refused with PAYMENT_BACKED_PRICING_UNSUPPORTED. Preview credits run it; for paid credits pick a model with self_fundable: true from models find.`;
 }
 
 function createGuideModelCreditPricing(model) {
@@ -10390,7 +10452,12 @@ async function edit(argv) {
           ...(flagString(args, "intent") === null
             ? {}
             : { intent: flagString(args, "intent") }),
-          aspect_ratio: flagString(args, "aspect-ratio") ?? "auto",
+          // #2425: mirrors src/commands.ts. Omitted, not "auto", when
+          // --aspect-ratio is absent so the hosted planner can tell a
+          // defaulted ratio from an explicit `auto`.
+          ...(flagString(args, "aspect-ratio") === null
+            ? {}
+            : { aspect_ratio: flagString(args, "aspect-ratio") }),
           ...(flagNumber(args, "max-estimated-usd-per-image") === null
             ? {}
             : {

@@ -1225,8 +1225,8 @@ positional (equivalently `--query QUERY`) plus `--operation`, `--modality`,
 10, maximum 50). `result_shape` is `terse_model_find` and each row carries only
 what a choice needs: `id`, `display_name`, `provider_id`, `modality`,
 `operations`, `credits_required`, `estimated_usd_per_image`,
-`pricing_confidence`, `aspect_ratios`, `max_resolution`, `status`, and
-`show_command`. The response also carries `total_matched`, `returned_count`,
+`pricing_confidence`, `self_fundable`, `aspect_ratios`, `max_resolution`,
+`status`, and `show_command`. The response also carries `total_matched`, `returned_count`,
 and a `narrow_hint` when the limit truncated the match set, so a caller always
 knows how much it did not see.
 
@@ -1234,6 +1234,38 @@ knows how much it did not see.
 `models list` row does not publish `media.*` at all, so a client that has to
 rebuild find rows from a compact list (an older hosted API) reports
 `aspect_ratios: null` and says so in `warnings` rather than guessing.
+
+`self_fundable` says whether payment-backed (purchased) credits can fund the
+requests `create` and `edit` send to the model. It is priced at every aspect
+ratio the model accepts with the hosted defaults applied, and for edits also at
+the default shape, so it is not a property of the default-shape
+`credits_required` quote. When it is `false` the row also carries
+`self_fund_block_reason`, and a paid-credit request is refused with
+`PAYMENT_BACKED_PRICING_UNSUPPORTED` (exit code 6, HTTP 409) before any provider
+spend:
+
+- `exact_price_unavailable`: no request shape has a pre-spend price, so paid
+  credits cannot fund it at all.
+- `aspect_ratio_required`: paid credits fund the model only with an explicit
+  `--aspect-ratio`.
+- `route_unavailable_for_paid_credits`: the route is not offered on paid
+  credits.
+
+`luxin edit` without `--aspect-ratio` sends no ratio. For a model whose `auto`
+output size has no pre-spend price, the hosted service then picks a priced
+size from the input image's recorded dimensions. Where the model takes a custom
+`image_size` with a documented edge limit, it sends the input's own width and
+height, scaled into that limit and a 4 MP cap with the shape kept, and reports
+`image_size=WxH`. Otherwise it sends the supported aspect ratio closest to the
+input's shape and reports `aspect_ratio=W:H`. Both appear in
+`selection.model_parameters.defaults_applied`. An explicit
+`--aspect-ratio auto` is sent as `auto`; on such a model it is refused on paid
+credits, and `models show` says so in `notes`.
+
+Preview credits run every shape. The compact `models list` row carries the
+same `self_fundable` and `self_fund_block_reason`, `models show` carries them
+under `economics.credit_pricing` with a matching note, and `create --guide` /
+`edit --guide` never choose a `self_fundable: false` model unless you name it.
 
 Unlike `models list`, `models find` INCLUDES cataloged-but-not-yet-wired models.
 They are marked `status: "not_yet_wired"`, carry an `availability_reason`, and
@@ -2029,6 +2061,20 @@ If `--input` is a local path or external URL, the public CLI first normalizes it
 through the same upload resolver as `luxin upload`, then sends only the
 resulting `asset_id` to `POST /v1/edit`. If `--input` is an Luxin asset id
 or owned asset URL, edit uses that owned asset directly.
+Without `--aspect-ratio`, edit sends no ratio. For a model whose `auto` output
+size has no pre-spend price, the hosted service picks a priced size from the
+input's recorded dimensions. It keeps the input's own width and height where
+the model takes a custom `image_size` with a documented edge limit, scaled down
+to at most 4 MP (4,194,304 px, for example 2048x2048) with the shape kept, and
+otherwise sends the closest supported aspect ratio. The chosen size appears in
+`selection.model_parameters.defaults_applied`, for example
+`image_size=2508x1672 (capped from input 6000x4000)`. For a larger output pass
+an explicit `image_size` in `--model-parameters-json`. A masked edit is resized
+only when the output keeps the mask's dimensions, so a masked input over 4 MP
+stays on `auto` and is refused on paid credits; pass `image_size` equal to the
+mask's width and height for it. The job's recorded request carries the chosen
+ratio or `image_size`, so a recovered request replays the same priced plan. Pass `--aspect-ratio auto` to
+send `auto` unchanged.
 Add `--dry-run` to plan the edit after owned-asset, prompt-policy,
 `model_parameters`, and budget validation. Dry-run edit responses return planned
 assets and `quota.consumed_credits: 0`, store a recoverable `job.planned`
